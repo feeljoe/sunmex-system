@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }>}
 ) {
   await connectToDatabase();
-  const { id } = await params;
+  const { id } = await context.params;
 
   try {
     const { paymentMethod, checkNumber } = await req.json();

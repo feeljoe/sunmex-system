@@ -34,7 +34,7 @@ export async function GET(req: Request) {
         $lte: end,
       };
     }
-    if(session?.user?.userRole === "vendor"){
+    if(session?.user?.role === "vendor"){
       query.createdBy = session.user.id;
     }else if (vendorId) {
       query.createdBy = vendorId;

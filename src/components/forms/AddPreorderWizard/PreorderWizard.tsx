@@ -9,7 +9,7 @@ import { useList } from "@/utils/useList";
 import { applyPricingLists } from "@/utils/applyPricingLists";
 
 type PreorderWizardProps ={
-    userRole: string;
+    userRole: any;
 };
 
 export default function PreorderWizard({userRole}: PreorderWizardProps) {

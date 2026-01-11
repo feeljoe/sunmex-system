@@ -7,7 +7,7 @@ export async function GET(){
     const session = await getServerSession(authOptions);
 
     const route = await Route.findOne({
-        users: session?.user.id,
+        user: session?.user.id,
     });
     const preorders = await PreOrder.find({
         routeAssigned: route._id,

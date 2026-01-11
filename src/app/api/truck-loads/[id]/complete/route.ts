@@ -6,9 +6,10 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }>}
 ) {
   await connectToDatabase();
+  const { id } = await context.params;
 
   const body = await req.json();
   const session = await mongoose.startSession();
@@ -16,7 +17,7 @@ export async function PATCH(
   try {
     session.startTransaction();
 
-    const load = await TruckLoad.findById(params.id).session(session);
+    const load = await TruckLoad.findById(id).session(session);
 
     if (!load || load.status !== "pending") {
       throw new Error("Invalid truck load");

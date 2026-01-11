@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request, { params }: { params: { routeId: string } }) {
+export async function POST(req: Request, context: { params: Promise<{ id: string }>}) {
   await connectToDatabase();
   const sessionUser = await getServerSession(authOptions);
 
@@ -13,8 +13,8 @@ export async function POST(req: Request, { params }: { params: { routeId: string
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { routeId } = params;
-  const route = await Route.findById(routeId);
+  const { id } = await context.params;
+  const route = await Route.findById(id);
   if (!route) return NextResponse.json({ error: "Route not found" }, { status: 404 });
 
   try {
@@ -25,7 +25,7 @@ export async function POST(req: Request, { params }: { params: { routeId: string
     const inventoryToAdd = products.map(p => {
       const qty = p.quantity; // Or limit per route if needed
       // Update product onRouteInventory
-      p.onRouteInventory.push({ routeId, quantity: qty });
+      p.onRouteInventory.push({ id, quantity: qty });
       p.quantity -= qty;
       return {
         product: p._id,

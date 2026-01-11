@@ -18,7 +18,7 @@ export default function RoleGuard({
   useEffect(() => {
     if (status !== "authenticated") return;
 
-    const role = session.user.role as Role;
+    const role = session?.user?.role as Role;
     const allowedRoutes = ROLE_ROUTES[role];
 
     if (!allowedRoutes.some((route: string) => pathname.startsWith(route))) {

@@ -10,7 +10,7 @@ import { applyPricingLists } from "@/utils/applyPricingLists";
 import ReturnReasonModal from "@/components/modals/ReturnReasonModal";
 
 type CreditMemoWizardProps ={
-    userRole: string;
+    userRole: any;
 };
 
 export default function CreditMemoWizard({userRole}: CreditMemoWizardProps) {
