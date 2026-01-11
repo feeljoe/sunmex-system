@@ -4,13 +4,14 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }>}
 ) {
+  const { id } = await context.params;
   try {
     await connectToDatabase();
     const body = await req.json();
 
-    const creditMemo = await CreditMemo.findById(params.id);
+    const creditMemo = await CreditMemo.findById(id);
     if (!creditMemo) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
