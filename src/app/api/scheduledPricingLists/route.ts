@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import ScheduledPricingList from '@/models/ScheduledPricingList';
-import { ScheduledPricingListSchema } from '@/lib/validators/scheduledPricingList.schema';
 
 export async function GET() {
   await connectToDatabase();
@@ -13,12 +12,11 @@ export async function POST(req: Request) {
   await connectToDatabase();
   try {
     const body = await req.json();
-    const data = ScheduledPricingListSchema.parse(body);
 
     const created = await ScheduledPricingList.create({
-      ...data,
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
+      ...body,
+      startDate: body.startDate ? new Date(body.startDate) : undefined,
+      endDate: body.endDate ? new Date(body.endDate) : undefined,
     });
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import Brand from '@/models/Brand';
-import { BrandSchema } from '@/lib/validators/brand.schema';
 
 export async function GET(req: Request) {
   try {
@@ -41,12 +40,11 @@ export async function POST(req: Request) {
   await connectToDatabase();
   try {
     const body = await req.json();
-    const data = BrandSchema.parse(body);
 
-    const exists = await Brand.findOne({ name: data.name });
+    const exists = await Brand.findOne({ name: body.name });
     if (exists) return NextResponse.json({ error: 'Brand already exists' }, { status: 400 });
 
-    const created = await Brand.create(data);
+    const created = await Brand.create(body);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Invalid data' }, { status: 400 });

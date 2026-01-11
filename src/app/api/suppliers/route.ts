@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import Supplier from '@/models/Supplier';
-import { SupplierSchema } from '@/lib/validators/supplier.schema';
 
 export async function GET(req: Request) {
   try {
@@ -39,9 +38,8 @@ export async function POST(req: Request) {
   await connectToDatabase();
   try {
     const body = await req.json();
-    const data = SupplierSchema.parse(body);
 
-    const created = await Supplier.create(data);
+    const created = await Supplier.create(body);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Invalid data' }, { status: 400 });

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import Chain from '@/models/Chain';
-import { ChainSchema } from '@/lib/validators/chain.schema';
 
 export async function GET(req: Request) {
   try {
@@ -41,12 +40,11 @@ export async function POST(req: Request) {
   await connectToDatabase();
   try {
     const body = await req.json();
-    const data = ChainSchema.parse(body);
 
-    const exists = await Chain.findOne({ name: data.name });
+    const exists = await Chain.findOne({ name: body.name });
     if (exists) return NextResponse.json({ error: 'Chain already exists' }, { status: 400 });
 
-    const created = await Chain.create(data);
+    const created = await Chain.create(body);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Invalid data' }, { status: 400 });
