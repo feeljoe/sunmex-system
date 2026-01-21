@@ -5,11 +5,17 @@ import PreorderPrepareModal from "../modals/PreorderPrepareModal";
 import PreorderPaymentModal from '../modals/PreorderPaymentModal';
 import PrepareCreditMemoModal from '../modals/PrepareCreditMemoModal';
 import { RefreshButton } from '../ui/RefreshButton';
+import { DateRangePicker } from '../ui/DateRangePicker';
 
 type ViewMode = "ready" | "delivered";
 
-export default function DriverPreordersTable() {
-  const { items: preorders, reload } = useList('/api/preOrders/driver');
+export default function DriverPreordersTable({userRole} : {userRole: string | undefined}) {
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const { items: preorders, reload } = useList('/api/preOrders/driver', {
+    fromDate,
+    toDate,
+  });
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
   const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
@@ -39,11 +45,21 @@ export default function DriverPreordersTable() {
 
   return (
     <div className="bg-(--secondary) rounded-xl shadow p-6 lg:p-10 flex flex-col h-4/5">
-      <div className='flex items-center justify-between mb-4'>
       <h1 className="text-2xl font-semibold mb-4">
         {view === "ready"? "Ready for Delivery" : "Delivered"}
       </h1>
-      <RefreshButton onRefresh={reload}/>
+      <div className='flex items-center justify-between mb-4'>
+        {userRole === "admin" &&
+        <DateRangePicker
+          fromDate={fromDate}
+          toDate={toDate}
+          onChange={(from, to) => {
+            setFromDate(from);
+            setToDate(to);
+          }}
+        /> 
+        }
+        <RefreshButton onRefresh={reload}/>
       </div>
       <div className='flex gap-2 mb-6'>
         <button
@@ -102,7 +118,7 @@ export default function DriverPreordersTable() {
               }
             }}
             >
-              <td className="p-2 whitespace-nowrap">{it.client?.clientName}</td>
+              <td className="p-2 whitespace-nowrap capitalize">{it.client?.clientName.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap">{it.routeAssigned?.code}</td>
               
               <td className="p-2 whitespace-nowrap">{formatCurrency(it.subtotal)}</td>

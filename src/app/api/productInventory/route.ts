@@ -16,7 +16,10 @@ export async function GET(req: Request) {
 
     const query: any= {};
       const products = await Product.find({
-        name: {$regex: search, $options: "i"},
+        $or: [
+          { name: {$regex: search, $options: "i"} },
+          { sku: {$regex: search, $options: "i"} },
+        ],
       }).select("_id");
       const productIds = products.map(p => p._id);
       const brands = await Brand.find({

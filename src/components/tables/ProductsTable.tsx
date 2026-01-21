@@ -102,8 +102,8 @@ export function ProductsTable() {
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.sku}</td>
               <td className='p-2 whitespace-nowrap'>{it.upc}</td>
-              <td className='p-2 whitespace-nowrap'>{it.name}</td>
-              <td className='p-2 whitespace-nowrap'>{it.brand?.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.brand?.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitCost ?? '-'}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitPrice ?? '-'}</td>
               <td className="p-2 text-right whitespace-nowrap">

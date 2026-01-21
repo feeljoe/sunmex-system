@@ -38,21 +38,33 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.connectToDatabase = connectToDatabase;
 var mongoose_1 = require("mongoose");
-var MONGODB_URI = process.env.MONGODB_URI || "";
+var MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
-    throw new Error("Please define de MONGODB_URI environment variable inside .env");
+    throw new Error("Please define MONGODB_URI in .env");
+}
+var cached = global.mongoose;
+if (!cached) {
+    cached = global.mongoose = { conn: null, promise: null };
 }
 function connectToDatabase() {
     return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    if (!!mongoose_1.default.connection.readyState) return [3 /*break*/, 2];
-                    return [4 /*yield*/, mongoose_1.default.connect(MONGODB_URI)];
+                    if (cached.conn) {
+                        return [2 /*return*/, cached.conn];
+                    }
+                    if (!cached.promise) {
+                        cached.promise = mongoose_1.default.connect(MONGODB_URI, {
+                            bufferCommands: false,
+                        });
+                    }
+                    _a = cached;
+                    return [4 /*yield*/, cached.promise];
                 case 1:
-                    _a.sent();
-                    _a.label = 2;
-                case 2: return [2 /*return*/];
+                    _a.conn = _b.sent();
+                    return [2 /*return*/, cached.conn];
             }
         });
     });

@@ -89,7 +89,7 @@ export function SuppliersTable() {
           )}
           {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
-              <td className='p-2 whitespace-nowrap'>{it.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{it.contact ?? '-'}</td>
               <td className='p-2 whitespace-nowrap'>{it.email ?? '-'}</td>
               <td className='p-2 whitespace-nowrap'>{it.phoneNumber ?? '-'}</td>

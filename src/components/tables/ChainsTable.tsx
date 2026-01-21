@@ -87,7 +87,7 @@ export function ChainsTable() {
           )}
           {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
-              <td className='p-2 whitespace-nowrap'>{it.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
               <td className='p-2 text-right whitespace-nowrap'>
                 <button className="text-white bg-blue-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">

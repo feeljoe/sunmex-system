@@ -95,8 +95,8 @@ export function ClientsTable() {
           {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.clientNumber}</td>
-              <td className='p-2 whitespace-nowrap'>{it.clientName}</td>
-              <td className='p-2 whitespace-nowrap'>{it.chain?.name || '-'}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.clientName.toLowerCase()}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.chain?.name.toLowerCase() || '-'}</td>
               <td className='p-2 whitespace-nowrap'>{it.paymentTerm?.name || '-'}</td>
               <td className='p-2 whitespace-nowrap'>{it.creditLimit ?? '-'}</td>
               <td className="p-2 whitespace-nowrap">{it.visitingDays}</td>

@@ -96,14 +96,14 @@ export default function StepSelectClient({
               key={client._id}
               type="button"
               onClick={() => onSelect(client)}
-              className={`w-full text-left p-3 rounded-xl border transition
+              className={`w-full text-left p-3 rounded-xl border transition-all duration:500 capitalize
                 ${
                   isSelected
                     ? "bg-blue-500 text-white border-blue-500"
                     : "bg-white hover:bg-gray-100"
                 }`}
             >
-              {client.clientName} <span className={`text-gray-400 text-sm ${
+              {client.clientName.toLowerCase()} <span className={`text-gray-400 text-sm ${
                   isSelected
                     ? "text-white"
                     : ""

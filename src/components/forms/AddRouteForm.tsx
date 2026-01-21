@@ -166,7 +166,7 @@ export default function RouteFormModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-(--secondary) rounded-xl p-6 w-full max-w-xl space-y-5">
+      <div className="bg-(--secondary) rounded-xl p-6 w-full max-w-xl max-h-2xl space-y-5">
 
         <h3 className="text-lg font-semibold">
           {isEdit ? "Edit Route" : "New Route"}
@@ -277,7 +277,7 @@ export default function RouteFormModal({
               </ul>
             )}
 
-            <ul className="space-y-3 mt-5">
+            <ul className="space-y-3 mt-5 max-h-48 overflow-y-auto">
               {form.clients.map(id => (
                 <li
                   key={id}

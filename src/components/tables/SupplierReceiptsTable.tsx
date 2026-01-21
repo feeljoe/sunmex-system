@@ -61,11 +61,11 @@ export function SupplierReceiptsTable() {
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.invoice}</td>
               <td className='p-2 whitespace-nowrap'>{it.poNumber}</td>
-              <td className='p-2 whitespace-nowrap'>{it.supplier?.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.supplier?.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{formatCurrency(it.total)}</td>
               <td className='p-2 whitespace-nowrap'>{formatDate(it.requestedAt)}</td>
               <td className='p-2 whitespace-nowrap'>{formatDate(it.receivedAt)}</td>
-              <td className='p-2 whitespace-nowrap'>{it.elaboratedBy.firstName} {it.elaboratedBy.lastName}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.elaboratedBy.firstName.toLowerCase()} {it.elaboratedBy.lastName.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{it.supplierOrder.status}</td>
             </tr>
           ))}

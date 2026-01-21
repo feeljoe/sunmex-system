@@ -12,7 +12,7 @@ async function importProducts() {
     await connectToDatabase();
 
     const projectRoot =join(__dirname, "../../");
-    const excelPath = join(projectRoot, "src/scripts/Inventarios.xlsx");
+    const excelPath = join(projectRoot, "src/scripts/Productos.xlsx");
     const workbook = xlsx.readFile(excelPath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = xlsx.utils.sheet_to_json<any>(sheet);
@@ -51,17 +51,19 @@ async function importProducts() {
             }
         );
 
-        await ProductInventory.updateOne(
+        /*await ProductInventory.updateOne(
             {product: product._id},
             {
-                $setOnInsert: {
+                $set: {
                     currentInventory: Number(row.currentInventory),
+                },
+                $setOnInsert: {
                     preSavedInventory: 0,
                     onRouteInventory: 0,
                 },
             },
             {upsert: true}
-        );
+        );*/
         created ++;
     }
     console.log("Product Import completed");

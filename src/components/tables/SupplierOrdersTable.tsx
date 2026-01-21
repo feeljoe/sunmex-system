@@ -7,6 +7,7 @@ import { ConfirmModal } from '../modals/ConfirmModal';
 import { supplierOrderConfirmConfig } from '../modals/configConfirms/confirmConfig';
 import SubmitResultModal from '../modals/SubmitResultModal';
 import { RefreshButton } from '../ui/RefreshButton';
+import EditSupplierOrderModal from '../modals/EditSupplierOrder';
 
 export function SupplierOrdersTable() {
   const [page, setPage] = useState(1);
@@ -78,6 +79,19 @@ export function SupplierOrdersTable() {
     return `${mm}/${dd}/${yyyy}`;
   };
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<any | null>(null);
+
+  const openEdit = (order: any) => {
+    setOrderToEdit(order);
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setEditOpen(false);
+    setOrderToEdit(null);
+  };
+
   const totalPages = total > 0? Math.ceil(total/limit): 1;
   return (
     <>
@@ -108,14 +122,14 @@ export function SupplierOrdersTable() {
           {filteredItems.map((it: any) => (
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.poNumber}</td>
-              <td className='p-2 whitespace-nowrap'>{it.supplier?.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.supplier?.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{formatCurrency(it.expectedTotal)}</td>
               <td className='p-2 whitespace-nowrap'>{formatDate(it.requestedAt)}</td>
-              <td className='p-2 whitespace-nowrap'>{it.elaboratedBy}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.elaboratedBy.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{it.status}</td>
               {it.status !== "received" &&
               <td className='p-2 text-right'>
-                <button className="text-white bg-blue-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300">
+                <button className="text-white bg-blue-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300" onClick={() => openEdit(it)}>
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
                       <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                   </svg>
@@ -184,6 +198,14 @@ export function SupplierOrdersTable() {
                   setSubmitStatus(null);
               }}
               collection="Order"
+          />
+        )}
+        {editOpen && orderToEdit && (
+          <EditSupplierOrderModal
+            open={editOpen}
+            order={orderToEdit}
+            onClose={closeEdit}
+            onUpdated={reload}
           />
         )}
         </>

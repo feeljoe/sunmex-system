@@ -22,7 +22,7 @@ export default function StepConfirm({
           .filter(p => p.quantity > 0)
           .map(p => (
             <li key={p.inventoryId} className="flex border-b justify-between py-3">
-              <span className="text-left px-2">{p.name}</span>
+              <span className="text-left px-2 capitalize">{p.name.toLowerCase()}</span>
               <div className="flex justify-between">
               <span className="">×</span>
               <span>{p.quantity} ---</span>

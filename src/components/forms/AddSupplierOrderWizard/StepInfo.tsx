@@ -8,6 +8,7 @@ export function StepInfo({ form, setForm }: any) {
     const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
     const [productSearch, setProductSearch] = useState("");
     const [supplierSearch, setSupplierSearch] = useState("");
+    const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
 
     const {
       items: suppliers,
@@ -50,7 +51,7 @@ export function StepInfo({ form, setForm }: any) {
                     : p
                 );
             }
-            return [...prev, {...product, qty:0}];
+            return [{...product, qty:0}, ...prev,];
         });
     }
 
@@ -76,19 +77,60 @@ export function StepInfo({ form, setForm }: any) {
     return (
       <div className="flex flex-col h-full w-full items-center justify-center gap-5">
         <div className="grid grid-cols h-full w-full gap-4">
-        <select
-            name="supplier"
-            value={form.supplier}
-            onChange={handleChange}
-            className="bg-white rounded w-full h-15 text-lg"
+        <div className="relative w-full">
+  <input
+    type="text"
+    placeholder="Search Supplier..."
+    value={supplierSearch}
+    onChange={(e) => setSupplierSearch(e.target.value)}
+    className="bg-white p-3 rounded w-full h-15 text-xl shadow-xl"
+  />
+
+  {supplierSearch.trim() && (
+    <div className="absolute z-20 w-full bg-white rounded-xl shadow-xl max-h-60 overflow-auto mt-1">
+      {loadingSuppliers && (
+        <div className="p-3 text-gray-500">Loading suppliers...</div>
+      )}
+
+      {!loadingSuppliers && suppliers.length === 0 && (
+        <div className="p-3 text-gray-500">No suppliers found</div>
+      )}
+
+      {suppliers.map((s) => (
+        <button
+          key={s._id}
+          type="button"
+          onClick={() => {
+            setForm((prev: any) => ({
+              ...prev,
+              supplier: s._id,
+            }));
+            setSelectedSupplier(s);
+            setSupplierSearch("");
+          }}
+          className="w-full text-left p-3 hover:bg-gray-100 transition"
         >
-            <option value="">Select Supplier</option>
-            {suppliers.map(s=> (
-                <option key={s._id} value={s._id}>
-                    {s.name}
-                </option>
-            ))}
-        </select>
+          <div className="font-medium capitalize">{s.name.toLowerCase()}</div>
+        </button>
+      ))}
+    </div>
+  )}
+  {selectedSupplier && (
+  <div className="mt-2 p-3 bg-white rounded-xl shadow-xl text-lg flex justify-between items-center capitalize">
+    <span>{selectedSupplier.name.toLowerCase()}</span>
+    <button
+      type="button"
+      onClick={() => {
+        setSelectedSupplier(null);
+        setForm((prev: any) => ({ ...prev, supplier: "" }));
+      }}
+      className="text-red-500 hover:underline"
+    >
+      Change
+    </button>
+  </div>
+)}
+</div>
         </div>
         <div className="grid grid-cols w-full h-full">
             <input
@@ -114,7 +156,7 @@ export function StepInfo({ form, setForm }: any) {
                     }}
                     className={`p-2 hover:bg-gray-100 cursor-pointer ${alreadyAdded ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-100"}`}
                 >
-                    <div className="font-medium">{product.name}</div>
+                    <div className="font-medium capitalize">{product.name.toLowerCase()}</div>
                     <div className="text-sm text-gray-500">{product.sku}</div>
                 </div>
             );

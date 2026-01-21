@@ -19,6 +19,7 @@ export default function StepAddProducts({
     loading: loadingInventory,
   } = useList('/api/productInventory', {
     search: inventorySearch || undefined,
+    limit: 50,
   });
   const availableProducts = useMemo(() => {
     return (inventory || []).filter(
@@ -30,7 +31,6 @@ export default function StepAddProducts({
 
   const addProduct = (inv: any) => {
     setProducts((prev) => [
-      ...prev,
       {
         inventoryId: inv._id,
         productId: inv.product._id,
@@ -40,7 +40,10 @@ export default function StepAddProducts({
         quantity: 0,
         maxQty: inv.currentInventory,
       },
+      ...prev,
     ]);
+
+    setInventorySearch("");
   };
 
   const updateQty = (inventoryId: string, qty: number) => {
@@ -91,12 +94,12 @@ export default function StepAddProducts({
                 key={inv._id}
                 type="button"
                 onClick={() => addProduct(inv)}
-                className="w-full text-left p-3 hover:bg-gray-100 transition"
+                className="w-full text-left p-3 hover:bg-gray-100 transition-all duration:500 capitalize"
               >
                 <div className="font-medium">
-                  {inv.product.name}
+                  {inv.product.name.toLowerCase()}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-sm text-gray-500">
                   Available: {Number(inv.currentInventory).toFixed()}
                 </div>
               </button>
@@ -107,7 +110,7 @@ export default function StepAddProducts({
     {/* Selected products list */}
     {products.map((p) => (
       <div key={p.inventoryId} className="flex bg-white rounded-xl py-3 px-2 gap-3 mt-5">
-        <span className="flex-1 py-2">{p.name}</span>
+        <span className="flex-1 py-2 capitalize">{p.name.toLowerCase()}</span>
         <input
           type="number"
           inputMode="numeric"

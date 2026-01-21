@@ -83,7 +83,7 @@ export function PaymentTermsTable() {
           <tr><td>No products found...</td></tr>}
           {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
-              <td className='p-2 whitespace-nowrap'>{it.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
               <td className='p-2 text-center whitespace-nowrap'>{it.dueDays ?? '-'}</td>
               <td className='p-2 text-center whitespace-nowrap'>{it.discountDays}</td>
               <td className='p-2 text-center whitespace-nowrap'>{it.discountPercentage}%</td>

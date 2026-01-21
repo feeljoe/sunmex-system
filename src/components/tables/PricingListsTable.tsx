@@ -97,7 +97,7 @@ export function PricingListsTable() {
           )}
           {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
-              <td className='p-2 whitespace-nowrap'>{it.name}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{it.brandIds?.length ?? 0}</td>
               <td className='p-2 whitespace-nowrap'>{it.productIds?.length ?? 0}</td>
               <td className='p-2 whitespace-nowrap'>{it.clientsAssigned?.length ?? 0}</td>

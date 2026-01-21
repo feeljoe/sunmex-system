@@ -1,4 +1,4 @@
-// models/Preorder.ts
+// models/CreditMemo.ts
 import { Schema, model, models } from "mongoose";
 
 const CreditMemoSchema = new Schema(
@@ -14,7 +14,7 @@ const CreditMemoSchema = new Schema(
         actualCost: { type: Number, default: 0 }, // optional if cost changes
         returnReason: {
           type: String,
-          enum: ["credit memo", "good return"],
+          enum: ["credit memo", "good return", "no cost"],
         }
       },
     ],

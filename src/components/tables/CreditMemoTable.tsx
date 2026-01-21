@@ -143,7 +143,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                 onClick={() => setSelected(it)}
               >
                 <td className="p-2 whitespace-nowrap">{it.number}</td>
-                <td className="p-2 whitespace-nowrap">{it.client?.clientName}</td>
+                <td className="p-2 whitespace-nowrap capitalize">{it.client?.clientName.toLowerCase()}</td>
                 <td className="p-2 whitespace-nowrap">{formatCurrency(it.subtotal)}</td>
                 <td className="p-2 whitespace-nowrap">{formatCurrency(it.total)}</td>
                 <td className="p-2 whitespace-nowrap">
@@ -154,12 +154,12 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
 
                 {userRole === "admin" && (
                   <>
-                    <td className="p-2 whitespace-nowrap">
-                      {it.createdBy?.firstName} {it.createdBy?.lastName}
+                    <td className="p-2 whitespace-nowrap capitalize">
+                      {it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()}
                     </td>
                     <td className="p-2 whitespace-nowrap">{formatDate(it.createdAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.createdAt)}</td>
-                    <td className="p-2 whitespace-nowrap">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName } {it.routeAssigned?.user?.lastName} </td>
+                    <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName.toLowerCase() } {it.routeAssigned?.user?.lastName.toLowerCase()} </td>
                     <td className="p-2 whitespace-nowrap">{formatDate(it.returnedAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.returnedAt)}</td>
                   </>
@@ -184,8 +184,8 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                 {userRole === "admin" && (
                   <>
                     <td className="p-2 text-red-500 whitespace-nowrap">{formatDate(it.cancelledAt)}</td>
-                    <td className="p-2 text-red-500 whitespace-nowrap">
-                      {it.cancelledBy?.firstName} {it.cancelledBy?.lastName}
+                    <td className="p-2 text-red-500 whitespace-nowrap capitalize">
+                      {it.cancelledBy?.firstName.toLowerCase()} {it.cancelledBy?.lastName.toLowerCase()}
                     </td>
                   </>
                 )}

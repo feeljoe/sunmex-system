@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import SupplierOrder from '@/models/SupplierOrder';
+import Product from '@/models/Product';
 
 export async function DELETE(_req: Request, context: { params: Promise<{ id: string }>}) {
   try{
@@ -30,4 +31,29 @@ export async function DELETE(_req: Request, context: { params: Promise<{ id: str
     { status: 500 }
   );
 }
+}
+
+export async function PATCH(req: Request, context: { params: Promise<{ id: string }>}) {
+  await connectToDatabase();
+  const body = await req.json();
+  const { id } = await context.params;
+  let expectedTotal = 0;
+
+  for (const p of body.products) {
+    const product = await Product.findById(p.product).lean();
+    const cost = product?.unitCost || 0; // adjust field name
+    expectedTotal += cost * p.quantity;
+  }
+  
+  const order = await SupplierOrder.findByIdAndUpdate(
+    id,
+    {
+      supplier: body.supplier,
+      products: body.products,
+      expectedTotal: expectedTotal,
+    },
+    { new: true }
+  );
+
+  return NextResponse.json(order);
 }

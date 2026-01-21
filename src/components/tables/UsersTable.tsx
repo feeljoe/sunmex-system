@@ -83,9 +83,9 @@ export function UsersTable(){
                 <tbody>
                     {items.map((it:any) => (
                         <tr key={it._id} className="border-b">
-                            <td className="p-2 whitespace-nowrap">{it.firstName} {it.lastName}</td>
-                            <td className="p-2 whitespace-nowrap">{it.username}</td>
-                            <td className="p-2 capitalize whitespace-nowrap">{it.userRole}</td>
+                            <td className="p-2 whitespace-nowrap capitalize">{it.firstName.toLowerCase()} {it.lastName.toLowerCase()}</td>
+                            <td className="p-2 whitespace-nowrap">{it.username.toLowerCase()}</td>
+                            <td className="p-2 capitalize whitespace-nowrap capitalize">{it.userRole.toLowerCase()}</td>
                             <td className="p-2 text-right whitespace-nowrap">
                             <button
                                 className="text-white bg-blue-500 px-2 py-2 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300"

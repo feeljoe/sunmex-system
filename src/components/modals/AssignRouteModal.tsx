@@ -54,7 +54,7 @@ export default function AssignRouteModal({
         <option value="">Select a route</option>
         {routes.map((r: any) => (
           <option key={r._id} value={r._id}>
-            {r.code} ({r.activeDriver})
+            {r.code} ({r.user.firstName} {r.user.lastName})
           </option>
         ))}
       </select>

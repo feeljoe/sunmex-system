@@ -14,8 +14,8 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   const statusColors: Record<string, string> = {
     pending: "bg-gray-300",
     assigned: "bg-(--tertiary)",
-    ready: "bg-blue-500",
-    delivered: "bg-green-500",
+    ready: "bg-blue-500 text-white",
+    delivered: "bg-green-500 text-white",
     cancelled: "bg-red-500 text-white",
   };  
   const [page, setPage] = useState(1);
@@ -222,7 +222,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
         <RefreshButton onRefresh={reload}/>
       </div>
       <div className='flex-1 overflow-auto'>
-      <table className="w-full text-left text-sm lg:text-lg">
+      <table className="w-full text-left text-sm lg:text-md">
         <thead>
           <tr className="border-b">
             {userRole === "admin" &&
@@ -277,7 +277,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               <td className="P-2 text-center whitespace-nowrap">-</td>
               }
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.number}</td>
-              <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName}</td>
+              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.subtotal)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.total)}</td>
               <td className={`p-2 whitespace-nowrap`} onClick={() => setSelectedPreorder(it)}>
@@ -285,13 +285,13 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                   ${statusColors[it.status]}`}>{it.status.toUpperCase()}</div></td>
               {userRole === "admin" &&
               <>
-              <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.createdBy?.firstName} {it.createdBy?.lastName}</td>
+              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatDate(it.createdAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.createdAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.assembledBy?.firstName} {it.assembledBy?.lastName}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatDate(it.assembledAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.assembledAt)}</td>
-              <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.routeAssigned?.code} - {it.routeAssigned?.user?.firstName} {it.routeAssigned?.user?.lastName}</td>
+              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName.toLowerCase()} {it.routeAssigned?.user?.lastName.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatDate(it.deliveredAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.deliveredAt)}</td>
               </>
@@ -321,7 +321,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               <td className="p-2 text-red-500 text-center whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.cancelledAt)}</td>
               }
               {userRole ==="admin" && it.status === "cancelled" &&
-              <td className="p-2 text-red-500 text-center whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy.firstName?.toUpperCase()} {it.cancelledBy.lastName?.toUpperCase()}</td>
+              <td className="p-2 text-red-500 text-center whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy.firstName?.toLowerCase()} {it.cancelledBy.lastName?.toLowerCase()}</td>
               }
             </tr>
           ))}

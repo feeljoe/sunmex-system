@@ -42,8 +42,9 @@ export function WarehousePreordersTable(user: any) {
                     </div>
                     <RefreshButton onRefresh={reload}/>
                 </div>
+                <div className="overflow-y-auto">
                 <table className="w-full text-left">
-                        <thead>
+                        <thead className="sticky">
                             <tr className="border-b">
                                 <th className="p-2">Client</th>
                                 <th className="p-2">Route</th>
@@ -56,7 +57,7 @@ export function WarehousePreordersTable(user: any) {
                         <tbody>
                             {filteredPreorders.map((p: any) => (
                                 <tr key={p._id} className="border-b hover:bg-gray-50">
-                                    <td className="p-2 whitespace-nowrap">{p.client?.clientName}</td>
+                                    <td className="p-2 whitespace-nowrap capitalize">{p.client?.clientName.toLowerCase()}</td>
                                     <td className="p-2 whitespace-nowrap">{p.routeAssigned?.code}</td>
                                     <td className="p-2 whitespace-nowrap">
                                         {p.products.reduce(
@@ -77,6 +78,7 @@ export function WarehousePreordersTable(user: any) {
                             ))}
                         </tbody>
                 </table>
+                </div>
             </div>
             {selectedPreorder && (
                 <PrepareOrderModal
