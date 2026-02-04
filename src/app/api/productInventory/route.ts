@@ -1,124 +1,117 @@
-// /app/api/productInventory/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import ProductInventory from "@/models/ProductInventory";
-import Product from "@/models/Product";
 import Brand from "@/models/Brand";
-
+import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
+
     await connectToDatabase();
+
     const { searchParams } = new URL(req.url);
+
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
 
-    const query: any= {};
-      const products = await Product.find({
-        $or: [
-          { name: {$regex: search, $options: "i"} },
-          { sku: {$regex: search, $options: "i"} },
-        ],
-      }).select("_id");
-      const productIds = products.map(p => p._id);
-      const brands = await Brand.find({
-        name: {$regex: search, $options: "i"},
-      }).select("_id");
-      const brandIds = brands.map(p => p._id);
+    let matchStage: any = {};
 
-          query.$or = [
-            {brand: {$in: brandIds}},
-            {product: {$in: productIds}},
-            
-          ];
-          const matchStage = {
-            $match: {
-              $or: [
-                { brand: { $in: brandIds } },
-                { product: { $in: productIds } },
-              ],
-            },
-          };          
-        const pipeline: any[] = [
-          matchStage,
-          {
-            $lookup: {
-              from: "products",
-              localField: "product",
-              foreignField: "_id",
-              as: "product",
-            },
-          },
-          { $unwind: "$product" },
-        
-          {
-            $lookup: {
-              from: "brands",
-              localField: "product.brand",
-              foreignField: "_id",
-              as: "product.brand",
-            },
-          },
-          { $unwind: "$product.brand" },
-          {
-            $addFields: {
-              matchPriority: {
-                $cond: [
-                  { $in: ["$product.brand._id", brandIds] },
-                  0, // brand match first
-                  1, // product match second
-                ],
-              },
-            },
-          },
-          { $sort: { matchPriority: 1, "product.name": 1 } },
-        
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
-        ];
-        const totalPipeline = [
-          matchStage,
-          {
-            $lookup: {
-              from: "products",
-              localField: "product",
-              foreignField: "_id",
-              as: "product",
-            },
-          },
-          { $unwind: "$product" },
-        
-          {
-            $group: {
-              _id: null,
-              totalMoney: {
-                $sum: {
-                  $multiply: ["$product.unitCost", "$currentInventory"],
-                },
-              },
-            },
-          },
-        ];
-        
-    const [items, totalArr, moneyArr] = await Promise.all([
-      ProductInventory.aggregate(pipeline),
-      ProductInventory.aggregate([
-        { $match: query },
-        { $count: "count"},
-      ]),
-      ProductInventory.aggregate(totalPipeline),
-    ]);
-    const total = totalArr[0]?.count || 0;
-    const totalInventoryMoney = moneyArr[0]?.totalMoney || 0;
+    // ✅ If searching, find brand ids first
+    if (search) {
+
+      const brands = await Brand.find({
+        name: { $regex: search, $options: "i" },
+      }).select("_id");
+
+      const brandIds = brands.map(b => b._id);
+
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
+
+      matchStage.$or = [
+        { "product.name": { $regex: search, $options: "i" } },
+        { "product.sku": { $regex: search, $options: "i" } },
+        { "product.upc": { $regex: search, $options: "i" } },
+        { "brand._id": { $in: brandIds } },
+        ...(isObjectId
+          ? [{ "product._id": new mongoose.Types.ObjectId(search) }]
+          : []),
+      ];
+    }
+
+    const pipeline: any[] = [
+
+      // ✅ Join product
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+
+      { $unwind: "$product" },
+
+      // ✅ Join brand through product
+      {
+        $lookup: {
+          from: "brands",
+          localField: "product.brand",
+          foreignField: "_id",
+          as: "brand",
+        },
+      },
+
+      { $unwind: "$brand" },
+      {
+        $addFields: {
+          "product.brand": "$brand"
+        }
+      },
+
+      // ✅ Apply search AFTER lookups
+      Object.keys(matchStage).length ? { $match: matchStage } : null,
+
+      // ⭐ SORT BY BRAND NAME THEN PRODUCT NAME
+      {
+        $sort: {
+          "brand.name": 1,
+          "product.name": 1,
+        },
+      },
+
+      {
+        $facet: {
+          items: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
+          totalCount: [
+            { $count: "count" },
+          ],
+        },
+      },
+
+    ].filter(Boolean); // remove null stages
+
+    const result = await ProductInventory.aggregate(pipeline);
+
+    const items = result[0]?.items || [];
+    const total = result[0]?.totalCount[0]?.count || 0;
+
     return NextResponse.json({
       items,
       total,
-      totalInventoryMoney,
       page,
-      limit
+      limit,
     });
-  }catch(err: any){
-    return NextResponse.json({ error: String(err.message) }, {status: 500 });
+
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json(
+      { error: String(err.message) },
+      { status: 500 }
+    );
   }
 }

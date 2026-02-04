@@ -63,7 +63,7 @@ export function InventoryTable() {
             <tr key={it._id} className="border-b">
               <td className="p-2 whitespace-nowrap">{it.product?.sku}</td>
               <td className="p-2 whitespace-nowrap">{it.product?.upc}</td>
-              <td className="p-2 whitespace-nowrap">{it.product?.brand.name}</td>
+              <td className="p-2 whitespace-nowrap">{it.product?.brand?.name}</td>
               <td className="p-2 whitespace-nowrap">{it.product?.name}</td>
               <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>${Number(it.currentInventory * it.product.unitCost).toFixed(2)}</td>
               <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>{Number(it.currentInventory).toFixed()}</td>

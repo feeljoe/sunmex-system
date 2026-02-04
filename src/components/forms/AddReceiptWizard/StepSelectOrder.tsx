@@ -42,7 +42,7 @@ export default function StepSelectOrder({ form, setForm, onNext }: any) {
             className="p-4 bg-(--primary) text-white rounded-xl cursor-pointer hover:bg-(--tertiary) transition-all duration-300"
             onClick={() => selectOrder(o)}
           >
-            <strong>{o.poNumber}</strong> — {o.supplier.name} | {formatCurrency(o.expectedTotal)}
+            <strong>{o.poNumber}</strong> — {o.supplier?.name} | {formatCurrency(o.expectedTotal)}
           </li>
         ))}
       </ul>

@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/db';
 import Product from '@/models/Product';
 import ProductInventory from '@/models/ProductInventory';
 import Brand from '@/models/Brand';
+import mongoose from 'mongoose';
 
 export async function GET(req: Request) {
   try{
@@ -12,30 +13,63 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
 
-    const query: any= {};
+    let matchStage: any= {};
+
     if(search){
       const brands = await Brand.find({
         name: {$regex: search, $options: "i"},
       }).select("_id");
       const brandIds = brands.map(b => b._id);
       const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
-      query.$or = [
+      matchStage.$or = [
         {sku: {$regex: search, $options: "i"}},
         {upc: {$regex: search, $options: "i"}},
         {name: {$regex: search, $options: "i"}},
-        { brand: {$in: brandIds}},
-        ...(isObjectId ? [{ _id: search }] : []),
+        {brand: {$in: brandIds}},
+        ...(isObjectId ? [{ _id: new mongoose.Types.ObjectId(search) }] : []),
       ];
     }
 
-    const [items, total] = await Promise.all([
-      Product.find(query)
-      .populate("brand")
-      .sort({ name: 1})
-      .skip((page - 1) * limit)
-      .limit(limit),
-      Product.countDocuments(query),
-    ]);
+    const pipeline: any[] = [
+
+      { $match: matchStage },
+
+      // join brand collection
+      {
+        $lookup: {
+          from: "brands",
+          localField: "brand",
+          foreignField: "_id",
+          as: "brand",
+        },
+      },
+
+      { $unwind: "$brand" },
+
+      // ⭐ SORT BY BRAND NAME FIRST, THEN PRODUCT NAME
+      {
+        $sort: {
+          "brand.name": 1,
+          name: 1,
+        },
+      },
+
+      {
+        $facet: {
+          items: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
+          totalCount: [
+            { $count: "count" },
+          ],
+        },
+      },
+    ];
+
+    const result = await Product.aggregate(pipeline);
+    const items = result[0]?.items || [];
+    const total = result[0]?.totalCount[0]?.count || 0;
     return NextResponse.json({
       items,
       total,
