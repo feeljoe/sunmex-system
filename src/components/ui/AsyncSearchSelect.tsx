@@ -20,17 +20,18 @@ export default function AsyncSearchSelect({
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<any[]>([]);
-  const [isDirty, setIsDirty] = useState(false);
+  const [userEditing, setUserEditing] = useState(false);
   const abortRef = useRef<AbortController | null> (null);
 
   useEffect(() => {
-    if (!isDirty && displayValue) {
-        setInputValue(displayValue);
+    if(value) {
+      setInputValue(displayValue || "");
+      setUserEditing(false);
     }
-  }, [displayValue, isDirty]);
+  }, [value, displayValue]);
 
   useEffect(() => {
-    if(!isDirty || inputValue.trim().length < 2) {
+    if(!userEditing || inputValue.trim().length < 2) {
         setOptions([]);
         return;
     }
@@ -56,7 +57,7 @@ export default function AsyncSearchSelect({
         }
     };
     fetchOptions();
-  }, [inputValue, endpoint, isDirty]);
+  }, [inputValue, endpoint, userEditing]);
 
   return (
     <div className="relative">
@@ -64,7 +65,7 @@ export default function AsyncSearchSelect({
         value={inputValue}
         onChange={e => {
             setInputValue(e.target.value);
-            setIsDirty(true);
+            setUserEditing(true);
         }}
         placeholder={placeholder}
         className="p-2 rounded-xl bg-white shadow-xl w-full"
@@ -84,11 +85,11 @@ export default function AsyncSearchSelect({
                 onChange(opt);
                 setInputValue(opt.name);
                 setOptions([]);
-                setIsDirty(false);
+                setUserEditing(false);
               }}
               className="p-2 hover:bg-gray-100 cursor-pointer"
             >
-              {opt.name}
+              {opt.name} {opt.sku && ("SKU: ("+ opt.sku + ")")}
             </div>
           ))}
         </div>

@@ -19,7 +19,7 @@ export default function EditSupplierOrderModal({
   onClose,
   onUpdated,
 }: Props) {
-  const [supplier, setSupplier] = useState<string>("");
+  const [supplier, setSupplier] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [submitStatus, setSubmitStatus] =
     useState<"loading" | "success" | "error" | null>(null);
@@ -27,7 +27,7 @@ export default function EditSupplierOrderModal({
 
   useEffect(() => {
     if (order) {
-      setSupplier(order.supplier?._id);
+      setSupplier(order.supplier);
       setProducts(order.products || []);
     }
   }, [order]);
@@ -73,7 +73,7 @@ export default function EditSupplierOrderModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          supplier,
+          supplier: supplier?._id,
           products,
           expectedTotal: subtotal,
         }),
@@ -106,11 +106,11 @@ export default function EditSupplierOrderModal({
           <div className="flex flex-col gap-3">
             <label className="font-semibold">Supplier</label>
             <AsyncSearchSelect
-              value={order.supplier}
-              displayValue={order.supplier.name}
+              value={supplier}
+              displayValue={supplier?.name}
               endpoint="/api/suppliers"
               placeholder="Search supplier..."
-              onChange={(supplier) => setSupplier(supplier._id)}
+              onChange={(supplier) => setSupplier(supplier)}
             />
           </div>
 
@@ -122,7 +122,7 @@ export default function EditSupplierOrderModal({
                 <div className="w-full">
                 <AsyncSearchSelect
                   value={p.product}
-                  displayValue={p.product?.name}
+                  displayValue={p.product?.name + ` SKU:(${p.product?.sku})`}
                   endpoint="/api/products"
                   placeholder="Search product..."
                   onChange={(product) => updateProduct(idx, "product", product)}

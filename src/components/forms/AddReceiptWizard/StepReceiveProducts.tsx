@@ -41,7 +41,9 @@ export default function StepReceiveProducts({ form, setForm, onNext, onBack }: a
           <tbody className="bg-white text-sm lg:text-lg">
             {form.items.map((it: any, idx: number) => (
               <tr key={idx} className="border-b">
-                <td className="p-4 capitalize whitespace-nowrap">{it.product.brand.name.toLowerCase()} {it.product.name.toLowerCase()}</td>
+                <td className="p-4 capitalize whitespace-nowrap flex flex-col">
+                  <span>{it.product.brand.name.toLowerCase()} {it.product.name.toLowerCase()}</span>
+                  <span className="text-gray-400"><b>SKU:</b>({it.product.sku}) <b>UPC:</b>({it.product.upc})</span></td>
                 <td className="p-2 text-center whitespace-nowrap">{it.orderedQuantity}</td>
                 <td className="p-2 text-center whitespace-nowrap">
                   <input
@@ -59,7 +61,7 @@ export default function StepReceiveProducts({ form, setForm, onNext, onBack }: a
                     type="number"
                     inputMode="decimal"
                     step="0.01"
-                    value={it.actualCost.toFixed(2)}
+                    value={it.actualCost}
                     onChange={e =>
                       updateItem(idx, "actualCost", Number(e.target.value))
                     }

@@ -33,7 +33,7 @@ export default function EditProductModal({
       sku: product.sku,
       vendorSku: product.vendorSku,
       upc: product.upc,
-      brand: product.brand?._id || product.brand,
+      brand: product.brand || null,
       name: product.name,
       productType: product.productType,
       productFamily: product.productFamily,
@@ -64,6 +64,10 @@ export default function EditProductModal({
           payload[key] = form[key];
         }
       });
+
+      if(payload.brand?._id) {
+        payload.brand = payload.brand._id;
+      }
 
       // Handle image upload
       if (removeImage) {
@@ -129,7 +133,7 @@ export default function EditProductModal({
                 </label>
                 <AsyncSearchSelect
                   value={form.brand}
-                  displayValue={product.brand?.name}
+                  displayValue={form.brand?.name}
                   endpoint="/api/brands"
                   placeholder="Search brand..."
                   onChange={(id) => setForm({ ...form, brand: id })}
