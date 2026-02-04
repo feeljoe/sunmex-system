@@ -69,8 +69,20 @@ export async function GET(req: Request) {
       const page = Math.max(Number(searchParams.get("page")) || 1, 1);
       const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
       const search = searchParams.get("search")?.trim() || "";
+      const fromDate = searchParams.get("fromDate");
+      const toDate = searchParams.get("toDate");
   
       const query: any = {};
+      if(fromDate && toDate){
+        const [fy, fm, fd] = fromDate.split("-").map(Number);
+        const [ty, tm, td] = toDate.split("-").map(Number);
+        const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
+        const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
+        query.createdAt = {
+          $gte: start,
+          $lte: end,
+        };
+      }
   
       if (search) {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);

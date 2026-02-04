@@ -37,3 +37,44 @@ export async function DELETE(
       );
     }
   }
+
+  export async function PATCH(
+    req: Request,
+    context: { params: Promise<{ id: string }> }
+  ) {
+    try {
+      await connectToDatabase();
+      const { id } = await context.params;
+      const body = await req.json();
+  
+      // Remove undefined fields so they don't overwrite anything
+      Object.keys(body).forEach(
+        key => body[key] === undefined && delete body[key]
+      );
+  
+      const updated = await Product.findByIdAndUpdate(
+        id,
+        { $set: body },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+  
+      if (!updated) {
+        return NextResponse.json(
+          { error: "Product not found" },
+          { status: 404 }
+        );
+      }
+  
+      return NextResponse.json(updated, { status: 200 });
+    } catch (err: any) {
+      console.error("Product update error:", err);
+      return NextResponse.json(
+        { error: err.message },
+        { status: 500 }
+      );
+    }
+  }
+  

@@ -2,6 +2,7 @@ import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import ProductInventory from "@/models/ProductInventory";
+import InventoryReview from "@/models/InventoryReview";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
@@ -56,27 +57,61 @@ export async function PATCH(
         throw new Error("Inventory record not found");
       }
 
-      const qty = Number(update.pickedQuantity);
+      const orderedQty = Number(line.quantity);
+      const pickedQty = Number(update.pickedQuantity);
 
-      if (inventory.preSavedInventory < qty) {
+      if (inventory.preSavedInventory < orderedQty) {
         throw new Error("Insufficient presaved inventory");
       }
+      if(pickedQty > orderedQty) {
+        throw new Error("Picked quantity cannot exceed ordered quantity");
+      }
+      const diffQty = orderedQty - pickedQty;
 
       // 🔁 MOVE INVENTORY
-      inventory.preSavedInventory -= qty;
-      inventory.onRouteInventory += qty;
+      if(pickedQty > 0){
+      inventory.preSavedInventory -= pickedQty;
+      inventory.onRouteInventory += pickedQty;
+      }
+
+      if(diffQty > 0) {
+        inventory.preSavedInventory -= diffQty;
+        inventory.inactiveInventory = (inventory.inactiveInventory || 0) + diffQty;
+
+        await InventoryReview.create(
+          [
+            {
+              product: inventory.product,
+              quantity: diffQty,
+              differenceReason: update.differenceReason,
+              authorizedBy: new mongoose.Types.ObjectId(update.authorizedBy),
+              generatedBy: new mongoose.Types.ObjectId(
+                sessionUser?.user?.id
+              ),
+              source: preorder._id,
+              status: "pending",
+            },
+          ],
+          {session}
+        );
+      }
 
       await inventory.save({ session });
 
       // Update preorder line
-      line.pickedQuantity = update.pickedQuantity;
+      line.pickedQuantity = pickedQty;
+      line.differenceReason = update.differenceReason;
+      line.authorizedBy = update.authorizedBy
+        ? new mongoose.Types.ObjectId(update.authorizedBy)
+        : undefined;
     }
+
     const assembledAt = new Date();
     preorder.assembledBy = new mongoose.Types.ObjectId(sessionUser?.user?.id);
     preorder.assembledAt = assembledAt;
     preorder.deliveryDate = getNextBusinessDay(assembledAt);
-
     preorder.status = "ready";
+    
     await preorder.save({ session });
 
     await session.commitTransaction();

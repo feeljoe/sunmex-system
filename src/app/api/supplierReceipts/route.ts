@@ -36,6 +36,12 @@ export async function GET(req: Request) {
       .populate("supplier")
       .populate("supplierOrder")
       .populate("elaboratedBy")
+      .populate({
+        path: "items.product",
+        populate: {
+          path: "brand",
+        },
+      })
       .sort({name: 1})
       .skip((page - 1) * limit)
       .limit(limit),

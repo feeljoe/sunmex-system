@@ -51,19 +51,18 @@ async function importProducts() {
             }
         );
 
-        /*await ProductInventory.updateOne(
-            {product: product._id},
+        await ProductInventory.updateOne(
+            { product: product._id },
             {
-                $set: {
-                    currentInventory: Number(row.currentInventory),
-                },
-                $setOnInsert: {
-                    preSavedInventory: 0,
-                    onRouteInventory: 0,
-                },
+              $setOnInsert: {
+                product: product._id,
+                currentInventory: Number(row.currentInventory ?? 0),
+                preSavedInventory: 0,
+                onRouteInventory: 0,
+              },
             },
-            {upsert: true}
-        );*/
+            { upsert: true }
+          );
         created ++;
     }
     console.log("Product Import completed");

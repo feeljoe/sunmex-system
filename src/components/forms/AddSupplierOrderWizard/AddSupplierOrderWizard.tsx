@@ -6,6 +6,7 @@ import { StepInfo } from "./StepInfo";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
 import { supplierOrderConfirmConfig } from "@/components/modals/configConfirms/confirmConfig";
+import { useLookupMap } from "@/utils/useLookupMap";
 
 export default function AddSupplierOrderWizard({ onSuccess, user }: { onSuccess?: () => void; user: any; }){
   const [step, setStep] = useState(1);
@@ -83,36 +84,21 @@ export default function AddSupplierOrderWizard({ onSuccess, user }: { onSuccess?
         setOpenConfirm(false);
     }
     if (status === "loading") return null;
+    const {map: supplierMap} = useLookupMap("/api/suppliers");
     return (
-        <div className="w-full h-auto bg-(--tertiary) p-10 rounded-lg shadow">
+      <>
+        <div className="w-full h-4/5 bg-(--tertiary) p-5 rounded-xl shadow-xl overflow-y-auto">
           <ProgressBar step={step} steps={steps}/>
-          <div className="flex flex-col gap-4 pt-10">
+          <div className="flex flex-col">
             {step === 1 && <StepInfo form={form} setForm={setForm} />}
-            <div className="flex mt-10 justify-left">
-              {step <= 1 ? (
-                <button disabled={!validateStep(step, form)} onClick={() => setOpenConfirm(true)} className={`
-                    px-6 py-4 rounded-lg text-white
-                    transition-all duration-500
-                    ${
-                      validateStep(step, form)
-                        ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
-                        : "bg-blue-100 cursor-not-allowed"
-                    }
-                  `}>
-                  Continue
-                </button>
-              ) : (
-                <button className="px-4 py-2 bg-green-600 text-white rounded cursor-pointer">
-                  Review
-                </button>
-              )}
-            </div>
+            
           </div>
+          
           {openConfirm && (
             <ConfirmModal
                 open={openConfirm}
                 title="Order review"
-                sections={supplierOrderConfirmConfig}
+                sections={supplierOrderConfirmConfig({supplierMap})}
                 data={form}
                 onConfirm={handleConfirm}
                 onBack={() => setOpenConfirm(false)}/>
@@ -130,5 +116,25 @@ export default function AddSupplierOrderWizard({ onSuccess, user }: { onSuccess?
             />
           )}
         </div>
+        <div className="flex justify-end w-full">
+        {step <= 1 ? (
+          <button disabled={!validateStep(step, form)} onClick={() => setOpenConfirm(true)} className={`
+              px-4 py-2 rounded-xl shadow-xl text-white
+              transition-all duration-500
+              ${
+                validateStep(step, form)
+                  ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
+                  : "bg-blue-100 cursor-not-allowed"
+              }
+            `}>
+            Continue
+          </button>
+        ) : (
+          <button className="px-4 py-2 bg-green-600 text-white rounded cursor-pointer">
+            Review
+          </button>
+        )}
+      </div>
+      </>
       );
 }

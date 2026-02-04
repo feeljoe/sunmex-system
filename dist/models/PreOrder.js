@@ -1,0 +1,60 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// models/Preorder.ts
+var mongoose_1 = require("mongoose");
+var PreorderSchema = new mongoose_1.Schema({
+    number: { type: String, required: true, unique: true },
+    client: { type: mongoose_1.Schema.Types.ObjectId, ref: "Client", required: true },
+    products: [
+        {
+            productInventory: { type: mongoose_1.Schema.Types.ObjectId, ref: "ProductInventory", required: true },
+            quantity: { type: Number, required: true },
+            pickedQuantity: { type: Number, default: 0 },
+            deliveredQuantity: { type: Number },
+            actualCost: { type: Number, default: 0 }, // optional if cost changes
+            deviationReason: {
+                type: String,
+                enum: ["damaged", "missing", "returned"],
+            }
+        },
+    ],
+    createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    subtotal: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    status: { type: String, enum: ["pending", "assigned", "ready", "delivered", "cancelled"], default: "pending" },
+    createdAt: { type: Date, default: Date.now },
+    routeAssigned: { type: mongoose_1.Schema.Types.ObjectId, ref: "Route" },
+    assembledBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    assembledAt: { type: Date },
+    deliveryDate: {
+        type: Date,
+        index: true,
+    },
+    deliveredAt: { type: Date },
+    deliverySignature: {
+        type: String,
+    },
+    cancelledAt: { type: Date },
+    cancelledBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    cancelReason: { type: String },
+    paymentMethod: {
+        type: String,
+        enum: ["cash", "check", ""],
+        default: "",
+    },
+    checkNumber: {
+        type: Number
+    },
+    paymentStatus: {
+        type: String,
+        enum: ["pending", "paid"],
+        default: "pending",
+    },
+    quickbooks: {
+        synced: { type: Boolean, default: false },
+        qbTxnId: { type: String },
+        syncedAt: { type: Date },
+        error: { type: String }
+    },
+}, { versionKey: false });
+exports.default = mongoose_1.models.Preorder || (0, mongoose_1.model)("Preorder", PreorderSchema);

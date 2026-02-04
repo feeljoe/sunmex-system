@@ -10,6 +10,7 @@ import { ConfirmModal } from "../../modals/ConfirmModal";
 import { AnimatedStep } from "@/components/ui/AnimatedStep";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import { productConfirmConfig } from "@/components/modals/configConfirms/confirmConfig";
+import { useLookupMap } from "@/utils/useLookupMap";
 
 export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void }) {
   const [step, setStep] = useState(1);
@@ -138,6 +139,8 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
           });
     }
 
+    const {map: brandMap} = useLookupMap("/api/brands");
+
   return (
     <div className="w-full bg-(--tertiary) p-5 rounded-xl shadow-xl">
       <ProgressBar step={step} steps={steps}/>
@@ -181,7 +184,7 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
         <ConfirmModal
           open={showConfirm}
           title="Product Info Review"
-          sections={productConfirmConfig}
+          sections={productConfirmConfig({brandMap})}
           data={form}
           onBack={() => setShowConfirm(false)}
           onConfirm={() => {

@@ -76,7 +76,7 @@ export async function PATCH(
       newTotal += deliveredQty * unitPrice;
     }
 
-    preorder.total = newTotal;
+    preorder.total = preorder.type === "noCharge" ? 0: newTotal;
 
 
     preorder.status = "delivered";

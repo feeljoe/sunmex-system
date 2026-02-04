@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import SubmitResultModal from "./SubmitResultModal";
 import { generateSupplierOrderPDF } from "../pdfGenerator/supplierOrders/generateSupplierOrderPDF";
 import { exportSupplierOrderExcel } from "../pdfGenerator/supplierOrders/exportSupplierOrderExcel";
+import AsyncSearchSelect from "../ui/AsyncSearchSelect";
 
 interface Props {
   open: boolean;
@@ -57,6 +58,11 @@ export default function EditSupplierOrderModal({
   };  
 
   const subtotal = calculateSubtotal();
+  const totalUnits = products.reduce(
+    (sum:number, i:any) =>
+      sum + i.quantity,
+    0
+  );
 
   const saveChanges = async () => {
     setSubmitStatus("loading");
@@ -86,46 +92,42 @@ export default function EditSupplierOrderModal({
   return (
     <>
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-(--secondary) rounded-2xl shadow-2xl w-full max-w-3xl p-6 space-y-6">
+        <div className="bg-(--secondary) rounded-2xl shadow-2xl w-full h-4/5 max-w-3xl flex flex-col gap-4 p-6">
 
             {/* HEADER */}
             <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">
-                Edit SupplierOrder {order.poNumber}
+                Edit Supplier Order {order.poNumber}
             </h2>
-            <button onClick={onClose}>✕</button>
+            <button onClick={onClose} className="hover:text-red-500 cursor-pointer transition-all duration:300">✕</button>
             </div>
         
-
-        <div className="flex flex-col gap-4">
           {/* Supplier */}
-          <div>
+          <div className="flex flex-col gap-3">
             <label className="font-semibold">Supplier</label>
-            <select
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              className="w-full p-2 border rounded"
-              disabled={order.status === "received"}
-            >
-              {/* reuse your SupplierSelect logic here */}
-            </select>
+            <AsyncSearchSelect
+              value={order.supplier}
+              displayValue={order.supplier.name}
+              endpoint="/api/suppliers"
+              placeholder="Search supplier..."
+              onChange={(supplier) => setSupplier(supplier._id)}
+            />
           </div>
 
           {/* Products */}
-          <div className="flex flex-col gap-3">
-            <label className="font-semibold">Products</label>
-
+          <label className="font-semibold">Products</label>
+          <div className="flex-1 overflow-y-auto">
             {products.map((p, idx) => (
-              <div key={idx} className="flex gap-3 items-center">
-                <select
-                  value={p.product?._id || ""}
-                  onChange={(e) =>
-                    updateProduct(idx, "product", e.target.value)
-                  }
-                  className="flex-1 p-2 border rounded"
-                >
-                  {/* reuse product select */}
-                </select>
+              <div key={idx} className="flex w-full p-2 gap-4">
+                <div className="w-full">
+                <AsyncSearchSelect
+                  value={p.product}
+                  displayValue={p.product?.name}
+                  endpoint="/api/products"
+                  placeholder="Search product..."
+                  onChange={(product) => updateProduct(idx, "product", product)}
+                />
+                </div>
 
                 <input
                   type="number"
@@ -134,27 +136,29 @@ export default function EditSupplierOrderModal({
                   onChange={(e) =>
                     updateProduct(idx, "quantity", Number(e.target.value))
                   }
-                  className="w-24 p-2 border rounded"
+                  className="w-24 p-2 bg-white rounded-xl shadow-xl"
                 />
 
                 <button
                   onClick={() => removeProduct(idx)}
-                  className="text-red-500 font-bold"
+                  className="text-red-500 font-bold bg-white px-2 py-2 rounded-xl shadow-xl"
                 >
                   ✕
                 </button>
               </div>
             ))}
-
-            <button
+          </div>
+          <button
               onClick={addProduct}
-              className="self-start text-blue-600"
+              className="self-start px-2 py-2 bg-blue-500 rounded-xl shadow-xl text-white hover:bg-blue-300 transition-all duration:300 cursor-pointer"
               disabled={order.status === "received"}
             >
               + Add product
             </button>
+          <div className="flex justify-end text-xl font-semibold">
+            Units: {totalUnits}
           </div>
-          <div className="flex justify-end text-lg font-semibold">
+          <div className="flex justify-end text-xl font-semibold">
             Subtotal: ${subtotal.toFixed(2)}
           </div>
 
@@ -163,14 +167,14 @@ export default function EditSupplierOrderModal({
             <div className="flex gap-3">
               <button
                 onClick={() => generateSupplierOrderPDF(order)}
-                className="px-4 py-2 bg-gray-700 text-white rounded"
+                className="px-4 py-2 bg-gray-700 text-white rounded-xl"
               >
                 Export PDF
               </button>
 
               <button
                 onClick={() => exportSupplierOrderExcel(order)}
-                className="px-4 py-2 bg-green-700 text-white rounded"
+                className="px-4 py-2 bg-green-700 text-white rounded-xl"
               >
                 Export Excel
               </button>
@@ -178,13 +182,12 @@ export default function EditSupplierOrderModal({
 
             <button
               onClick={saveChanges}
-              className="px-6 py-2 bg-blue-600 text-white rounded"
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl"
               disabled={order.status === "received"}
             >
               Save Changes
             </button>
           </div>
-        </div>
         </div>
       </div>
 

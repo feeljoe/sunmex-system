@@ -6,6 +6,8 @@ import SubmitResultModal from '../modals/SubmitResultModal';
 import { productConfirmConfig } from '../modals/configConfirms/confirmConfig';
 import { SearchBar } from '../ui/SearchBar';
 import { RefreshButton } from '../ui/RefreshButton';
+import EditProductModal from '../modals/EditProductModal';
+import { useLookupMap } from '@/utils/useLookupMap';
 
 export function ProductsTable() {
 
@@ -16,6 +18,9 @@ export function ProductsTable() {
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
   const [submitStatus, setSubmitStatus] = useState< "loading" | "success" | "error" | null > (null);
   const [message, setMessage] = useState< string | null >(null);
+  const [edit, setEdit] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const {map: brandMap} = useLookupMap('/api/brands');
 
   const { items, total, reload } = useList('/api/products', {
     page,
@@ -81,8 +86,8 @@ export function ProductsTable() {
           <tr className='border-b'>
             <th className='p-2'>SKU</th>
             <th className='p-2'>UPC</th>
-            <th className='p-2'>Name</th>
             <th className='p-2'>Brand</th>
+            <th className='p-2'>Name</th>
             <th className='p-2'>Cost</th>
             <th className='p-2'>Price</th>
             <th className='p-2 text-right'>Edit</th>
@@ -102,13 +107,14 @@ export function ProductsTable() {
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.sku}</td>
               <td className='p-2 whitespace-nowrap'>{it.upc}</td>
-              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.brand?.name.toLowerCase()}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()} {it.weight? `(${it.weight}${it.unit.toUpperCase()})`: ""} {it.caseSize? `(${it.caseSize} Per Case)`: ""}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitCost ?? '-'}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitPrice ?? '-'}</td>
               <td className="p-2 text-right whitespace-nowrap">
                 <button
                     className="text-white bg-blue-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300"
+                    onClick={() => {setEdit(true); setSelectedProduct(it);}}
                     >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -157,12 +163,29 @@ export function ProductsTable() {
       </div>
 
     </div>
+    {edit &&
+      <EditProductModal
+        open={edit}
+        product={selectedProduct}
+        onClose={() => {
+          setEdit(false);
+          setSelectedProduct(null);
+          reload();
+          }
+        }
+        onUpdated={() => {
+          setEdit(false);
+          setSelectedProduct(null);
+          }
+        }
+       />
+      }
     {confirmOpen &&
       <ConfirmModal
           open={confirmOpen}
           title="Confirm Product Deletion"
           data={productToDelete}
-          sections={productConfirmConfig}
+          sections={productConfirmConfig({brandMap})}
           onConfirm={() => {
               confirmDelete(productToDelete._id);
               setConfirmOpen(false);

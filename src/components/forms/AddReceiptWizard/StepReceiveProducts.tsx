@@ -14,52 +14,60 @@ export default function StepReceiveProducts({ form, setForm, onNext, onBack }: a
         sum + i.receivedQuantity * i.actualCost,
       0
     );
+    const totalUnits = form.items.reduce(
+      (sum:number, i:any) =>
+        sum + i.receivedQuantity,
+      0
+    );
+
+    const formatCurrency = (v?: number) =>
+      v != null ? `$${v.toFixed(2)}` : "-";
   
     return (
-      <>
       <div className="flex flex-col h-full justify-between">
-        <div className="">
-        <h2 className="text-xl lg:text-2xl font-semibold text-center mb-5">Receive Products</h2>
-        <table className="w-full">
+        <div className="overflow-y-auto rounded-xl shadow-xl">
+        <table className="w-full h-full">
           <thead className="bg-(--tertiary) text-sm lg:text-lg">
             <tr>
-              <th className="p-2">Product</th>
-              <th className="p-2">Ordered</th>
-              <th className="p-2">Received</th>
-              <th className="p-2 text-center">Unit Cost</th>
-              <th className="p-2 text-center">Actual Cost</th>
-              <th className="p-2 text-right">Delete</th>
+              <th className="p-2 whitespace-nowrap">Product</th>
+              <th className="p-2 whitespace-nowrap">Ordered</th>
+              <th className="p-2 whitespace-nowrap">Received</th>
+              <th className="p-2 text-center whitespace-nowrap">Unit Cost</th>
+              <th className="p-2 text-center whitespace-nowrap">Actual Cost</th>
+              <th className="p-2 text-center whitespace-nowrap">Total</th>
+              <th className="p-2 text-right whitespace-nowrap">Delete</th>
             </tr>
           </thead>
           <tbody className="bg-white text-sm lg:text-lg">
             {form.items.map((it: any, idx: number) => (
-              <tr key={idx}>
-                <td className="p-2">{it.product.name}</td>
-                <td className="p-2 text-center">{it.orderedQuantity}</td>
-                <td className="p-2 text-center">
+              <tr key={idx} className="border-b">
+                <td className="p-4 capitalize whitespace-nowrap">{it.product.brand.name.toLowerCase()} {it.product.name.toLowerCase()}</td>
+                <td className="p-2 text-center whitespace-nowrap">{it.orderedQuantity}</td>
+                <td className="p-2 text-center whitespace-nowrap">
                   <input
                     type="number"
                     value={it.receivedQuantity}
                     onChange={e =>
                       updateItem(idx, "receivedQuantity", Number(e.target.value))
                     }
-                    className="w-20 text-center"
+                    className="w-20 text-center whitespace-nowrap"
                   />
                 </td>
-                <td className="p-2 text-center">${it.unitCost.toFixed(2)}</td>
-                <td className="p-2 text-center">$
+                <td className="p-2 text-center whitespace-nowrap">${it.unitCost.toFixed(2)}</td>
+                <td className="p-2 text-center whitespace-nowrap">$
                   <input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
-                    value={it.actualCost}
+                    value={it.actualCost.toFixed(2)}
                     onChange={e =>
                       updateItem(idx, "actualCost", Number(e.target.value))
                     }
-                    className="w-20 text-center"
+                    className="w-20 text-center whitespace-nowrap"
                   />
                 </td>
-                <td className="p-2 text-right">
+                <td className="p-4 text-center whitespace-nowrap">{formatCurrency(it.receivedQuantity * it.actualCost)}</td>
+                <td className="p-4 text-right whitespace-nowrap">
                   <button 
                     onClick={() => removeItem(idx)}
                     className="bg-red-500 text-white hover:bg-red-300 px-2 py-2 text-lg rounded-xl transition-all duration:300">
@@ -73,9 +81,9 @@ export default function StepReceiveProducts({ form, setForm, onNext, onBack }: a
           </tbody>
         </table>
         </div>
-        <p className="text-right text-2xl">Total: <strong>${total.toFixed(2)}</strong></p>
+        <p className="text-right text-xl p-2">Units: <strong>{totalUnits}</strong></p>
+        <p className="text-right text-2xl p-2">Total: <strong>{formatCurrency(total)}</strong></p>
         </div>
-      </>
     );
   }
   

@@ -1,3 +1,5 @@
+import { useList } from "./useList";
+
 export function formatNameListWithLimit(
     items: any[] | undefined,
     options?: {
@@ -27,4 +29,3 @@ export function formatNameListWithLimit(
       ? `${visible.join(", ")} +${remaining} more`
       : visible.join(", ");
   }
-  

@@ -10,9 +10,13 @@ import { DateRangePicker } from '../ui/DateRangePicker';
 type ViewMode = "ready" | "delivered";
 
 export default function DriverPreordersTable({userRole} : {userRole: string | undefined}) {
+  const [page, setPage] = useState(1);
+  const [limit] = useState(25);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
-  const { items: preorders, reload } = useList('/api/preOrders/driver', {
+  const { items: preorders, total, reload } = useList('/api/preOrders/driver', {
+    page,
+    limit,
     fromDate,
     toDate,
   });
@@ -42,6 +46,7 @@ export default function DriverPreordersTable({userRole} : {userRole: string | un
     if(view === "delivered") return p.status === "delivered";
     return false;
   });
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div className="bg-(--secondary) rounded-xl shadow p-6 lg:p-10 flex flex-col h-4/5">
@@ -81,6 +86,7 @@ export default function DriverPreordersTable({userRole} : {userRole: string | un
             Delivered
         </button>
       </div>
+      <div className='overflow-y-auto'>
       <table className="w-full text-left">
         <thead>
           <tr className="border-b">
@@ -157,6 +163,36 @@ export default function DriverPreordersTable({userRole} : {userRole: string | un
           ))}
         </tbody>
       </table>
+      </div>
+      <div className="flex justify-end items center gap-4 mt-4">
+        {filteredPreorders.length !== 0 &&
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+        }
+            {filteredPreorders.length !== 0 &&
+            <span className="px-3 py-1">
+              Page {page} of {totalPages || 1}
+            </span>
+            }
+        {filteredPreorders.length !== 0 &&
+            <button
+              disabled={page >= totalPages || filteredPreorders.length === 0}
+              onClick={() => setPage(p => p + 1)}
+              className="px-3 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
+            </button>
+        }
+          </div>
       {/* STEP 1: CREDIT MEMO */}
       {selectedCreditMemo && (
         <PrepareCreditMemoModal

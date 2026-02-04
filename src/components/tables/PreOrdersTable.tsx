@@ -285,7 +285,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                   ${statusColors[it.status]}`}>{it.status.toUpperCase()}</div></td>
               {userRole === "admin" &&
               <>
-              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()}</td>
+              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatDate(it.createdAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.createdAt)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.assembledBy?.firstName} {it.assembledBy?.lastName}</td>
@@ -372,6 +372,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
             if(idx !== -1) items[idx] = updated;
             setAssignRouteModalOpen(false);
             setSelectedPreorder2(null);
+            reload();
           }}
         />
       )}

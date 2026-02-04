@@ -8,6 +8,7 @@ import { SearchBar } from "../ui/SearchBar";
 import { useFilteredList } from "../ui/hooks/useFilteredList";
 import { useList } from "@/utils/useList";
 import { RefreshButton } from "../ui/RefreshButton";
+import { EditUserModal } from "../modals/EditUserModal";
 
   
 export function UsersTable(){
@@ -28,6 +29,7 @@ export function UsersTable(){
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [submitStatus, setSubmitStatus] = useState< "loading" | "success" | "error" | null > (null);
     const [message, setMessage] = useState< string | null >(null);
+    const [editUser, setEditUser] = useState< any | null> (null);
 
     const requestDelete = (user: any) => {
         setUserToDelete(user);
@@ -88,6 +90,7 @@ export function UsersTable(){
                             <td className="p-2 capitalize whitespace-nowrap capitalize">{it.userRole.toLowerCase()}</td>
                             <td className="p-2 text-right whitespace-nowrap">
                             <button
+                                onClick={() => setEditUser(it)}
                                 className="text-white bg-blue-500 px-2 py-2 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300"
                                 >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
@@ -136,6 +139,13 @@ export function UsersTable(){
         </button>
       </div>
         </div>
+        {editUser && (
+            <EditUserModal
+                user={editUser}
+                onClose={() => setEditUser(null)}
+                onSaved={reload}
+            />
+        )}
         {confirmOpen &&
         <ConfirmModal
             open={confirmOpen}

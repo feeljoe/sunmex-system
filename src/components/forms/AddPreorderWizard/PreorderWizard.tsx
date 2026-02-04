@@ -7,6 +7,7 @@ import StepConfirm from "./StepConfirm";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import { useList } from "@/utils/useList";
 import { applyPricingLists } from "@/utils/applyPricingLists";
+import SelectPreorderTypeModal from "@/components/modals/SelectPreorderTypeModal";
 
 type PreorderWizardProps ={
     userRole: any;
@@ -22,6 +23,9 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
   const [step, setStep] = useState(1);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [showPreorderType, setShowPreorderType] = useState(false);
+  const [preorderType, setPreorderType] = useState("");
+  const [preorderReason, setPreorderReason] = useState("");
 
   const {items: pricingLists } = useList("/api/pricingLists", {limit: 1000});
   const pricedProducts = useMemo(() => {
@@ -51,7 +55,9 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
       body: JSON.stringify({
         client: selectedClient?._id,
         products: pricedProducts.filter(p => p.quantity > 0),
-        total,
+        type: preorderType,
+        noChargeReason: preorderReason,
+        total: preorderType === "noCharge" ? 0 : total,
       }),
     });
     if(!res.ok){
@@ -67,7 +73,13 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
     setProducts([]);
     setMessage("");
   }
-  const next = () => setStep(s => Math.min(s + 1, 3));
+  const next = () => {
+    if(step===1 && userRole === "admin"){
+      setShowPreorderType(true);
+      return;
+    }
+    setStep(s => Math.min(s + 1, 3))
+    };
   const back = () => setStep(s => Math.max(s - 1, 1));
 
   return (
@@ -93,10 +105,24 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
         <StepConfirm
           client={selectedClient}
           products={pricedProducts}
+          type={preorderType}
           total={total}
         />
       )}
       
+      {showPreorderType && (
+        <SelectPreorderTypeModal
+          onCancel={() => setShowPreorderType(false)}
+          client={selectedClient}
+          onConfirm={(reason:string, type:string) => {
+          setPreorderType(type);
+          setPreorderReason(reason);
+          setShowPreorderType(false);
+          setStep(2);
+          }}
+        />
+      )}
+
       {submitStatus && (
         <SubmitResultModal
             status={submitStatus}

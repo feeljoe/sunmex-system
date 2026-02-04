@@ -8,8 +8,16 @@ import { supplierOrderConfirmConfig } from '../modals/configConfirms/confirmConf
 import SubmitResultModal from '../modals/SubmitResultModal';
 import { RefreshButton } from '../ui/RefreshButton';
 import EditSupplierOrderModal from '../modals/EditSupplierOrder';
+import { useLookupMap } from '@/utils/useLookupMap';
 
 export function SupplierOrdersTable() {
+  const statusColors: Record<string, string> = {
+    pending: "bg-gray-300",
+    assigned: "bg-(--tertiary)",
+    ready: "bg-blue-500 text-white",
+    received: "bg-green-500 text-white",
+    cancelled: "bg-red-500 text-white",
+  };
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState("");
@@ -93,6 +101,7 @@ export function SupplierOrdersTable() {
   };
 
   const totalPages = total > 0? Math.ceil(total/limit): 1;
+  const {map: supplierMap} = useLookupMap("/api/suppliers");
   return (
     <>
     <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
@@ -126,7 +135,7 @@ export function SupplierOrdersTable() {
               <td className='p-2 whitespace-nowrap'>{formatCurrency(it.expectedTotal)}</td>
               <td className='p-2 whitespace-nowrap'>{formatDate(it.requestedAt)}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.elaboratedBy.toLowerCase()}</td>
-              <td className='p-2 whitespace-nowrap'>{it.status}</td>
+              <td className='p-2 whitespace-nowrap'><span className={`p-2 rounded-xl ${statusColors[it.status]}`}>{it.status.toUpperCase()}</span></td>
               {it.status !== "received" &&
               <td className='p-2 text-right'>
                 <button className="text-white bg-blue-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-(--tertiary) hover:text-(--quarteary) transition-all duration:300" onClick={() => openEdit(it)}>
@@ -185,7 +194,7 @@ export function SupplierOrdersTable() {
             open={confirmOpen}
             title="Confirm Order Deletion"
             data={orderToDelete}
-            sections={supplierOrderConfirmConfig}
+            sections={supplierOrderConfirmConfig({supplierMap})}
             onConfirm={() => confirmDelete(orderToDelete._id)}
             onBack={cancelDelete}
           />

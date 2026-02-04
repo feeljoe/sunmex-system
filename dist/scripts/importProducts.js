@@ -42,16 +42,18 @@ var xlsx = require("xlsx");
 var Product_1 = require("../models/Product");
 var Brand_1 = require("../models/Brand");
 var db_1 = require("../lib/db");
+var ProductInventory_1 = require("../models/ProductInventory");
 var path_1 = require("path");
 var Type_1 = require("../models/Type");
 function importProducts() {
     return __awaiter(this, void 0, void 0, function () {
         var projectRoot, excelPath, workbook, sheet, rows, created, _i, rows_1, row, brand, type, product;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0: return [4 /*yield*/, (0, db_1.connectToDatabase)()];
                 case 1:
-                    _a.sent();
+                    _b.sent();
                     projectRoot = (0, path_1.join)(__dirname, "../../");
                     excelPath = (0, path_1.join)(projectRoot, "src/scripts/Productos.xlsx");
                     workbook = xlsx.readFile(excelPath);
@@ -59,23 +61,23 @@ function importProducts() {
                     rows = xlsx.utils.sheet_to_json(sheet);
                     created = 0;
                     _i = 0, rows_1 = rows;
-                    _a.label = 2;
+                    _b.label = 2;
                 case 2:
-                    if (!(_i < rows_1.length)) return [3 /*break*/, 7];
+                    if (!(_i < rows_1.length)) return [3 /*break*/, 8];
                     row = rows_1[_i];
                     return [4 /*yield*/, Brand_1.default.findOne({ name: row.brand })];
                 case 3:
-                    brand = _a.sent();
+                    brand = _b.sent();
                     return [4 /*yield*/, Type_1.default.findOne({ name: row.type })];
                 case 4:
-                    type = _a.sent();
+                    type = _b.sent();
                     if (!brand) {
                         console.warn("Brand not found: ".concat(row.brand));
-                        return [3 /*break*/, 6];
+                        return [3 /*break*/, 7];
                     }
                     if (!type) {
                         console.warn("Type not found: ".concat(row.type));
-                        return [3 /*break*/, 6];
+                        return [3 /*break*/, 7];
                     }
                     return [4 /*yield*/, Product_1.default.findOneAndUpdate({ sku: row.sku }, {
                             sku: row.sku,
@@ -93,26 +95,23 @@ function importProducts() {
                             setDefaultsOnInsert: true,
                         })];
                 case 5:
-                    product = _a.sent();
-                    /*await ProductInventory.updateOne(
-                        {product: product._id},
-                        {
-                            $set: {
-                                currentInventory: Number(row.currentInventory),
-                            },
+                    product = _b.sent();
+                    return [4 /*yield*/, ProductInventory_1.default.updateOne({ product: product._id }, {
                             $setOnInsert: {
+                                product: product._id,
+                                currentInventory: Number((_a = row.currentInventory) !== null && _a !== void 0 ? _a : 0),
                                 preSavedInventory: 0,
                                 onRouteInventory: 0,
                             },
-                        },
-                        {upsert: true}
-                    );*/
-                    created++;
-                    _a.label = 6;
+                        }, { upsert: true })];
                 case 6:
+                    _b.sent();
+                    created++;
+                    _b.label = 7;
+                case 7:
                     _i++;
                     return [3 /*break*/, 2];
-                case 7:
+                case 8:
                     console.log("Product Import completed");
                     console.log("Products altered: ".concat(created));
                     process.exit(0);

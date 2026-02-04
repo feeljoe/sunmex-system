@@ -11,14 +11,17 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "axios": "^1.13.4",
     "dotenv": "^17.2.3",
+    "fast-xml-parser": "^5.3.3",
     "framer-motion": "^12.23.26",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "next": "16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xmlbuilder2": "^4.0.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -26,6 +29,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.9.19",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

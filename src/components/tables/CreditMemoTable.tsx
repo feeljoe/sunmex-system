@@ -159,7 +159,12 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                     </td>
                     <td className="p-2 whitespace-nowrap">{formatDate(it.createdAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.createdAt)}</td>
-                    <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName.toLowerCase() } {it.routeAssigned?.user?.lastName.toLowerCase()} </td>
+                    {it.routeAssigned &&
+                      <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName.toLowerCase() } {it.routeAssigned?.user?.lastName.toLowerCase()} </td>
+                    }
+                    {(it.routeAssigned === undefined) &&
+                      <td className="p-2 whitespace-nowrap capitalize"> 001 | {it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()} </td>
+                    }
                     <td className="p-2 whitespace-nowrap">{formatDate(it.returnedAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.returnedAt)}</td>
                   </>

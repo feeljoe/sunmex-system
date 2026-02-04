@@ -14,7 +14,7 @@ const CreditMemoSchema = new Schema(
         actualCost: { type: Number, default: 0 }, // optional if cost changes
         returnReason: {
           type: String,
-          enum: ["credit memo", "good return", "no cost"],
+          enum: ["credit memo", "good return"],
         }
       },
     ],

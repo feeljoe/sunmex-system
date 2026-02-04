@@ -4,6 +4,7 @@ import { useList } from "@/utils/useList";
 import { SearchBar } from "../ui/SearchBar";
 import { useEffect, useState } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
+import { ExportExcelButton } from "../ui/ExportExcelButton";
 
 export function InventoryTable() {
   const [page, setPage] = useState(1);
@@ -31,7 +32,10 @@ export function InventoryTable() {
           onSearch={setSearch}
           debounce
         />
-        <RefreshButton onRefresh={reload}/>
+        <div className="flex gap-4">
+          <ExportExcelButton/>
+          <RefreshButton onRefresh={reload}/>
+        </div>
       </div>
       <div className='flex-1 overflow-auto'>
       <table className="w-full text-left text-sm lg:text-lg">

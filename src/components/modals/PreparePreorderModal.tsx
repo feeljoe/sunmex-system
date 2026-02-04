@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import DifferenceReasonModal from "./DifferenceReasonModal";
+import AdminAuthorizationModal from "./AdminAuthorizationModal";
 
 export default function PrepareOrderModal({
     user,
@@ -17,15 +19,22 @@ export default function PrepareOrderModal({
         preorder.products.map((p: any) => ({
             ...p,
             pickedQuantity: p.pickedQuantity ?? 0,
+            differenceReason: null,
             adjusted: false,
         }))
     );
+
+    const [activeProduct, setActiveProduct] = useState<any>(null);
+    const [showAdminAuth, setShowAdminAuth] = useState(false);
+    const [authorizedBy, setAuthorizedBy] = useState<string | null>(null);
+
     const totalRequired = products.reduce(
-        (s: any, p: { quantity: any; }) => s + p.quantity,
+        (sum: number, p: any) => 
+            sum + (p.differenceReason? p.pickedQuantity: p.quantity),
         0
       );      
     const totalPicked = products.reduce(
-        (s: number, p: any) => s + p.pickedQuantity, 0
+        (sum: number, p: any) => sum + p.pickedQuantity, 0
     );
 
     const markPicked = (id: string) => {
@@ -60,7 +69,7 @@ export default function PrepareOrderModal({
       };
       
 
-    const completePreorder = async () => {
+    const completePreorder = async (adminId: string) => {
         await fetch(`/api/preOrders/${preorder._id}/complete`, {
             method: "PATCH",
             headers: {"Content-Type": "application/json"},
@@ -68,6 +77,8 @@ export default function PrepareOrderModal({
                 products: products.map((p: any) => ({
                     productInventory : p.productInventory._id,
                     pickedQuantity: p.pickedQuantity,
+                    differenceReason: p.differenceReason,
+                    authorizedBy: adminId,
                 })),
                 assembledBy: user.id,
             }),
@@ -83,6 +94,7 @@ export default function PrepareOrderModal({
     });
 
     return (
+        <>
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
             <div className="bg-white rounded-xl shadow-xl w-4/5 max-w-4xl p-6 space-y-4">
                 <h2 className="font-semibold text-2xl">
@@ -98,7 +110,7 @@ export default function PrepareOrderModal({
                             key={p._id}
                             className={`flex items-center gap-3 shadow p-3 rounded-xl ${p.adjusted ? "bg-yellow-50" : "bg-(--secondary)"}`}
                         >
-                            <input type="checkbox" checked={p.pickedQuantity === p.quantity} onChange={() => markPicked(p._id)} className="w-8 h-8"/>
+                            <input type="checkbox" checked={p.differenceReason? p.pickedQuantity === p.pickedQuantity :p.pickedQuantity === p.quantity} onChange={() => markPicked(p._id)} className="w-8 h-8"/>
 
                             <div className="flex-1">
                                 <div className="font-semibold">
@@ -109,8 +121,14 @@ export default function PrepareOrderModal({
                                 </div>
                             </div>
 
+                            {p.differenceReason && (
+                                <span className="text-xs text-orange-600">
+                                    Short Picked ({p.differenceReason})
+                                </span>
+                            )}
+
                             <div className="w-24 text-center">
-                                {p.pickedQuantity} / {p.quantity}
+                                {p.pickedQuantity} / {p.differenceReason? p.pickedQuantity :p.quantity}
                             </div>
                             {p.pickedQuantity === p.quantity && (
                                 <span className="text-xs text-green-600">
@@ -119,17 +137,7 @@ export default function PrepareOrderModal({
                             )}
                             <button
                                 className="text-md text-red-600 underline cursor-pointer"
-                                onClick={() => {
-                                    const input = (prompt("Actual quantity received:", 
-                                        String(p.quantity))
-                                    );
-                                    if(input === null) return;
-                                    const val = Number(input);
-
-                                    if(!isNaN(val) && val >=0) {
-                                        adjustQty(p._id, val);
-                                    }
-                                }}
+                                onClick={() => setActiveProduct(p)}
                                 >
                                     not enough?
                                 </button>
@@ -141,7 +149,7 @@ export default function PrepareOrderModal({
                         Cancel
                     </button>
                     <button 
-                        onClick={completePreorder}
+                        onClick={() => setShowAdminAuth(true)}
                         disabled={totalPicked !== totalRequired}
                         className="bg-green-600 text-white px-5 py-3 rounded-xl shadow-xl disabled:opacity-50"
                     >
@@ -150,5 +158,36 @@ export default function PrepareOrderModal({
                 </div>
             </div>
         </div>
+        {activeProduct && (
+            <DifferenceReasonModal
+                product={activeProduct}
+                onClose={() => setActiveProduct(null)}
+                onConfirm={({ quantity, reason}) => {
+                    setProducts((prev: any[]) =>
+                    prev.map((p) =>
+                    p._id === activeProduct._id
+                    ? {
+                        ...p,
+                        pickedQuantity: quantity,
+                        differenceReason: reason,
+                        adjusted: true,
+                    }
+                    : p
+                    )
+                );
+                setActiveProduct(null);
+                }}
+            />
+        )}
+        {showAdminAuth && (
+            <AdminAuthorizationModal
+                onClose={() => setShowAdminAuth(false)}
+                onAuthorized={(adminId) => {
+                    setAuthorizedBy(adminId);
+                    completePreorder(adminId);
+                }}
+            />
+        )}
+        </>
     );
 }

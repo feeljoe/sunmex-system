@@ -44,7 +44,7 @@ export default function ReceiptWizard({currentUser}: {currentUser: string}) {
 
   return (
     <>
-    <div className="bg-(--secondary) p-6 rounded-xl overflow-x-auto overflow-y-auto shadow w-full h-full">
+    <div className="bg-(--secondary) p-6 rounded-xl overflow-x-auto overflow-y-auto shadow w-full h-4/5">
       {step === 1 && (
         <StepSelectOrder
           form={form}
@@ -77,7 +77,7 @@ export default function ReceiptWizard({currentUser}: {currentUser: string}) {
         </div>
         <div className="flex gap-4">
           {step < 3 ? (
-            <button onClick={next} className={`
+            <button hidden={step === 1} onClick={next} className={`
                 px-5 py-3 rounded-xl shadow-xl font-bold text-white
                 transition-all duration-500 bg-blue-500 hover:bg-blue-600 cursor-pointer
               `}>
@@ -89,7 +89,6 @@ export default function ReceiptWizard({currentUser}: {currentUser: string}) {
             </button>
           )}
         </div>
-        
       </div>
       {submitStatus && (
         <SubmitResultModal

@@ -60,7 +60,6 @@ export default function ReturnReasonModal({
                   <option value="">Select reason</option>
                   <option value="credit memo">Credit Memo</option>
                   <option value="good return">Good Return</option>
-                  <option value="no cost">No Cost</option>
                 </select>
               </div>
             ))}

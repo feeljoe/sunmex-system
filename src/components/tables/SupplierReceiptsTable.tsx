@@ -3,11 +3,15 @@ import { useList } from '@/utils/useList';
 import { RefreshButton } from '../ui/RefreshButton';
 import { SearchBar } from '../ui/SearchBar';
 import { useEffect, useState } from 'react';
+import { SupplierReceiptSummaryModal } from '../modals/SupplierReceiptSummaryModal';
 
 export function SupplierReceiptsTable() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState("");
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [showSummary, setShowSummary] = useState(false);
+
   const formatCurrency = (v?: number) =>
     v != null ? `$${v.toFixed(2)}` : "-";
  
@@ -25,6 +29,11 @@ export function SupplierReceiptsTable() {
   
   const totalPages = total > 0? Math.ceil(total/limit): 1;
 
+  const orderSummary = (receipt: any) => {
+    setSelectedReceipt(receipt);
+    setShowSummary(true);
+  }
+
   return (
     <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
       <div className="flex justify-between items-center mb-4">
@@ -35,18 +44,18 @@ export function SupplierReceiptsTable() {
               />
               <RefreshButton onRefresh={reload}/>
             </div>
-      <div className='flex-1 overflow-auto'>
+      <div className='flex-1 overflow-x-auto'>
       <table className='w-full text-left'>
         <thead>
           <tr className='border-b'>
-            <th className='p-2'>Invoice</th>
-            <th className='p-2'>PO Number</th>
-            <th className='p-2'>Supplier</th>
-            <th className='p-2'>Total</th>
-            <th className='p-2'>Date of Request</th>
-            <th className='p-2'>Date Arrived</th>
-            <th className='p-2'>Elaborated By</th>
-            <th className='p-2'>Status</th>
+            <th className='p-2 whitespace-nowrap'>Invoice</th>
+            <th className='p-2 whitespace-nowrap'>PO Number</th>
+            <th className='p-2 whitespace-nowrap'>Supplier</th>
+            <th className='p-2 whitespace-nowrap'>Total</th>
+            <th className='p-2 whitespace-nowrap'>Date of Request</th>
+            <th className='p-2 whitespace-nowrap'>Date Arrived</th>
+            <th className='p-2 whitespace-nowrap'>Elaborated By</th>
+            <th className='p-2 whitespace-nowrap'>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -58,15 +67,15 @@ export function SupplierReceiptsTable() {
             </tr>
           )}
           {items.map((it: any) => (
-            <tr key={it._id} className='border-b'>
+            <tr key={it._id} className='border-b hover:bg-gray-200 cursor-pointer' onClick={() => orderSummary(it)}>
               <td className='p-2 whitespace-nowrap'>{it.invoice}</td>
               <td className='p-2 whitespace-nowrap'>{it.poNumber}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.supplier?.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>{formatCurrency(it.total)}</td>
-              <td className='p-2 whitespace-nowrap'>{formatDate(it.requestedAt)}</td>
-              <td className='p-2 whitespace-nowrap'>{formatDate(it.receivedAt)}</td>
+              <td className='p-2 whitespace-nowrap text-center'>{formatDate(it.requestedAt)}</td>
+              <td className='p-2 whitespace-nowrap text-center'>{formatDate(it.receivedAt)}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.elaboratedBy.firstName.toLowerCase()} {it.elaboratedBy.lastName.toLowerCase()}</td>
-              <td className='p-2 whitespace-nowrap'>{it.supplierOrder.status}</td>
+              <td className='p-2 whitespace-nowrap'><p className={it.supplierOrder.status === `received`? "p-2 text-center text-white rounded-xl font-bold bg-green-500" : ""}>{it.supplierOrder.status.toUpperCase()} </p></td>
             </tr>
           ))}
         </tbody>
@@ -100,6 +109,13 @@ export function SupplierReceiptsTable() {
           </svg>
         </button>
       </div>
+      <SupplierReceiptSummaryModal
+        open={showSummary}
+        receipt={selectedReceipt}
+        onClose={() => {
+          setShowSummary(false);
+          setSelectedReceipt(null);
+        }}/>
     </div>
   );
 }

@@ -11,6 +11,8 @@ export async function GET(req: Request){
     const { searchParams } = new URL(req.url);
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
 
     const session = await getServerSession(authOptions);
     if(!session?.user){
@@ -31,6 +33,16 @@ export async function GET(req: Request){
             $lte: endOfToday,
         },
     };
+    if(fromDate && toDate){
+        const [fy, fm, fd] = fromDate.split("-").map(Number);
+        const [ty, tm, td] = toDate.split("-").map(Number);
+        const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
+        const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
+        baseQuery.deliveryDate = {
+          $gte: start,
+          $lte: end,
+        };
+      }
 
     if(session.user.role === "driver"){
         const route = await Route.findOne({
