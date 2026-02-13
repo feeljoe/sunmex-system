@@ -107,6 +107,7 @@ export async function POST(req: Request) {
       layerSize: body.layerSize,
       palletSize: body.palletSize,
       weight: body.weight,
+      unit: body.unit,
       image: body.image || null, // URL returned by Cloudinary
     });
 

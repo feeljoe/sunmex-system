@@ -2,7 +2,7 @@
 
 import { useList } from "@/utils/useList";
 import { SearchBar } from "../ui/SearchBar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
 import { DateRangePicker } from "../ui/DateRangePicker";
 import CancelCreditMemoModal from "../modals/CancelCreditMemoModal";
@@ -19,6 +19,9 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
   const [search, setSearch] = useState("");
+  const [vendorInput, setVendorInput] = useState("");
+  const [routeInput, setRouteInput] = useState("");
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
   const todayISO = () => new Date().toISOString().split("T")[0];
   const today = todayISO();
@@ -28,14 +31,55 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   const [appliedFilters, setAppliedFilters] = useState({
     fromDate,
     toDate,
+    vendorId: userRole === "vendor" ? userId : "",
+    routeId: "",
   });
 
+  // Data for selects
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
+
+  // Fetch users for selects
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/users?limit=100");
+        const data = await res.json();
+        if(res.ok){
+          setVendors(data.items.filter((u: any) => u.userRole === "vendor"));
+        }
+      } catch(err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch routes for select (assuming /api/routes)
+    useEffect(() => {
+      const fetchRoutes = async () => {
+        try {
+          const res = await fetch("/api/routes?limit=100");
+          const data = await res.json();
+          if(res.ok){
+            setRoutes(data.items.filter((u: any) => u.type === "driver"));
+            setVendors(data.items.filter((u: any) => u.type === "vendor"));
+          }
+        } catch(err) {
+          console.error("Failed to fetch routes:", err);
+        }
+      };
+      fetchRoutes();
+    }, []);
+    
   const { items, total, reload } = useList("/api/credit-memos", {
     page,
     limit,
     search,
     fromDate: appliedFilters.fromDate,
     toDate: appliedFilters.toDate,
+    vendorId: appliedFilters.vendorId,
+    routeId: appliedFilters.routeId,
   });
 
   const [selected, setSelected] = useState<any | null>(null);
@@ -83,11 +127,52 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
     }
   };
 
+  const applyFilters = () => {
+    setPage(1);
+    setAppliedFilters({
+      fromDate,
+      toDate,
+      vendorId: vendorInput,
+      routeId: routeInput,
+    });
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const toggleFilters = (key: string, value: string) => {
+    setActiveFilters((prev) => {
+      const newFilters = { ...prev };
+      if(newFilters[key] === value){
+        delete newFilters[key];
+      }else {
+        newFilters[key] = value;
+      }
+
+      const searchString = Object.entries(newFilters)
+      .map(([k,v]) => ( v ? `${k}:${v}` : ""))
+      .filter(Boolean)
+      .join(" ");
+
+      setSearch(searchString);
+      return newFilters;
+    });
+  };
+
+  const [activeInput, setActiveInput] = useState<string | null>(null);
+  const [tempValue, setTempValue] = useState<string>("");
+
+  const filterOptions = [
+    { label: "Pending", key: "status", value: "pending" },
+    { label: "Received", key: "status", value: "received" },
+    { label: "Cancelled", key: "status", value: "cancelled" },
+    { label: "Total", key: "total", value: "" },
+    { label: "Subtotal", key: "subtotal", value: "" },
+  ];
 
   return (
     <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
       {userRole === "admin" && (
+        <>
         <div className="flex items-center mb-4">
           <DateRangePicker
             fromDate={fromDate}
@@ -95,15 +180,145 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
             onChange={(from, to) => {
               setFromDate(from);
               setToDate(to);
-              setAppliedFilters({ fromDate: from, toDate: to });
             }}
           />
         </div>
-      )}
+        <div className="grid grid-cols lg:grid-cols-3 gap-4 mb-4">
+      {/* VENDOR */}
+      <select
+        value={vendorInput}
+        onChange={(e) => setVendorInput(e.target.value)}
+        className="p-2 rounded-xl bg-white h-10"
+      >
+        <option value="">All Vendors</option>
+        {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
+      </select>
 
-      <div className="flex justify-between mb-4">
+      {/* ROUTE */}
+      <select
+        value={routeInput}
+        onChange={(e) => setRouteInput(e.target.value)}
+        className="p-2 rounded bg-white h-10"
+      >
+        <option value="">All Routes</option>
+        {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
+      </select>
+      {/* FILTER BUTTON */}
+      <div className="flex mb-4">
+        <button
+          className="px-4 py-2 bg-blue-500 text-white rounded-xl"
+          onClick={applyFilters}
+        >
+          Apply Filters
+        </button>
+      </div>
+      </div>
+      </>
+      )}
+      <div className="flex justify-between mb-4 gap-5">
         <SearchBar placeholder="Search credit memos..." onSearch={setSearch} debounce />
         <RefreshButton onRefresh={reload} />
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+
+        {filterOptions.map((f)=>{
+          const isActive = f.key === "total" || f.key === "subtotal"
+          ? !!activeFilters[f.key]
+          : activeFilters[f.key] === f.value;
+          const isInputActive = activeInput === f.key;
+
+          if(f.key === "total" || f.key === "subtotal"){
+            return (
+              <div key={f.key} className="flex items-center gap-2">
+                {!isInputActive ? (
+                  <button
+                    onClick={() => {
+                      if(isActive) {
+                        setActiveFilters((prev) => {
+                          const copy = { ...prev };
+                          delete copy[f.key];
+                          const searchString = Object.entries(copy)
+                          .map(([k, v]) => (v ? `${k}:${v}`: ""))
+                          .filter(Boolean)
+                          .join(" ");
+                          setSearch(searchString);
+                          return copy;
+                        });
+                      }else {
+                        setActiveInput(f.key);
+                        setTempValue("");
+                      }
+                    }}
+                    className={`
+                      px-3 py-1 rounded-xl shadow-xl transition-all duration:300
+                      ${isActive ? "bg-(--tertiary) text-white": "bg-white hover:bg-gray-100"}
+                    `}
+                    >
+                      {isActive ? `${f.label}:${activeFilters[f.key]}`: f.label}
+                    </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number"
+                      inputMode="decimal"
+                      step= "0.01"
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      className="px-2 py-1 rounded-xl bg-white shadow-xl w-24"
+                      placeholder="value"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        if(tempValue) {
+                          setActiveFilters((prev) => {
+                            const copy = { ...prev, [f.key]: tempValue};
+                            const searchString = Object.entries(copy)
+                              .map(([k, v]) => (v ? `${k}:${v}` : ""))
+                              .filter(Boolean)
+                              .join(" ");
+                            setSearch(searchString);
+                            return copy;
+                          });
+                          }
+                          setActiveInput(null);
+                          setTempValue("");
+                        }}
+                      className="px-3 px-1 rounded-xl bg-blue-500 text-white cursor-pointer"
+                      >
+                        OK
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveInput(null);
+                          setTempValue("");
+                        }}
+                        className="px-3 py-1 rounded-xl bg-gray-300 text-black cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                  </div>
+                )}
+                
+              </div>
+            );
+          }
+          return (
+            <button
+              key={f.label}
+              onClick={() => toggleFilters(f.key, f.value)}
+              className={`
+                px-3 py-1 rounded-xl shadow-xl transition-all duration-200
+
+                ${isActive
+                  ? "bg-(--tertiary) text-white"
+                  : "bg-white hover:bg-gray-100"}
+              `}
+            >
+              {f.label}</button>
+          );
+        })}
+
       </div>
 
       <div className="flex-1 overflow-auto">

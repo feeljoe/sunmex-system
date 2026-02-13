@@ -59,7 +59,7 @@ function parseExcelDate(value) {
 }
 function importPreorders() {
     return __awaiter(this, void 0, void 0, function () {
-        var projectRoot, excelPath, workbook, sheet, rows, grouped, _i, rows_1, row, created, skipped, _a, _b, _c, preorderNumber, group, first, client, deliveryDate, createdBy, vendorRoute, routeAssigned, driverRoute, products, subtotal, _d, group_1, row, product, inventory, qty, cost;
+        var projectRoot, excelPath, workbook, sheet, rows, grouped, _i, rows_1, row, created, skipped, _a, _b, _c, preorderNumber, group, isNoCharge, preorderType, first, client, deliveryDate, createdBy, vendorRoute, routeAssigned, driverRoute, products, subtotal, _d, group_1, row, product, inventory, normalQty, noChargeQty, qty, cost;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0: return [4 /*yield*/, (0, db_1.connectToDatabase)()];
@@ -84,6 +84,10 @@ function importPreorders() {
                 case 2:
                     if (!(_a < _b.length)) return [3 /*break*/, 15];
                     _c = _b[_a], preorderNumber = _c[0], group = _c[1];
+                    isNoCharge = group.some(function (row) {
+                        return Number(row.noCharge || 0) > 0;
+                    });
+                    preorderType = isNoCharge ? "noCharge" : "charge";
                     first = group[0];
                     return [4 /*yield*/, Client_1.default.findOne({ clientNumber: first.clientNumber })];
                 case 3:
@@ -140,7 +144,9 @@ function importPreorders() {
                         skipped++;
                         return [3 /*break*/, 11];
                     }
-                    qty = Number(row.quantity);
+                    normalQty = Number(row.quantity || 0);
+                    noChargeQty = Number(row.noCharge || 0);
+                    qty = noChargeQty > 0 ? noChargeQty : normalQty;
                     cost = Number(row.actualCost);
                     subtotal += qty * cost;
                     products.push({
@@ -163,9 +169,10 @@ function importPreorders() {
                         deliveryDate: deliveryDate,
                         createdAt: deliveryDate,
                         deliveredAt: deliveryDate,
+                        type: preorderType,
                         status: "delivered",
                         subtotal: subtotal,
-                        total: subtotal,
+                        total: preorderType === "noCharge" ? 0 : subtotal,
                         paymentStatus: "pending",
                     })];
                 case 13:

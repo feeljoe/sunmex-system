@@ -21,11 +21,11 @@ export function useList<T = any>(
   const fetchData = async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if(options.page) params.set("page", String(options.page));
-    if(options.limit) params.set("limit", String(options.limit));
-    if(options.search) params.set("search", options.search);
+    
     for (const key in options) {
-      if (options[key]) params.append(key, options[key]);
+      if (options[key] !== undefined && options[key] !== null) {
+        params.set(key, String(options[key]));
+      }
     }
     try{
       const res = await fetch(`${baseUrl}?${params.toString()}`);

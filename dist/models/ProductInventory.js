@@ -23,6 +23,11 @@ var ProductInventorySchema = new mongoose_1.Schema({
         default: 0,
         min: 0,
     },
+    inactiveInventory: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
 }, {
     timestamps: true,
 });

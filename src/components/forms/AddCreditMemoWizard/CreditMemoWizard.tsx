@@ -90,7 +90,7 @@ export default function CreditMemoWizard({userRole}: CreditMemoWizardProps) {
 
   return (
     <>
-    <div className="bg-(--secondary) p-6 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
+    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
       {step === 1 && (
         <StepSelectClient
           userRole={userRole}

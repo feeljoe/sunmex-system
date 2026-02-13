@@ -53,11 +53,13 @@ export default function AddSupplierWizard({ onSuccess }: { onSuccess?: () => voi
           contact: form.contact || null,
           email: form.email,
           phoneNumber: form.phoneNumber,
-          addressLine: form.addressLine,
-          city: form.city,
-          state: form.state || null,
-          country: form.country || null,
-          zipCode: form.zipCode || null,
+          billingAddress: {
+            addressLine: form.addressLine,
+            city: form.city,
+            state: form.state || null,
+            country: form.country || null,
+            zipCode: form.zipCode || null,
+          }
         };
   
         const res = await fetch('/api/suppliers', { 

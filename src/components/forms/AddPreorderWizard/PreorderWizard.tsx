@@ -77,6 +77,8 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
     if(step===1 && userRole === "admin"){
       setShowPreorderType(true);
       return;
+    }else if(step===1 && userRole !== "admin"){
+      setPreorderType("charge");
     }
     setStep(s => Math.min(s + 1, 3))
     };
@@ -84,7 +86,7 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
 
   return (
     <>
-    <div className="bg-(--secondary) p-6 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
+    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
       {step === 1 && (
         <StepSelectClient
           userRole={userRole}

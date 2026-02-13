@@ -47,7 +47,7 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
     layerSize: "",
     palletSize: "",
     weight:"",
-  
+    unit: "",
     imageFile: null,
     imageUrl: null,
   });
@@ -98,6 +98,7 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
           layerSize: form.layerSize ? Number(form.layerSize) : null,
           palletSize: form.palletSize ? Number(form.palletSize) : null,
           weight: form.weight ? Number(form.weight) : null,
+          unit: form.unit ? form.unit: null,
           image: imageUrl,
         };
   
@@ -134,6 +135,7 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
             layerSize: "",
             palletSize: "",
             weight: "",
+            unit: "",
             imageFile: null,
             imageUrl: null,
           });

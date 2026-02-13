@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default async function SalesPage(){
     return (
-        <div className="flex flex-1 w-full h-full gap-10 p-10">
+        <div className="grid grid-cols-2 lg:flex lg:flex-1 w-full h-full gap-5 p-5">
                 <Link href="/pages/sales/preorders" className="w-40 h-50 lg:w-50 lg:h-80 bg-(--secondary) rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
                     <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
                         Preorders

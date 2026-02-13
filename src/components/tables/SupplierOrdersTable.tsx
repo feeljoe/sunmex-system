@@ -1,7 +1,6 @@
 "use client";
 import { useList } from '@/utils/useList';
 import { useEffect, useState } from 'react';
-import { useFilteredList } from '../ui/hooks/useFilteredList';
 import { SearchBar } from '../ui/SearchBar';
 import { ConfirmModal } from '../modals/ConfirmModal';
 import { supplierOrderConfirmConfig } from '../modals/configConfirms/confirmConfig';
@@ -19,7 +18,7 @@ export function SupplierOrdersTable() {
     cancelled: "bg-red-500 text-white",
   };
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(50);
   const [search, setSearch] = useState("");
   const { items, total, reload } = useList('/api/supplierOrders', {
     page,
@@ -34,17 +33,6 @@ export function SupplierOrdersTable() {
     const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
     const [submitStatus, setSubmitStatus] = useState< "loading" | "success" | "error" | null > (null);
     const [message, setMessage] = useState< string | null >(null);
-    
-        const filteredItems = useFilteredList(
-            items,
-            search,
-            (order: any, q) =>
-                order.poNumber.toLowerCase().includes(q) ||
-                order.supplier?.name.toLowerCase().includes(q) ||
-                order.requestedAt.toLowerCase().includes(q) ||
-                String(order.expectedTotal).includes(q) ||
-                order.elaboratedBy.toLowerCase().includes(q)
-        );
     
         const requestDelete = (order: any) => {
             setOrderToDelete(order);
@@ -113,22 +101,22 @@ export function SupplierOrdersTable() {
       />
       <RefreshButton onRefresh={reload}/>
       </div>
-      <div className='flex-1 overflow-auto'>
+      <div className='flex-1 overflow-auto mt-2 rounded-xl'>
       <table className='w-full text-left'>
-        <thead>
+        <thead className='bg-(--tertiary)'>
           <tr className='border-b'>
-            <th className='p-2'>PO Number</th>
-            <th className='p-2'>Supplier</th>
-            <th className='p-2'>Total</th>
-            <th className='p-2'>Date of Request</th>
-            <th className='p-2'>Elaborated By</th>
-            <th className='p-2'>Status</th>
-            <th className='p-2 text-right'>Edit</th>
-            <th className='p-2 text-right'>Delete</th>
+            <th className='p-2 whitespace-nowrap'>PO Number</th>
+            <th className='p-2 whitespace-nowrap'>Supplier</th>
+            <th className='p-2 whitespace-nowrap'>Total</th>
+            <th className='p-2 whitespace-nowrap'>Date of Request</th>
+            <th className='p-2 whitespace-nowrap'>Elaborated By</th>
+            <th className='p-2 whitespace-nowrap'>Status</th>
+            <th className='p-2 text-right whitespace-nowrap'>Edit</th>
+            <th className='p-2 text-right whitespace-nowrap'>Delete</th>
           </tr>
         </thead>
         <tbody>
-          {filteredItems.map((it: any) => (
+          {items.map((it: any) => (
             <tr key={it._id} className='border-b'>
               <td className='p-2 whitespace-nowrap'>{it.poNumber}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.supplier?.name.toLowerCase()}</td>

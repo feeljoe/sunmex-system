@@ -93,19 +93,24 @@ export default function CreditMemoDetailsModal({
           <thead>
             <tr className="border-b">
               <th className="p-2 text-left">Product</th>
+              <th className="p-2 text-center">SKU</th>
               <th className="p-2 text-center">UPC</th>
               <th className="p-2 text-center">Qty</th>
               <th className="p-2 text-center">Picked</th>
               <th className="p-2 text-center">Returned</th>
-              <th className="p-2 text-right">Cost</th>
-              <th className="p-2 text-left">Reason</th>
+              <th className="p-2 text-center">Cost</th>
+              <th className="px-4 py-2 text-right">Reason</th>
             </tr>
           </thead>
           <tbody className="bg-white">
             {creditMemo.products.map((p: any, idx: number) => (
               <tr key={idx} className="border-b">
                 <td className="p-2 capitalize whitespace-nowrap">
-                  {p.product.name.toLowerCase() ||
+                  {p.product?.brand?.name?.toLowerCase() || "-"} {p.product?.name?.toLowerCase() ||
+                    "-"} {p.product.weight && p.product.unit && (<>{p.product?.weight}{p.product?.unit?.toUpperCase()}</>)}
+                </td>
+                <td className="p-2 text-center whitespace-nowrap">
+                  {p.product.sku ||
                     "-"}
                 </td>
                 <td className="p-2 text-center whitespace-nowrap">
@@ -115,10 +120,10 @@ export default function CreditMemoDetailsModal({
                 <td className="p-2 text-center whitespace-nowrap">{p.quantity}</td>
                 <td className="p-2 text-center whitespace-nowrap">{p.pickedQuantity ?? "-"}</td>
                 <td className="p-2 text-center whitespace-nowrap">{p.returnedQuantity ?? "-"}</td>
-                <td className="p-2 text-right whitespace-nowrap">
+                <td className="p-2 text-center whitespace-nowrap">
                   {formatCurrency(p.actualCost)}
                 </td>
-                <td className="p-2 capitalize whitespace-nowrap">{p.returnReason}</td>
+                <td className="px-4 py-2 text-right capitalize whitespace-nowrap">{p.returnReason}</td>
               </tr>
             ))}
           </tbody>
@@ -128,10 +133,10 @@ export default function CreditMemoDetailsModal({
         {/* TOTALS */}
         <div className="flex justify-end gap-10 text-lg">
           <div>
-            <strong>Subtotal:</strong> {formatCurrency(creditMemo.subtotal)}
+            <strong>Subtotal: {formatCurrency(creditMemo.subtotal)}</strong>
           </div>
           <div>
-            <strong>Total:</strong> {formatCurrency(creditMemo.total)}
+            <strong>Total: {formatCurrency(creditMemo.total)} </strong>
           </div>
         </div>
       </div>

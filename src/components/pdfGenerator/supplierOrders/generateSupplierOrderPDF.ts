@@ -4,53 +4,99 @@ import { COMPANY_LOGO_BASE64 } from "@/utils/companyLogo";
 
 export function generateSupplierOrderPDF(order: any) {
   const doc = new jsPDF();
-  let cursorY = 15;
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
 
   doc.addImage(COMPANY_LOGO_BASE64, "PNG", 14, 10, 40, 18);
-  cursorY = 35;
+  
+  doc.setFontSize(11);
+  const companyInfo = [
+    "Sunmex LLC",
+    "4645 W McDowell Rd Ste 102",
+    "Phoenix AZ 85035",
+    "Tel: (520) 882-2658",
+    "bromero@sunmexusa.com",
+  ]
+  let companyY = 15;
 
-  doc.setFontSize(18);
-  doc.text("SUPPLIER PURCHASE ORDER", 14, cursorY);
-  cursorY += 10;
+  companyInfo.forEach(line => {
+    doc.text(line, pageWidth / 2, companyY, {align: "center"});
+    companyY += 5;
+  });
+  //doc.setFontSize(16);
 
-  doc.setFontSize(12);
-  doc.text(`PO Number: ${order.poNumber}`, 14, cursorY);
-  cursorY += 7;
+  //doc.text("SUPPLIER PURCHASE ORDER", pageWidth / 2, companyY + 5, {align: "center"});
 
-  doc.text(`Supplier: ${order.supplier?.name}`, 14, cursorY);
-  cursorY += 7;
+  const addr = order.supplier?.billingAddress;
+
+  const supplierAddress = addr
+  ? `${addr.addressLine || ""}\n ${addr.city || ""} ${addr.state || ""}, ${addr.zipCode || ""}`
+    : "";
+
+  let infoY = 15;
+
+  doc.text(`PURCHASE ORDER: ${order.poNumber}`, pageWidth -10, infoY, {align: "right"});
+  infoY +=6;
 
   doc.text(
-    `Requested on: ${new Date(order.requestedAt).toLocaleDateString()}`,
-    14,
-    cursorY
+    `Date: ${new Date(order.requestedAt).toLocaleDateString()}`,
+    pageWidth -10,
+    infoY,
+    {align: "right"}
   );
-  cursorY += 7;
+  infoY +=6;
 
-  doc.text(`Status: ${order.status.toUpperCase()}`, 14, cursorY);
-  cursorY += 7;
+  doc.text(`Supplier: ${order.supplier?.name || ""}`, pageWidth -10, infoY, { align: "right" });
+  infoY += 6;
 
-  autoTable(doc, {
-    startY: cursorY + 5,
-    head: [["Product", "SKU", "Quantity", "Unit"]],
-    body: order.products.map((p: any) => [
+  if (supplierAddress.trim()) {
+    doc.setFontSize(9);
+    doc.text(supplierAddress, pageWidth -10, infoY, { align: "right" });
+    infoY += 6;
+  }
+
+  const tableRows = order.products.map((p: any) => {
+    const qtyUnits = p.quantity || 0;
+    const caseSize = p.product?.caseSize || null;
+    const unitCost = p.product?.unitCost || 0;
+
+    const qtyCases = caseSize ? (qtyUnits/caseSize) : "-";
+    const casePrice = caseSize ? (unitCost * caseSize) : "-";
+    const totalPrice = qtyUnits * unitCost;
+
+    return [
+      p.product?.brand?.name || "-",
       p.product?.name || "-",
       p.product?.sku || "-",
-      p.quantity,
-      p.unit,
-    ]),
+      p.product?.vendorSku || "-",
+      qtyUnits,
+      qtyCases,
+      casePrice !== "-" ? `$${casePrice.toFixed(2)}` : "-",
+      `$${totalPrice.toFixed(2)}`
+    ];
   });
 
-  cursorY = (doc as any).lastAutoTable.finalY + 10;
+  autoTable(doc, {
+    startY: infoY + 10,
+    head: [["Brand", "Product", "SKU", "Vendor SKU", "Qty Units", "Qty Cases", "Case Price", "Total Price"]],
+    body: tableRows,
+    styles: {
+      fontSize: 9
+    },
+    headStyles:{
+      fillColor: [0,0,0]
+    }
+  });
 
   if (order.expectedTotal != null) {
     doc.setFontSize(14);
+    const bottomY = pageHeight -20;
     doc.text(
       `Expected Total: $${order.expectedTotal.toFixed(2)}`,
       14,
-      cursorY
+      bottomY
     );
   }
 
-  doc.save(`PO-${order.poNumber}.pdf`);
+  doc.save(`${order.poNumber}.pdf`);
 }

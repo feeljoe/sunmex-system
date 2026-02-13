@@ -23,6 +23,7 @@ type ExcelRow = {
   deliveryDate: number | string | Date;
   actualCost: number;
   quantity: number;
+  noCharge?: number;
 };
 
 function parseExcelDate(value: any): Date {
@@ -54,6 +55,11 @@ export async function importPreorders() {
   let skipped = 0;
 
   for (const [preorderNumber, group] of Array.from(grouped.entries())) {
+    const isNoCharge = group.some(row =>
+      Number(row.noCharge || 0) > 0
+    );
+
+    const preorderType = isNoCharge ? "noCharge" : "charge";
     const first = group[0];
 
     const client = await Client.findOne({ clientNumber: first.clientNumber });
@@ -102,7 +108,9 @@ export async function importPreorders() {
         continue;
       }
 
-      const qty = Number(row.quantity);
+      const normalQty = Number(row.quantity || 0);
+      const noChargeQty = Number(row.noCharge || 0);
+      const qty = noChargeQty > 0 ? noChargeQty: normalQty;
       const cost = Number(row.actualCost);
 
       subtotal += qty * cost;
@@ -125,9 +133,10 @@ export async function importPreorders() {
       deliveryDate,
       createdAt: deliveryDate,
       deliveredAt: deliveryDate,
+      type: preorderType,
       status: "delivered",
       subtotal,
-      total: subtotal,
+      total: preorderType === "noCharge" ? 0 : subtotal,
       paymentStatus: "pending",
     });
 

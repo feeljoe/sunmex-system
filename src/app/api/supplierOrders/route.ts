@@ -39,14 +39,16 @@ export async function GET(req: Request) {
     if(search){
           query.$or = [
             {poNumber: {$regex: search, $options: "i"}},
-            {supplier: {$regex: search, $options: "i"}},
           ];
         }
     const [items, total] = await Promise.all([
       SupplierOrder.find(query)
       .populate("supplier")
-      .populate("products.product")
-      .sort({name: 1})
+      .populate({
+        path: "products.product",
+        populate: { path: "brand"}
+      })
+      .sort({poNumber: -1})
       .skip((page - 1) * limit)
       .limit(limit),
       SupplierOrder.countDocuments(query),

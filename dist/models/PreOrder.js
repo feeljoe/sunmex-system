@@ -10,6 +10,8 @@ var PreorderSchema = new mongoose_1.Schema({
             productInventory: { type: mongoose_1.Schema.Types.ObjectId, ref: "ProductInventory", required: true },
             quantity: { type: Number, required: true },
             pickedQuantity: { type: Number, default: 0 },
+            differenceReason: { type: String, enum: ["productDamaged", "productExpired", "productNotAvailable"] },
+            authorizedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
             deliveredQuantity: { type: Number },
             actualCost: { type: Number, default: 0 }, // optional if cost changes
             deviationReason: {
@@ -18,6 +20,8 @@ var PreorderSchema = new mongoose_1.Schema({
             }
         },
     ],
+    type: { type: String, enum: ["charge", "noCharge"], default: "charge" },
+    noChargeReason: { type: String },
     createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
     subtotal: { type: Number, default: 0 },
     total: { type: Number, default: 0 },

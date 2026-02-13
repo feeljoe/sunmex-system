@@ -10,9 +10,12 @@ import CounterPreorder from "@/models/CounterPreorder";
 
 export async function GET(req: Request) {
   try {
+
     await connectToDatabase();
+
     const { searchParams } = new URL(req.url);
-    const routeId = searchParams.get("routeAssigned");
+    
+    const routeId = searchParams.get("routeId");
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
@@ -21,65 +24,177 @@ export async function GET(req: Request) {
     const toDate = searchParams.get("toDate");
     const vendorId = searchParams.get("vendorId");
     const warehouseUserId = searchParams.get("warehouseUserId");
+    
     const session = await getServerSession(authOptions);
 
-    const query: any= {};
+    const matchQuery: any= {};
+    
     if(fromDate && toDate){
+      
       const [fy, fm, fd] = fromDate.split("-").map(Number);
       const [ty, tm, td] = toDate.split("-").map(Number);
       const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
       const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
-      query.createdAt = {
+      
+      matchQuery.createdAt = {
         $gte: start,
         $lte: end,
       };
     }
     if(session?.user?.role === "vendor"){
-      query.createdBy = session.user.id;
+      matchQuery.createdBy = new mongoose.Types.ObjectId(session.user.id);
     }else if (vendorId) {
-      query.createdBy = vendorId;
+      matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
     }
     if (warehouseUserId) {
-      query.assembledBy = warehouseUserId;
+      matchQuery.assembledBy = new mongoose.Types.ObjectId(warehouseUserId);
     }    
     
-    if(routeId) query.routeAssigned = routeId;
+    if(routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
+    
+    const pipeline: any[] = [
+      {$match: matchQuery},
+      // JOIN CLIENT
+      {
+        $lookup: {
+          from: "clients",
+          localField: "client",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      { $unwind: "$client" },
+
+      // JOIN PRODUCT INVENTORY
+      {
+        $lookup: {
+          from: "productinventories",
+          localField: "products.productInventory",
+          foreignField: "_id",
+          as: "productInventoryDocs",
+        },
+      },
+
+      // JOIN PRODUCTS
+      {
+        $lookup: {
+          from: "products",
+          localField: "productInventoryDocs.product",
+          foreignField: "_id",
+          as: "productDocs",
+        },
+      },
+    ];
+    
     if(search){
-          query.$or = [
-            {number: {$regex: search, $options: "i"}},
-          ];
+      const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+
+      const andConditions: any[] = [];
+      const generalSearch: any[] = [];
+      tokens.forEach(token => {
+        const [rawKey, ...rest] = token.split(":");
+        if(rest.length){
+          const key = rawKey.toLowerCase();
+          const value = rest.join(":").replace(/"/g,"");
+
+          switch(key){
+            case "status":
+              andConditions.push({ status:value });
+              break;
+
+            case "payment":
+              andConditions.push({ paymentStatus:value });
+              break;
+
+            case "client":
+              andConditions.push({ "client.clientName": { $regex:value, $options:"i" } });
+              break;
+
+            case "product":
+              andConditions.push({ "productDocs.name": { $regex:value, $options:"i" } });
+              break;
+
+            case "number":
+              andConditions.push({ number: { $regex:value, $options:"i" } });
+              break;
+
+            case "total":
+              if(!isNaN(Number(value)))
+                andConditions.push({ total:Number(value) });
+              break;
+
+            case "subtotal":
+              if(!isNaN(Number(value)))
+                andConditions.push({ subtotal:Number(value) });
+              break;
+
+            case "type":
+              andConditions.push({ type:value });
+              break;
+          }
+        } else {
+          const clean = token.replace(/"/g,"");
+
+          generalSearch.push(
+            { number:{ $regex:clean, $options:"i"} },
+            { "client.clientName":{ $regex:clean, $options:"i"} },
+            { "productDocs.name":{ $regex:clean, $options:"i"} },
+            { status:{ $regex:clean, $options:"i"} },
+            { paymentStatus:{ $regex:clean, $options:"i"} },
+            { paymentMethod:{ $regex:clean, $options:"i"} }
+          );
         }
-    const [items, total] = await Promise.all([
-      PreOrder.find(query)
-      .populate({
+      });
+
+      const finalMatch: any = {};
+      if(andConditions.length) finalMatch.$and = andConditions;
+      if(generalSearch.length) finalMatch.$or = generalSearch;
+      pipeline.push({ $match: finalMatch});
+    }
+
+    pipeline.push({
+      $addFields: {
+        sortNumber: {
+          $toInt: {
+            $arrayElemAt: [{ $split: ["$number", "-"] }, -1],
+          },
+        },
+      },
+    });
+    pipeline.push({ $sort: { sortNumber: -1 } });
+    const countPipeline = [...pipeline];
+    pipeline.push({ $skip: (page - 1) * limit });
+    pipeline.push({ $limit: limit });
+
+    let items = await PreOrder.aggregate(pipeline);
+
+    items = await PreOrder.populate(items, [
+      {
         path: "client",
-        populate: {
-          path: "billingAddress",
-        },
-      })
-      .populate({
+        populate: { path: "billingAddress" },
+      },
+      {
         path: "routeAssigned",
-        populate: {
-          path: "user",
-        },
-      })
-      .populate("createdBy", "firstName lastName")
-      .populate("assembledBy", "firstName lastName")
-      .populate({
+        populate: { path: "user" },
+      },
+      { path: "createdBy", select: "firstName lastName" },
+      { path: "assembledBy", select: "firstName lastName" },
+      {
         path: "products.productInventory",
         populate: {
           path: "product",
-          populate: {
-            path: "brand",
-          },
+          populate: { path: "brand" },
         },
-      })
-      .populate("cancelledBy")
-      .sort({createdAt: -1})
-      .skip((page - 1) * limit)
-      .limit(limit),
-      PreOrder.countDocuments(query),
+      },
+      { path: "cancelledBy" },
     ]);
+    const totalResult = await PreOrder.aggregate([
+      ...countPipeline,
+      { $count: "total"}
+    ]);
+
+    const total = totalResult[0]?.total || 0;
+
     return NextResponse.json({
       items,
       total,
@@ -156,7 +271,7 @@ export async function POST(req: Request) {
           client: body.client,
           products: productsToSave,
           type: body.type,
-          noChargeReason: body.noChargeReason,
+          noChargeReason: body.noChargeReason || "",
           subtotal: body.type === "noCharge" ? 0: total,
           createdBy: new mongoose.Types.ObjectId(user?.user.id),
           status: "pending",

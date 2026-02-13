@@ -25,10 +25,11 @@ export async function GET() {
     UPC: it.product?.upc ?? "",
     Brand: it.product?.brand?.name ?? "",
     Name: it.product?.name ?? "",
-    "Inventory $": (it.currentInventory * (it.product?.unitCost ?? 0)).toFixed(2),
+    "Inventory $": Number(it.currentInventory * (it.product?.unitCost ?? 0)),
     "Current Inventory": it.currentInventory ?? 0,
     "Presaved Inventory": it.preSavedInventory ?? 0,
     "On Route Inventory": it.onRouteInventory ?? 0,
+    "Inactive Inventory": it.inactiveInventory ?? 0,
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
