@@ -42,7 +42,7 @@ export async function GET(req: Request) {
           path: "brand",
         },
       })
-      .sort({name: 1})
+      .sort({poNumber: -1})
       .skip((page - 1) * limit)
       .limit(limit),
       SupplierReceipt.countDocuments(query),

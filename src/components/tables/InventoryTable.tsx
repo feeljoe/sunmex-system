@@ -26,13 +26,13 @@ export function InventoryTable() {
 
   return (
     <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
-      <div className="flex justify-between mb-4">
+      <div className="flex justify-between mb-4 gap-5">
         <SearchBar
           placeholder="Search inventory..."
           onSearch={setSearch}
           debounce
         />
-        <div className="flex gap-4">
+        <div className="flex gap-5">
           <ExportExcelButton/>
           <RefreshButton onRefresh={reload}/>
         </div>
@@ -63,8 +63,8 @@ export function InventoryTable() {
             <tr key={it._id} className="border-b">
               <td className="p-2 whitespace-nowrap">{it.product?.sku}</td>
               <td className="p-2 whitespace-nowrap">{it.product?.upc}</td>
-              <td className="p-2 whitespace-nowrap">{it.product?.brand?.name}</td>
-              <td className="p-2 whitespace-nowrap">{it.product?.name}</td>
+              <td className="p-2 whitespace-nowrap capitalize">{it.product?.brand?.name?.toLowerCase()}</td>
+              <td className="p-2 whitespace-nowrap capitalize">{it.product?.name?.toLowerCase()} {(it.product?.unit) &&(<>{it.product?.weight}{it.product?.unit?.toUpperCase()}</>)} {it.product?.caseSize && (<>({it.product?.caseSize} units per case)</>)}</td>
               <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>${Number(it.currentInventory * it.product.unitCost).toFixed(2)}</td>
               <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>{Number(it.currentInventory).toFixed()}</td>
               <td className="p-2 whitespace-nowrap">{Number(it.preSavedInventory).toFixed()}</td>

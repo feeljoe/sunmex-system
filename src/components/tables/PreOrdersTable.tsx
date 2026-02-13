@@ -210,7 +210,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={vendorInput}
         onChange={(e) => setVendorInput(e.target.value)}
-        className="p-2 rounded-xl bg-white h-10"
+        className="p-2 rounded-xl bg-white h-10 cursor-pointer"
       >
         <option value="">All Vendors</option>
         {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
@@ -220,7 +220,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={routeInput}
         onChange={(e) => setRouteInput(e.target.value)}
-        className="p-2 rounded bg-white h-10"
+        className="p-2 rounded bg-white h-10 cursor-pointer"
       >
         <option value="">All Routes</option>
         {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
@@ -230,7 +230,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={warehouseInput}
         onChange={(e) => setWarehouseInput(e.target.value)}
-        className="p-2 rounded h-10 bg-white"
+        className="p-2 rounded h-10 bg-white cursor-pointer"
       >
         <option value="">All Warehouse</option>
         {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
@@ -238,7 +238,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       {/* FILTER BUTTON */}
       <div className="flex mb-4">
         <button
-          className="px-4 py-2 bg-blue-500 text-white rounded-xl"
+          className="px-4 py-2 bg-blue-500 text-white rounded-xl cursor-pointer"
           onClick={applyFilters}
         >
           Apply Filters
@@ -287,7 +287,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                       }
                     }}
                     className={`
-                      px-3 py-1 rounded-xl shadow-xl transition-all duration:300
+                      px-3 py-1 rounded-xl shadow-xl transition-all duration:300 cursor-pointer
                       ${isActive ? "bg-(--tertiary) text-white": "bg-white hover:bg-gray-100"}
                     `}
                     >
@@ -346,7 +346,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               key={f.label}
               onClick={() => toggleFilters(f.key, f.value)}
               className={`
-                px-3 py-1 rounded-xl shadow-xl transition-all duration-200
+                px-3 py-1 rounded-xl shadow-xl transition-all duration-200 cursor-pointer
 
                 ${isActive
                   ? "bg-(--tertiary) text-white"
