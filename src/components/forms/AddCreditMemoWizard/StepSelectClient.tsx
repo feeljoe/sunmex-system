@@ -103,7 +103,7 @@ export default function StepSelectClient({
                     : "bg-white hover:bg-gray-100"
                 }`}
             >
-              {client.clientName}
+              {client.clientName} <span className={`text-sm text-gray-500 ${isSelected? "text-white" : ""}`}>({client.billingAddress?.addressLine}, {client.billingAddress?.city}, {client.billingAddress?.state}, {client.billingAddress?.country}, {client.billingAddress?.zipCode})</span>
             </button>
           );
         })}

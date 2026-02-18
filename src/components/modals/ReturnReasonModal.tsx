@@ -10,7 +10,12 @@ export default function ReturnReasonModal({
   onConfirm: (updatedProducts: any[]) => void;
   onCancel: () => void;
 }) {
-    const [localProducts, setLocalProducts] = useState(products);
+  const [localProducts, setLocalProducts] = useState(
+    products.map(p => ({
+      ...p,
+      returnReason: p.returnReason || "credit memo",
+    }))
+  );
 
   const updateReason = (productId: string, reason: string) => {
     setLocalProducts((prev) =>
@@ -57,7 +62,6 @@ export default function ReturnReasonModal({
                   }
                   className="border rounded-lg px-3 py-2"
                 >
-                  <option value="">Select reason</option>
                   <option value="credit memo">Credit Memo</option>
                   <option value="good return">Good Return</option>
                 </select>

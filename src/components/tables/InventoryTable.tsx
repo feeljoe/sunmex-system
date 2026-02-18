@@ -78,27 +78,27 @@ export function InventoryTable() {
         <span className="font-bold text-2xl">Total Inventory Money: {formatCurrency(Number(totalInventoryMoney))}</span>
       </div>
       <div className="flex justify-end items center gap-4 mt-4">
-        <span className='mt-1'>
-          Showing {items.length} of {total} product inventory
+        <span className='mt-1 text-sm lg:text-lg'>
+          Showing {items.length} of {total}
         </span>
         <button
           disabled={page === 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="px-3 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
+          className="px-1 lg:px-3 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
         </button>
 
-        <span className="px-3 py-1">
+        <span className="px-1 lg:px-3 py-1 text-sm lg:text-lg">
           Page {page} of {totalPages || 1}
         </span>
 
         <button
           disabled={page >= totalPages}
           onClick={() => setPage(p => p + 1)}
-          className="px-3 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
+          className="px-1 lg:px-3 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />

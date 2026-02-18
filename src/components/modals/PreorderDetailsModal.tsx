@@ -1,13 +1,15 @@
 "use client";
 
 import { generatePreorderPDF } from "@/utils/generatePreorderPDF";
-
+import { useRouter } from "next/navigation";
 export default function PreorderDetailsModal({
   preorder,
   onClose,
+  onEdit,
 }: {
   preorder: any;
   onClose: () => void;
+  onEdit: (preorder: any) => void;
 }) {
   /* -----------------------------
      HELPERS
@@ -51,30 +53,34 @@ export default function PreorderDetailsModal({
       ) ?? 0
     );
   });
-
+  let totalQty = 0;
+  const router = useRouter();
   /* =============================
      RENDER
   ==============================*/
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
-      <div className="bg-(--secondary) rounded-xl shadow-xl w-4/5 max-w-5xl p-6 space-y-5">
+      <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl lg:max-w-5xl p-2 space-y-2">
 
         {/* HEADER */}
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">
-            Preorder Details – {preorder.client?.clientName}
+            Preorder Details
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-black text-xl cursor-pointer"
+            className="text-gray-500 hover:text-black text-2xl cursor-pointer"
           >
             ✕
           </button>
         </div>
-        <h3>Location: {preorder.client?.billingAddress?.addressLine}</h3>
+        <h2 className="text-xl font-semibold text-center">
+            {preorder.client?.clientName}
+          </h2>
+        <h3 className="text-center mb-4">Address: {preorder.client?.billingAddress?.addressLine}, {preorder.client?.billingAddress?.city}, {preorder.client?.billingAddress?.state}, {preorder.client?.billingAddress?.country}, {preorder.client?.billingAddress?.zipCode} </h3>
 
         {/* META INFO */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm text-center">
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Route</span>
             <div>{preorder.routeAssigned?.code ?? "-"}</div>
@@ -91,14 +97,14 @@ export default function PreorderDetailsModal({
           </div>
 
           <div className="flex flex-col gap-2">
-            <span className="font-semibold">Created</span>
+            <span className="font-semibold">Created At</span>
             <div>
               {formatDate(preorder.createdAt)}{" "}
               {formatTime(preorder.createdAt)}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 mb-4">
             <span className="font-semibold">Payment Status</span>
             <div className={``}><span className={`p-2 rounded-xl ${statusColorsPayment[preorder.paymentStatus]}`}>{preorder.paymentStatus.toUpperCase()}</span></div>
           </div>
@@ -121,6 +127,7 @@ export default function PreorderDetailsModal({
               {sortedProducts.map((p: any) => {
                 const unitPrice =
                   p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0;
+                  totalQty += p.quantity;
 
                 return (
                   <tr key={p.productInventory?._id} className="border-t">
@@ -149,7 +156,9 @@ export default function PreorderDetailsModal({
           </table>
         </div>
 
-        
+        <div className="flex justify-end text-2xl font-semibold">
+          Total Units: {totalQty}
+        </div>
         {(preorder.total ===0 && preorder.subtotal >= 0) &&
         <div className="flex justify-end text-2xl font-semibold">
           Subtotal: {formatCurrency(preorder.subtotal)}
@@ -164,6 +173,11 @@ export default function PreorderDetailsModal({
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
+          <button
+            onClick={() => router.push(`/pages/sales/preorders/edit/${preorder._id}`)}
+            className="bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer">
+              Edit
+            </button>
           <button
             onClick={() => generatePreorderPDF(preorder)}
             className="bg-blue-600 text-white px-5 py-3 rounded-xl cursor-pointer"

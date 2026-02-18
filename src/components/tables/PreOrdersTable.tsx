@@ -9,6 +9,7 @@ import SubmitResultModal from "../modals/SubmitResultModal";
 import PreorderDetailsModal from "../modals/PreorderDetailsModal";
 import { RefreshButton } from "../ui/RefreshButton";
 import { DateRangePicker } from "../ui/DateRangePicker";
+import PreorderWizard from "../forms/AddPreorderWizard/PreorderWizard";
 
 export function PreordersTable({ userRole, userId }:{ userRole: string, userId: string}) {
   const statusColors: Record<string, string> = {
@@ -25,6 +26,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   const [routeInput, setRouteInput] = useState("");
   const [warehouseInput, setWarehouseInput] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [editingPreorder, setEditingPreorder] = useState(null);
   const todayISO = () =>
     new Date().toISOString().split("T")[0]; // YYYY-MM-DD  
 
@@ -205,7 +207,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
         />  
       </div>
       
-      <div className="grid grid-cols lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
       {/* VENDOR */}
       <select
         value={vendorInput}
@@ -220,7 +222,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={routeInput}
         onChange={(e) => setRouteInput(e.target.value)}
-        className="p-2 rounded bg-white h-10 cursor-pointer"
+        className="p-2 rounded-xl bg-white h-10 cursor-pointer"
       >
         <option value="">All Routes</option>
         {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
@@ -230,7 +232,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={warehouseInput}
         onChange={(e) => setWarehouseInput(e.target.value)}
-        className="p-2 rounded h-10 bg-white cursor-pointer"
+        className="p-2 rounded-xl h-10 bg-white cursor-pointer"
       >
         <option value="">All Warehouse</option>
         {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
@@ -238,7 +240,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       {/* FILTER BUTTON */}
       <div className="flex mb-4">
         <button
-          className="px-4 py-2 bg-blue-500 text-white rounded-xl cursor-pointer"
+          className="px-4 py-2 bg-blue-500 text-white w-full rounded-xl cursor-pointer"
           onClick={applyFilters}
         >
           Apply Filters
@@ -255,7 +257,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
         />
         <RefreshButton onRefresh={reload}/>
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex lg:flex-wrap whitespace-nowrap overflow-auto gap-2 mb-3">
       {userRole === "admin" && (
         <>
         {filterOptions.map((f)=>{
@@ -266,7 +268,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
 
           if(f.key === "total" || f.key === "subtotal"){
             return (
-              <div key={f.key} className="flex items-center gap-2">
+              <div key={f.key} className="flex whitespace-nowrap items-center gap-2">
                 {!isInputActive ? (
                   <button
                     onClick={() => {
@@ -287,7 +289,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                       }
                     }}
                     className={`
-                      px-3 py-1 rounded-xl shadow-xl transition-all duration:300 cursor-pointer
+                      px-3 py-2 rounded-xl whitespace-nowrap shadow-xl transition-all duration:300 cursor-pointer
                       ${isActive ? "bg-(--tertiary) text-white": "bg-white hover:bg-gray-100"}
                     `}
                     >
@@ -321,7 +323,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                           setActiveInput(null);
                           setTempValue("");
                         }}
-                      className="px-3 px-1 rounded-xl bg-blue-500 text-white cursor-pointer"
+                      className="px-3 py-2 rounded-xl bg-blue-500 text-white cursor-pointer"
                       >
                         OK
                       </button>
@@ -330,7 +332,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                           setActiveInput(null);
                           setTempValue("");
                         }}
-                        className="px-3 py-1 rounded-xl bg-gray-300 text-black cursor-pointer"
+                        className="px-3 py-2 rounded-xl bg-gray-300 text-black cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -497,8 +499,19 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       {selectedPreorder &&
       <PreorderDetailsModal
         preorder={selectedPreorder}
-        onClose={() => setSelectedPreorder(null)}/>
+        onClose={() => setSelectedPreorder(null)}
+        onEdit={(preorder)=> {
+          setEditingPreorder(preorder);
+        }}
+        />
       }
+      {editingPreorder && (
+        <PreorderWizard
+          userRole={userRole}
+          mode="edit"
+          existingPreorder={editingPreorder}
+        />
+      )}
       {assignRouteModalOpen && selectedPreorder2 && (
         <AssignRouteModal
           clientName={selectedClient}

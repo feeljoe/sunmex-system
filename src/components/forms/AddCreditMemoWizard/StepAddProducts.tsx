@@ -35,7 +35,6 @@ export default function StepAddProducts({
 
   const addProduct = (product: any) => {
     setProducts((prev) => [
-      ...prev,
       {
         productId: product._id,
         brandId: product.brand?._id,
@@ -49,6 +48,7 @@ export default function StepAddProducts({
         quantity: 0,
         returnReason: "",
       },
+      ...prev,
     ]);
   };
 
@@ -101,7 +101,7 @@ export default function StepAddProducts({
               setProductSearch("");
               
               setTimeout(() => {
-                qtyInputRefs.current[products.length]?.focus();
+                qtyInputRefs.current[0]?.focus();
               }, 0);
             }
           }}
@@ -131,7 +131,7 @@ export default function StepAddProducts({
                   addProduct(product);
                   setProductSearch("");
                   setTimeout(() => {
-                    qtyInputRefs.current[products.length]?.focus();
+                    qtyInputRefs.current[0]?.focus();
                   }, 0);
                 }}
                 className={`w-full text-left p-3 

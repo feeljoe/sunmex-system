@@ -11,21 +11,67 @@ import SelectPreorderTypeModal from "@/components/modals/SelectPreorderTypeModal
 
 type PreorderWizardProps ={
     userRole: any;
+    mode?: "create" | "edit";
+    existingPreorder?: any;
 };
 
-export default function PreorderWizard({userRole}: PreorderWizardProps) {
+export default function PreorderWizard({
+  userRole,
+  mode ="create",
+  existingPreorder,}: PreorderWizardProps) {
+    const isEdit = mode === "edit";
+    
     useEffect(() => {
-        console.log("PreorderWizard mounted with role:", userRole);
-      }, [userRole]);
-      
+      if (!existingPreorder) return;
+    
+      setSelectedClient(existingPreorder.client);
+    
+      setProducts(
+        existingPreorder.products.map((p:any) => ({
+          inventoryId: p.productInventory?._id,
+          productId: p.productInventory?.product?._id,
+          brand: p.productInventory?.product?.brand?.name,
+          name: p.productInventory?.product?.name,
+          unitPrice: p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0,
+          weight: p.productInventory?.product?.weight,
+          unit: p.productInventory?.product?.unit,
+          caseSize: p.productInventory?.product?.caseSize,
+          sku: p.productInventory?.product?.sku,
+          quantity: p.quantity,
+          maxQty: p.productInventory?.currentInventory,
+        }))
+      );
+    
+      setPreorderType(existingPreorder.type);
+      setPreorderReason(existingPreorder.noChargeReason);
+    
+    }, [existingPreorder]);
+
+    // STATE
   const [submitStatus, setSubmitStatus] = useState<"loading" | "error" | "success" | null>(null);
   const [message, setMessage] = useState("");
-  const [step, setStep] = useState(1);
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
+   // EDIT
+  const [step, setStep] = useState(isEdit ? 2 : 1);
+  const [selectedClient, setSelectedClient] = useState<any | null>(
+    existingPreorder?.client || null);
+  const [products, setProducts] = useState<any[]>(
+    existingPreorder?.products?.map((p:any)=>({
+      inventoryId: p.productInventory?._id,
+      productId: p.productInventory?.product?._id,
+      brand: p.productInventory?.product?.brand?.name,
+      name: p.productInventory?.product?.name,
+      unitPrice: p.unitPrice,
+      weight: p.productInventory?.product?.weight,
+      unit: p.productInventory?.product?.unit,
+      caseSize: p.productInventory?.product?.caseSize,
+      sku: p.productInventory?.product?.sku,
+      quantity: p.quantity,
+      maxQty: p.productInventory?.currentInventory, // editing shouldn't limit inventory unless you want
+    })) || []
+  );
   const [showPreorderType, setShowPreorderType] = useState(false);
-  const [preorderType, setPreorderType] = useState("");
-  const [preorderReason, setPreorderReason] = useState("");
+  const [preorderType, setPreorderType] = useState(existingPreorder?.type || "");
+  const [preorderReason, setPreorderReason] = useState(existingPreorder?.noChargeReason || "");
 
   const {items: pricingLists } = useList("/api/pricingLists", {limit: 1000});
   const pricedProducts = useMemo(() => {
@@ -41,32 +87,42 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
     );
   }, [pricedProducts]);
 
+ // SUBMIT
+
+  const submitPreorder = async () => {
+    setSubmitStatus("loading");
+
+    const body = {
+      client: selectedClient?._id,
+      products: pricedProducts.filter(p => p.quantity > 0),
+      type: preorderType,
+      noChargeReason: preorderReason,
+      total: preorderType === "noCharge" ? 0 : total,
+    };
+
+    const res = await fetch(
+      isEdit? `/api/preOrders/${existingPreorder._id}`
+      : "/api/preOrders", {
+      method: isEdit ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if(!res.ok){
+      const error = await res.json();
+      setMessage(error?.error || "Could not submit preorder");
+      return;
+    }
+    setSubmitStatus("success");
+    setMessage(isEdit? "Preorder Updated" : "Preorder submitted");
+  };
+
+  // NAVIGATION
+
   const validateStep = (step: number) => {
     if (step === 1) return !!selectedClient;
     return true; // steps 2 & 3 are optional
   };
 
-
-  const submitPreorder = async () => {
-    setSubmitStatus("loading");
-    const res = await fetch("/api/preOrders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client: selectedClient?._id,
-        products: pricedProducts.filter(p => p.quantity > 0),
-        type: preorderType,
-        noChargeReason: preorderReason,
-        total: preorderType === "noCharge" ? 0 : total,
-      }),
-    });
-    if(!res.ok){
-      const error = await res.json();
-      setMessage(error?.error || "Could not submit preorder");
-    }
-    setSubmitStatus("success");
-    setMessage("Preorder submitted");
-  };
 
   async function handleSubmit(){
     setSelectedClient(null);
@@ -74,10 +130,10 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
     setMessage("");
   }
   const next = () => {
-    if(step===1 && userRole === "admin"){
+    if(step===1 && userRole === "admin" && !isEdit){
       setShowPreorderType(true);
       return;
-    }else if(step===1 && userRole !== "admin"){
+    }else if(step===1 && userRole !== "admin" && !isEdit){
       setPreorderType("charge");
     }
     setStep(s => Math.min(s + 1, 3))
@@ -97,6 +153,7 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
 
       {step === 2 && (
         <StepAddProducts
+          userRole={userRole}
           products={products}
           setProducts={setProducts}
           selectedClient={selectedClient}
@@ -138,7 +195,7 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
         />
       )}
     </div>
-    <div className="flex w-full justify-between">
+    <div className="flex w-full justify-between mt-4">
     <div>
         <button hidden={step === 1} onClick={back} className="px-5 py-3 bg-gray-300 shadow-xl rounded-xl cursor-pointer">
             Go Back
@@ -159,7 +216,7 @@ export default function PreorderWizard({userRole}: PreorderWizardProps) {
         </button>
       ) : (
         <button onClick={submitPreorder} className="px-5 py-3 bg-green-600 text-white rounded-xl cursor-pointer">
-          Submit
+          {isEdit? "Update" : "Submit"}
         </button>
       )}
     </div>

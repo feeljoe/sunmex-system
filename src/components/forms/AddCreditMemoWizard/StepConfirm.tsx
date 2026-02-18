@@ -10,7 +10,10 @@ export default function StepConfirm({
   products: any[];
   total: number;
 }) {
-
+  let totalQty = 0;
+  products.map((p) => {
+    totalQty += p.quantity;
+  })
   return (
     <div className="space-y-2 w-full flex flex-col">
       <h2 className="text-2xl font-semibold text-center">Confirm Credit Memo</h2>
@@ -45,8 +48,9 @@ export default function StepConfirm({
               </li>
           ))}
       </ul>
-
-      <p className="font-bold mt-10 text-right text-xl">Total: ${total.toFixed(2)}</p>
+      
+      <p className="font-bold mt-10 text-right text-xl">Total Units: {totalQty}</p>
+      <p className="font-bold text-right text-xl">Total: ${total.toFixed(2)}</p>
       </div>
     </div>
   );

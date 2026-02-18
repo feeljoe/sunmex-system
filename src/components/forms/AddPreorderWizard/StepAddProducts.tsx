@@ -5,10 +5,12 @@ import { useList } from "@/utils/useList";
 import { useMemo, useRef, useState, useEffect } from "react";
 
 export default function StepAddProducts({
+  userRole,
   products,
   setProducts,
   selectedClient,
 }: {
+  userRole: string;
   products: any[];
   setProducts: React.Dispatch<React.SetStateAction<any[]>>;
   selectedClient: any;
@@ -163,7 +165,7 @@ export default function StepAddProducts({
         <div className="flex flex-col items-center text-center">
         <span className="mt-2 capitalize">{p.brand && (<span className="font-bold">{p.brand} </span>)}{p.name?.toLowerCase()} {p.weight && p.unit && (<span>{p.weight}{p.unit?.toUpperCase()}</span>)} </span>
         {p.caseSize && (<span>({p.caseSize} units per case)</span>)}
-        <span className="text-gray-400 text-xs">SKU: {p.sku} | Available: {p.maxQty}</span>
+        <span className="text-gray-400 text-xs">SKU: {p.sku} | Available: {p.maxQty?.toFixed(2)}</span>
         </div>
         <div className="flex items-center gap-4">
         <input
@@ -184,6 +186,23 @@ export default function StepAddProducts({
           }}
           className="bg-gray-200  w-20 text-center px-4 py-2 shadow-xl rounded-xl"
         />
+        {userRole === "admin" && (
+          <input
+            type="number"
+            value={p.unitPrice}
+            onChange={(e)=>{
+              const price = Number(e.target.value);
+              setProducts(prev =>
+                prev.map(prod =>
+                  prod.inventoryId === p.inventoryId
+                    ? { ...prod, unitPrice: price }
+                    : prod
+                )
+              );
+            }}
+            className="w-24 text-center bg-yellow-100 px-4 py-2 shadow-xl rounded-xl"
+          />
+        )}
         <button
           onClick={() => removeProduct(p.inventoryId)}
           className="bg-red-500 text-white px-2 py-2 rounded-xl shadow-xl"

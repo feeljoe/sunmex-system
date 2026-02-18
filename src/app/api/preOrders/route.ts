@@ -63,7 +63,12 @@ export async function GET(req: Request) {
           as: "client",
         },
       },
-      { $unwind: "$client" },
+      {
+        $unwind: {
+          path: "$client",
+          preserveNullAndEmptyArrays: true
+        }
+      },
 
       // JOIN PRODUCT INVENTORY
       {
@@ -106,8 +111,13 @@ export async function GET(req: Request) {
               andConditions.push({ paymentStatus:value });
               break;
 
-            case "client":
-              andConditions.push({ "client.clientName": { $regex:value, $options:"i" } });
+              case "client":
+                andConditions.push({
+                  $and: [
+                    { client: { $ne: null } },
+                    { "client.clientName": { $regex: value, $options: "i" } }
+                  ]
+                });
               break;
 
             case "product":
@@ -137,7 +147,12 @@ export async function GET(req: Request) {
 
           generalSearch.push(
             { number:{ $regex:clean, $options:"i"} },
-            { "client.clientName":{ $regex:clean, $options:"i"} },
+            {
+              $and: [
+                { client: { $ne: null } },
+                { "client.clientName": { $regex:clean, $options:"i"} }
+              ]
+            },
             { "productDocs.name":{ $regex:clean, $options:"i"} },
             { status:{ $regex:clean, $options:"i"} },
             { paymentStatus:{ $regex:clean, $options:"i"} },
@@ -155,18 +170,26 @@ export async function GET(req: Request) {
     pipeline.push({
       $addFields: {
         sortNumber: {
-          $toInt: {
-            $arrayElemAt: [{ $split: ["$number", "-"] }, -1],
-          },
-        },
-      },
+          $convert: {
+            input: {
+              $arrayElemAt: [
+                { $split: [{ $ifNull: ["$number", ""] }, "-"] },
+                -1
+              ]
+            },
+            to: "int",
+            onError: 0,
+            onNull: 0
+          }
+        }
+      }
     });
     pipeline.push({ $sort: { sortNumber: -1 } });
     const countPipeline = [...pipeline];
     pipeline.push({ $skip: (page - 1) * limit });
     pipeline.push({ $limit: limit });
 
-    let items = await PreOrder.aggregate(pipeline);
+    let items = await PreOrder.aggregate(pipeline).allowDiskUse(true);
 
     items = await PreOrder.populate(items, [
       {
@@ -174,24 +197,37 @@ export async function GET(req: Request) {
         populate: { path: "billingAddress" },
       },
       {
+        path: "client",
+        populate: { path: "paymentTerm" },
+      },
+      {
         path: "routeAssigned",
         populate: { path: "user" },
+        options: { strictPopulate: false},
       },
       { path: "createdBy", select: "firstName lastName" },
-      { path: "assembledBy", select: "firstName lastName" },
+      {
+        path: "assembledBy",
+        select: "firstName lastName",
+        options: { strictPopulate: false },
+      },
       {
         path: "products.productInventory",
         populate: {
           path: "product",
           populate: { path: "brand" },
+          options: {strictPopulate: false},
         },
       },
-      { path: "cancelledBy" },
+      { path: "cancelledBy",
+        populate: { path: "user" },
+        options: { strictPopulate: false},
+       },
     ]);
     const totalResult = await PreOrder.aggregate([
       ...countPipeline,
       { $count: "total"}
-    ]);
+    ]).allowDiskUse(true);
 
     const total = totalResult[0]?.total || 0;
 
@@ -202,6 +238,7 @@ export async function GET(req: Request) {
       limit
     });
   }catch(err: any){
+    console.log("AGG ERROR:", err);
     return NextResponse.json({ error: String(err.message) }, {status: 500 });
   }
 }
