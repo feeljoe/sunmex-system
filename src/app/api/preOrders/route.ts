@@ -52,142 +52,120 @@ export async function GET(req: Request) {
     
     if(routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
     
-    const pipeline: any[] = [
-      {$match: matchQuery},
-      // JOIN CLIENT
-      {
-        $lookup: {
-          from: "clients",
-          localField: "client",
-          foreignField: "_id",
-          as: "client",
-        },
-      },
-      {
-        $unwind: {
-          path: "$client",
-          preserveNullAndEmptyArrays: true
-        }
-      },
+    const pipeline: any[] = [];
 
-      // JOIN PRODUCT INVENTORY
-      {
-        $lookup: {
-          from: "productinventories",
-          localField: "products.productInventory",
-          foreignField: "_id",
-          as: "productInventoryDocs",
-        },
-      },
+// 1️⃣ BASE MATCH FIRST
+pipeline.push({ $match: matchQuery });
 
-      // JOIN PRODUCTS
-      {
-        $lookup: {
-          from: "products",
-          localField: "productInventoryDocs.product",
-          foreignField: "_id",
-          as: "productDocs",
-        },
-      },
-    ];
-    
-    if(search){
-      const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
 
-      const andConditions: any[] = [];
-      const generalSearch: any[] = [];
-      tokens.forEach(token => {
-        const [rawKey, ...rest] = token.split(":");
-        if(rest.length){
-          const key = rawKey.toLowerCase();
-          const value = rest.join(":").replace(/"/g,"");
+// 2️⃣ LIGHT SEARCH FIRST (only fields in preorder itself)
+if (search) {
+  const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
 
-          switch(key){
-            case "status":
-              andConditions.push({ status:value });
-              break;
+  const andConditions: any[] = [];
+  const generalSearch: any[] = [];
 
-            case "payment":
-              andConditions.push({ paymentStatus:value });
-              break;
+  tokens.forEach(token => {
+    const [rawKey, ...rest] = token.split(":");
 
-              case "client":
-                andConditions.push({
-                  $and: [
-                    { client: { $ne: null } },
-                    { "client.clientName": { $regex: value, $options: "i" } }
-                  ]
-                });
-              break;
+    if (rest.length) {
+      const key = rawKey.toLowerCase();
+      const value = rest.join(":").replace(/"/g, "");
 
-            case "product":
-              andConditions.push({ "productDocs.name": { $regex:value, $options:"i" } });
-              break;
+      switch (key) {
+        case "status":
+          andConditions.push({ status: value });
+          break;
 
-            case "number":
-              andConditions.push({ number: { $regex:value, $options:"i" } });
-              break;
+        case "payment":
+          andConditions.push({ paymentStatus: value });
+          break;
 
-            case "total":
-              if(!isNaN(Number(value)))
-                andConditions.push({ total:Number(value) });
-              break;
-
-            case "subtotal":
-              if(!isNaN(Number(value)))
-                andConditions.push({ subtotal:Number(value) });
-              break;
-
-            case "type":
-              andConditions.push({ type:value });
-              break;
-          }
-        } else {
-          const clean = token.replace(/"/g,"");
-
-          generalSearch.push(
-            { number:{ $regex:clean, $options:"i"} },
-            {
-              $and: [
-                { client: { $ne: null } },
-                { "client.clientName": { $regex:clean, $options:"i"} }
-              ]
-            },
-            { "productDocs.name":{ $regex:clean, $options:"i"} },
-            { status:{ $regex:clean, $options:"i"} },
-            { paymentStatus:{ $regex:clean, $options:"i"} },
-            { paymentMethod:{ $regex:clean, $options:"i"} }
-          );
-        }
-      });
-
-      const finalMatch: any = {};
-      if(andConditions.length) finalMatch.$and = andConditions;
-      if(generalSearch.length) finalMatch.$or = generalSearch;
-      pipeline.push({ $match: finalMatch});
-    }
-
-    pipeline.push({
-      $addFields: {
-        sortNumber: {
-          $convert: {
-            input: {
-              $arrayElemAt: [
-                { $split: [{ $ifNull: ["$number", ""] }, "-"] },
-                -1
-              ]
-            },
-            to: "int",
-            onError: 0,
-            onNull: 0
-          }
-        }
+        case "number":
+          andConditions.push({ number: { $regex: value, $options: "i" } });
+          break;
       }
-    });
-    pipeline.push({ $sort: { sortNumber: -1 } });
-    const countPipeline = [...pipeline];
-    pipeline.push({ $skip: (page - 1) * limit });
-    pipeline.push({ $limit: limit });
+    } else {
+      const clean = token.replace(/"/g, "");
+
+      generalSearch.push(
+        { number: { $regex: clean, $options: "i" } },
+        { status: { $regex: clean, $options: "i" } },
+        { paymentStatus: { $regex: clean, $options: "i" } }
+      );
+    }
+  });
+
+  const finalMatch: any = {};
+  if (andConditions.length) finalMatch.$and = andConditions;
+  if (generalSearch.length) finalMatch.$or = generalSearch;
+
+  pipeline.push({ $match: finalMatch });
+}
+
+
+// 3️⃣ COMPUTE SORT NUMBER
+pipeline.push({
+  $addFields: {
+    sortNumber: {
+      $convert: {
+        input: {
+          $arrayElemAt: [
+            { $split: [{ $ifNull: ["$number", ""] }, "-"] },
+            -1
+          ]
+        },
+        to: "int",
+        onError: 0,
+        onNull: 0
+      }
+    }
+  }
+});
+
+
+// 4️⃣ SORT + PAGINATION BEFORE LOOKUPS
+pipeline.push({ $sort: { sortNumber: -1 } });
+
+const countPipeline = [...pipeline];
+
+pipeline.push({ $skip: (page - 1) * limit });
+pipeline.push({ $limit: limit });
+
+
+// 5️⃣ HEAVY LOOKUPS LAST (CRITICAL)
+pipeline.push(
+  {
+    $lookup: {
+      from: "clients",
+      localField: "client",
+      foreignField: "_id",
+      as: "client",
+    },
+  },
+  {
+    $unwind: {
+      path: "$client",
+      preserveNullAndEmptyArrays: true
+    }
+  },
+  {
+    $lookup: {
+      from: "productinventories",
+      localField: "products.productInventory",
+      foreignField: "_id",
+      as: "productInventoryDocs",
+    },
+  },
+  {
+    $lookup: {
+      from: "products",
+      localField: "productInventoryDocs.product",
+      foreignField: "_id",
+      as: "productDocs",
+    },
+  }
+);
 
     let items = await PreOrder.aggregate(pipeline).allowDiskUse(true);
 
@@ -220,7 +198,7 @@ export async function GET(req: Request) {
         },
       },
       { path: "cancelledBy",
-        populate: { path: "user" },
+        select: "firstName lastName",
         options: { strictPopulate: false},
        },
     ]);

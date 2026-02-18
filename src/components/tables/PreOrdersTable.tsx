@@ -417,7 +417,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               <td className="P-2 text-center whitespace-nowrap">-</td>
               }
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{it.number}</td>
-              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName.toLowerCase()}</td>
+              <td className="p-2 whitespace-nowrap capitalize" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName?.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.subtotal)}</td>
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.total)}</td>
               <td className={`p-2 whitespace-nowrap`} onClick={() => setSelectedPreorder(it)}>
