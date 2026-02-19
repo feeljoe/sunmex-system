@@ -6,10 +6,12 @@ export default function PreorderDetailsModal({
   preorder,
   onClose,
   onEdit,
+  userRole,
 }: {
   preorder: any;
   onClose: () => void;
   onEdit: (preorder: any) => void;
+  userRole: string;
 }) {
   /* -----------------------------
      HELPERS
@@ -174,8 +176,9 @@ export default function PreorderDetailsModal({
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
           <button
+          disabled={preorder.status !== "pending" && userRole !== "admin"}
             onClick={() => router.push(`/pages/sales/preorders/edit/${preorder._id}`)}
-            className="bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer">
+            className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(preorder.status !== "pending" && userRole !== "admin") ? "opacity-50": ""}`}>
               Edit
             </button>
           <button

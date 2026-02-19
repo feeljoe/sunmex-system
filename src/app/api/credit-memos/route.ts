@@ -81,7 +81,7 @@ export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
     const matchQuery: any= {};
-    
+    const baseFilters: any= {};
     if(fromDate && toDate){
       
       const [fy, fm, fd] = fromDate.split("-").map(Number);
@@ -89,16 +89,29 @@ export async function GET(req: Request) {
       const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
       const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
       
-      matchQuery.createdAt = {
+      baseFilters.createdAt = {
         $gte: start,
         $lte: end,
       };
     }
     if(session?.user?.role === "vendor"){
-      matchQuery.createdBy = new mongoose.Types.ObjectId(session.user.id);
-    }else if (vendorId) {
-      matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
-    }
+          const vendorIdObj = new mongoose.Types.ObjectId(session.user.id);
+          matchQuery.$or = [
+            {
+              createdBy: vendorIdObj,
+              status: "pending",
+            },
+            {
+              createdBy: vendorIdObj,
+              ...baseFilters,
+            }
+          ];
+        }else {
+          Object.assign(matchQuery, baseFilters);
+          if (vendorId) {
+            matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
+          }
+        }
     
     if(routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
     

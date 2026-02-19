@@ -219,6 +219,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
         <SearchBar placeholder="Search credit memos..." onSearch={setSearch} debounce />
         <RefreshButton onRefresh={reload} />
       </div>
+      {userRole === "admin" && (
       <div className="flex flex-wrap gap-2 mb-3">
 
         {filterOptions.map((f)=>{
@@ -320,6 +321,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
         })}
 
       </div>
+      )}
 
       <div className="flex-1 overflow-auto">
         <table className="text-left lg:text-lg">
@@ -394,7 +396,9 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                         setCancelTarget(it);
                       }}
                     >
-                      Cancel
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
                     </button>
                   </td>
                 ) : (
@@ -415,11 +419,34 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
         </table>
       </div>
 
-      <div className="flex justify-end gap-4 mt-4">
-        <span>Page {page} of {totalPages}</span>
-        <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>◀</button>
-        <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>▶</button>
-      </div>
+      <div className="flex justify-end items center gap-4 mt-4">
+            <span className='mt-1'>
+              Showing {items.length} of {total}
+            </span>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+    
+            <span className="px-1 py-1 text-sm lg:text-lg">
+              Page {page} of {totalPages || 1}
+            </span>
+    
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
+            </button>
+          </div>
 
       {selected && (
         <CreditMemoDetailsModal
