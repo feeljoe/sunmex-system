@@ -46,13 +46,21 @@ const PreorderSchema = new Schema(
       enum: ["cash", "check", ""],
       default: "",
     },
-    checkNumber: {
-      type: Number
-    },
+    payments: [
+      {
+        type: {
+          type:String,
+          enum: ["cash", "check"],
+          required: "true"
+        },
+        amount: {type: Number, required: true},
+        checkNumber: { type: String }
+      }
+    ],
     paymentStatus: {
-      type:String,
+      type: String,
       enum: ["pending", "paid"],
-      default: "pending",
+      default: "pending"
     },
     quickbooks: {
       synced: { type: Boolean, default: false },
