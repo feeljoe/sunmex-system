@@ -5,12 +5,12 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
-  req: Request,
-  context: { params: Promise<{ id: string }>}
+  req: Request
 ) {
     const session = await mongoose.startSession();
     session.startTransaction();
-    const { id } = await context.params
+    const body = await req.json();
+    const { id } =  body;
   try {
     await connectToDatabase();
     const body = await req.json();
