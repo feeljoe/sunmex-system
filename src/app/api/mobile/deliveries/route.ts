@@ -93,7 +93,7 @@ export async function GET(req: Request) {
           total: order.total,
         },
         requiresPayment:
-          order.client.paymentTerm?.name === "Due On Receipt",
+          order.client.paymentTerm?.name === "Due on Receipt",
         products,
         creditMemo: creditMemo
           ? {
