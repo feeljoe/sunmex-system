@@ -214,11 +214,15 @@ if (preorder.status === "cancelled") {
   doc.setPage(totalPages);
   
   const footerY = pageHeight - 100;
+  const isDelivered = preorder.status === "delivered";
+  const amountToShow = isDelivered
+  ? preorder.total
+  : preorder.subtotal;
   autoTable(doc, {
     startY: footerY,
     theme: "grid",
-    head: [[ "Total"]],
-    body: [[ `$${preorder.total.toFixed(2)}`],],
+    head: [[ isDelivered? "Total": "Subtotal"]],
+    body: [[ `$${amountToShow.toFixed(2)}`],],
     styles: { fontSize: 12, halign: "center"},
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)

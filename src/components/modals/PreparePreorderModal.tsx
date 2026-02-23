@@ -144,14 +144,23 @@ export default function PrepareOrderModal({
                         </div>
                     ))}
                 </div>
-                <div className="flex justify-end gap-3 pt-4">
-                    <button onClick={onClose} className="px-5 py-3 rounded-xl shadow-xl">
+                <div className="flex justify-between gap-3 pt-4">
+                    <button onClick={onClose} className="px-5 py-3 rounded-xl shadow-xl cursor-pointer">
                         Cancel
                     </button>
                     <button 
-                        onClick={() => setShowAdminAuth(true)}
+                        onClick={() => {
+                            const hasDifferences = products.some(
+                                (p: any) => p.pickedQuantity !== p.quantity
+                            );
+                            if(hasDifferences){
+                                setShowAdminAuth(true);
+                            } else{
+                                completePreorder(user.id);
+                            }
+                        }}
                         disabled={totalPicked !== totalRequired}
-                        className="bg-green-600 text-white px-5 py-3 rounded-xl shadow-xl disabled:opacity-50"
+                        className="bg-green-600 text-white px-5 py-3 rounded-xl shadow-xl disabled:opacity-50 cursor-pointer"
                     >
                         Done
                     </button>
@@ -184,7 +193,7 @@ export default function PrepareOrderModal({
                 onClose={() => setShowAdminAuth(false)}
                 onAuthorized={(adminId) => {
                     setAuthorizedBy(adminId);
-                    completePreorder(adminId);
+                    completePreorder(user.id);
                 }}
             />
         )}

@@ -90,6 +90,21 @@ export async function GET(req: Request) {
           totalCount: [
             { $count: "count" },
           ],
+          totalInventoryMoney: [
+            {
+              $group: {
+                _id: null,
+                total: {
+                  $sum: {
+                    $multiply: [
+                      "$currentInventory",
+                      "$product.unitCost",
+                    ],
+                  },
+                },
+              },
+            },
+          ],
         },
       },
 
@@ -98,11 +113,14 @@ export async function GET(req: Request) {
     const result = await ProductInventory.aggregate(pipeline);
 
     const items = result[0]?.items || [];
-    const total = result[0]?.totalCount[0]?.count || 0;
+const total = result[0]?.totalCount[0]?.count || 0;
+const totalInventoryMoney =
+  result[0]?.totalInventoryMoney[0]?.total || 0;
 
     return NextResponse.json({
       items,
       total,
+      totalInventoryMoney,
       page,
       limit,
     });

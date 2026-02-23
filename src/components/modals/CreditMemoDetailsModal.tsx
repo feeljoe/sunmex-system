@@ -1,11 +1,18 @@
 "use client";
 
+import { generateCreditMemoPDF } from "@/utils/generateCreditMemoPDF";
+import { useRouter } from "next/navigation";
+
 export default function CreditMemoDetailsModal({
   creditMemo,
   onClose,
+  onEdit,
+  userRole,
 }: {
   creditMemo: any;
   onClose: () => void;
+  onEdit: (preorder: any) => void;
+  userRole: string;
 }) {
   const statusColorsCreditMemo: Record<string, string> = {
     pending: "bg-gray-300",
@@ -19,6 +26,7 @@ export default function CreditMemoDetailsModal({
   const formatDateTime = (v?: string) =>
     v ? new Date(v).toLocaleString() : "-";
 
+  const router = useRouter();
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-(--secondary) rounded-xl shadow-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto">
@@ -139,6 +147,28 @@ export default function CreditMemoDetailsModal({
             <strong>Total: {formatCurrency(creditMemo.total)} </strong>
           </div>
         </div>
+        {/* ACTIONS */}
+                <div className="flex justify-between pt-4 border-t">
+                  <button
+                  disabled={creditMemo.status !== "pending" && userRole !== "admin"}
+                    onClick={() => router.push(`/pages/sales/creditmemo/edit/${creditMemo._id}`)}
+                    className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(creditMemo.status !== "pending" && userRole !== "admin") ? "opacity-50": ""}`}>
+                      Edit
+                    </button>
+                  <button
+                    onClick={() => generateCreditMemoPDF(creditMemo)}
+                    className="bg-blue-600 text-white px-5 py-3 rounded-xl cursor-pointer"
+                  >
+                    PDF
+                  </button>
+        
+                  <button
+                    onClick={onClose}
+                    className="bg-gray-300 px-5 py-3 rounded-xl cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
       </div>
     </div>
   );

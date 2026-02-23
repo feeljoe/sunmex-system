@@ -1,64 +1,103 @@
+// app/api/credit-memos/[id]/route.ts
+
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/db";
 import CreditMemo from "@/models/CreditMemo";
-import { NextResponse } from "next/server";
 
 export async function PATCH(
   req: Request,
-  context: { params: Promise<{ id: string }>}
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await context.params;
+  await connectToDatabase();
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    await connectToDatabase();
+    const { id } = await context.params;
     const body = await req.json();
 
-    const creditMemo = await CreditMemo.findById(id);
+    const { client, products } = body;
+
+    const creditMemo = await CreditMemo.findById(id).session(session);
+
     if (!creditMemo) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      throw new Error("Credit memo not found");
     }
 
-    // =========================
-    // RECEIVE CREDIT MEMO
-    // =========================
-    if (body.action === "receive") {
-      creditMemo.products = creditMemo.products.map((p: any) => {
-        const updated = body.products.find(
-          (u: any) =>
-            u.productInventory === p.productInventory.toString()
-        );
-
-        if (!updated) return p;
-
-        return {
-          ...p.toObject(),
-          pickedQuantity: updated.pickedQuantity,
-          returnedQuantity: updated.returnedQuantity,
-        };
-      });
-
-      creditMemo.total = body.total;
-      creditMemo.status = "received";
-      creditMemo.returnedAt = new Date();
-      creditMemo.returnSignature = body.returnSignature;
+    // Prevent editing if already received or cancelled
+    if (creditMemo.status !== "pending") {
+      throw new Error("Only pending credit memos can be edited");
     }
 
-    // =========================
-    // CANCEL CREDIT MEMO
-    // =========================
-    if (body.action === "cancel") {
-      creditMemo.cancelledAt = new Date();
-      creditMemo.cancelledBy = body.cancelledBy;
-      creditMemo.cancelReason = body.cancelReason;
-      creditMemo.status = "pending"; // or "cancelled" if you add enum
-    }
-
-    await creditMemo.save();
-
-    return NextResponse.json(creditMemo);
-  } catch (error: any) {
-    console.error("PATCH CreditMemo error:", error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
+    // Recalculate totals
+    const subtotal = products.reduce(
+      (sum: number, p: any) =>
+        sum + p.quantity * (p.actualCost ?? 0),
+      0
     );
+
+    // Update fields
+    creditMemo.client = client;
+
+    creditMemo.products = products.map((p: any) => ({
+      product: p.product,
+      quantity: p.quantity,
+      actualCost: p.actualCost ?? 0,
+      returnReason: p.returnReason,
+    }));
+
+    creditMemo.subtotal = subtotal;
+    creditMemo.total = subtotal;
+
+    await creditMemo.save({ session });
+
+    await session.commitTransaction();
+
+    return NextResponse.json({ success: true });
+
+  } catch (err: any) {
+    await session.abortTransaction();
+    console.error(err);
+
+    return NextResponse.json(
+      { error: err.message },
+      { status: 400 }
+    );
+  } finally {
+    session.endSession();
   }
+}
+
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ id: string }>}
+) {
+  try{
+    await connectToDatabase();
+    const { id } = await context.params;
+
+    const creditMemo = await CreditMemo.findById(id)
+    .populate({
+      path: "products",
+      populate: {
+        path: "product",
+          populate: {
+            path: "brand",
+          },
+      },
+    })
+    .populate("client")
+    .populate("routeAssigned");
+
+    if(!creditMemo) {
+      return NextResponse.json({ error: "Credit Memo Not Found"}, {status: 404});
+    }
+    return NextResponse.json(creditMemo);
+  } catch(err){
+    console.error(err);
+    return NextResponse.json({ error: "Server error"}, {status: 500});
+  }
+
 }
