@@ -103,7 +103,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
 
     setSubmitStatus("loading");
     try {
-      const res = await fetch(`/api/credit-memos/${cancelTarget._id}`, {
+      const res = await fetch(`/api/credit-memos/${cancelTarget._id}/cancel`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

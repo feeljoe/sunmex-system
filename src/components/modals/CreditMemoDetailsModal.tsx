@@ -11,8 +11,8 @@ export default function CreditMemoDetailsModal({
 }: {
   creditMemo: any;
   onClose: () => void;
-  onEdit: (preorder: any) => void;
-  userRole: string;
+  onEdit?: (preorder: any) => void;
+  userRole?: string;
 }) {
   const statusColorsCreditMemo: Record<string, string> = {
     pending: "bg-gray-300",
