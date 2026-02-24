@@ -6,20 +6,31 @@ import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
-
     await connectToDatabase();
 
     const { searchParams } = new URL(req.url);
 
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
-    const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
+    const limit = Math.min(Number(searchParams.get("limit")) || 25, 200);
+
     const search = searchParams.get("search")?.trim() || "";
+    const brand = searchParams.get("brand");
+    const availableOnly = searchParams.get("availableOnly") === "true";
 
     let matchStage: any = {};
 
-    // ✅ If searching, find brand ids first
-    if (search) {
+    // ✅ Brand filter
+    if (brand && mongoose.Types.ObjectId.isValid(brand)) {
+      matchStage["product.brand._id"] = new mongoose.Types.ObjectId(brand);
+    }
 
+    // ✅ Available only filter
+    if (availableOnly) {
+      matchStage.currentInventory = { $gt: 0 };
+    }
+
+    // ✅ Search filter
+    if (search) {
       const brands = await Brand.find({
         name: { $regex: search, $options: "i" },
       }).select("_id");
@@ -32,7 +43,7 @@ export async function GET(req: Request) {
         { "product.name": { $regex: search, $options: "i" } },
         { "product.sku": { $regex: search, $options: "i" } },
         { "product.upc": { $regex: search, $options: "i" } },
-        { "brand._id": { $in: brandIds } },
+        { "product.brand": { $in: brandIds } },
         ...(isObjectId
           ? [{ "product._id": new mongoose.Types.ObjectId(search) }]
           : []),
@@ -40,8 +51,6 @@ export async function GET(req: Request) {
     }
 
     const pipeline: any[] = [
-
-      // ✅ Join product
       {
         $lookup: {
           from: "products",
@@ -50,10 +59,8 @@ export async function GET(req: Request) {
           as: "product",
         },
       },
-
       { $unwind: "$product" },
 
-      // ✅ Join brand through product
       {
         $lookup: {
           from: "brands",
@@ -62,18 +69,17 @@ export async function GET(req: Request) {
           as: "brand",
         },
       },
-
       { $unwind: "$brand" },
+
       {
         $addFields: {
-          "product.brand": "$brand"
-        }
+          "product.brand": "$brand",
+        },
       },
 
-      // ✅ Apply search AFTER lookups
       Object.keys(matchStage).length ? { $match: matchStage } : null,
 
-      // ⭐ SORT BY BRAND NAME THEN PRODUCT NAME
+      // ✅ Always sort by product name (brand grouping handled in frontend)
       {
         $sort: {
           "brand.name": 1,
@@ -87,40 +93,19 @@ export async function GET(req: Request) {
             { $skip: (page - 1) * limit },
             { $limit: limit },
           ],
-          totalCount: [
-            { $count: "count" },
-          ],
-          totalInventoryMoney: [
-            {
-              $group: {
-                _id: null,
-                total: {
-                  $sum: {
-                    $multiply: [
-                      "$currentInventory",
-                      "$product.unitCost",
-                    ],
-                  },
-                },
-              },
-            },
-          ],
+          totalCount: [{ $count: "count" }],
         },
       },
-
-    ].filter(Boolean); // remove null stages
+    ].filter(Boolean);
 
     const result = await ProductInventory.aggregate(pipeline);
 
     const items = result[0]?.items || [];
-const total = result[0]?.totalCount[0]?.count || 0;
-const totalInventoryMoney =
-  result[0]?.totalInventoryMoney[0]?.total || 0;
+    const total = result[0]?.totalCount[0]?.count || 0;
 
     return NextResponse.json({
       items,
       total,
-      totalInventoryMoney,
       page,
       limit,
     });

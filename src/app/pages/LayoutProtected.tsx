@@ -6,8 +6,6 @@ import NavBar from "@/app/components/NavBar";
 import { useState } from "react";
 import { Providers } from "../providers";
 import Mobilebar from "../components/Mobilebar";
-import GoBackButton from "@/components/ui/goBackButton";
-
 
 export default function AppLayout({children, role}: {children: React.ReactNode; role:string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -28,12 +26,10 @@ export default function AppLayout({children, role}: {children: React.ReactNode; 
           </div>
           )}
         <div className={`flex flex-col w-full min-h-screen`}>
-          <NavBar/>
-          <Providers>{children}
+          <Providers>
+            <NavBar/>
+            {children}
           </Providers>
-          <div className="flex p-3 items-end">
-          <GoBackButton />
-          </div>
         </div>
       </body>
     </html>

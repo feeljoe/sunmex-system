@@ -13,7 +13,6 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("CREDENTIALS: ", credentials);
         if(!credentials?.username || !credentials?.password){
         console.log("Missing credentials");
         return null;
@@ -21,7 +20,6 @@ export const authOptions: NextAuthOptions = {
         await connectToDatabase();
         
         const user = await Users.findOne({ username: credentials.username });
-        console.log("USERNAME FOUND: ", user);
         
         if (!user) return null;
         
@@ -29,13 +27,6 @@ export const authOptions: NextAuthOptions = {
         credentials.password,
         user.password!
         );
-        console.log("RAW PASSWORD:", credentials.password);
-        console.log("HASHED PASSWORD:", user.password);
-        console.log(
-        "BCRYPT TEST:",
-        await verifyPassword("KNOWN_PASSWORD_HERE", user.password!)
-        );
-        console.log("PASSWORD VALID: ", isValid);
         if (!isValid) return null;
         
         return {

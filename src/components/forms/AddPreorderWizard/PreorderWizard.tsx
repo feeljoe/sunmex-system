@@ -87,6 +87,10 @@ export default function PreorderWizard({
     );
   }, [pricedProducts]);
 
+  const handleSelectedClient = (client: any) => {
+    setSelectedClient(client);
+    setStep(2);
+  }
  // SUBMIT
 
   const submitPreorder = async () => {
@@ -142,12 +146,12 @@ export default function PreorderWizard({
 
   return (
     <>
-    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
+    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-hidden">
       {step === 1 && (
         <StepSelectClient
           userRole={userRole}
           selectedClient={selectedClient}
-          onSelect={setSelectedClient}
+          onSelect={handleSelectedClient}
         />
       )}
 
@@ -156,7 +160,6 @@ export default function PreorderWizard({
           userRole={userRole}
           products={products}
           setProducts={setProducts}
-          selectedClient={selectedClient}
         />
       )}
 
@@ -195,7 +198,7 @@ export default function PreorderWizard({
         />
       )}
     </div>
-    <div className="flex w-full justify-between mt-4">
+    <div className="flex w-full justify-between">
     <div>
         <button hidden={step === 1} onClick={back} className="px-5 py-3 bg-gray-300 shadow-xl rounded-xl cursor-pointer">
             Go Back

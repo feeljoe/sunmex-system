@@ -16,14 +16,14 @@ export default function SelectPreorderTypeModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-(--secondary) flex flex-col rounded-xl shadow-xl p-6 w-full max-w-xl">
+      <div className="bg-(--secondary) flex flex-col rounded-xl shadow-xl p-6 w-4/5 max-w-xl">
         <h2 className="text-xl font-semibold text-center mb-4">
           Preorder Type
         </h2>
         <h3 className="font-bold text-lg p-2"> Select Preorder Type</h3>
 
         <select
-            className="shadow-xl h-10 bg-white text-lg"
+            className="shadow-xl h-10 bg-white text-lg p-2 rounded-xl"
             onChange={(e) => setType(e.target.value)}>
             <option value="">Select One</option>
             <option value="charge">Charge</option>
