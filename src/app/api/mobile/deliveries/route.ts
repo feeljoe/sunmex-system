@@ -19,6 +19,7 @@ export async function GET(req: Request) {
       type: "driver",
       user: user._id,
     });
+    console.log("ROUTE FOUND:", route);
 
     if (!route) {
       return NextResponse.json({ deliveries: [] });
