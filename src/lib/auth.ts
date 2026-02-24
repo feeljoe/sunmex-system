@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         }
         await connectToDatabase();
         
-        const user = await Users.findOne({ username: credentials.username });
+        const user = await Users.findOne({ username: credentials.username.toLocaleLowerCase() });
         
         if (!user) return null;
         

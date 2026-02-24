@@ -134,10 +134,10 @@ export default function PreorderWizard({
     setMessage("");
   }
   const next = () => {
-    if(step===1 && userRole === "admin" && !isEdit){
+    if((step===1 || step===2) && userRole === "admin" && !isEdit){
       setShowPreorderType(true);
       return;
-    }else if(step===1 && userRole !== "admin" && !isEdit){
+    }else if((step===1 || step===2) && userRole !== "admin" && !isEdit){
       setPreorderType("charge");
     }
     setStep(s => Math.min(s + 1, 3))
