@@ -77,7 +77,7 @@ export async function GET(req: Request) {
         brand: p.productInventory.product.brand?.name,
         quantity: p.quantity,
         deliveredQuantity: p.deliveredQuantity ?? 0,
-        unitPrice: p.productInventory.product.unitPrice,
+        unitPrice: p.actualCost ?? 0,
       }));
 
       return {
@@ -100,7 +100,11 @@ export async function GET(req: Request) {
           ? {
               id: creditMemo._id,
               number: creditMemo.number,
-              total: creditMemo.total,
+              totals: {
+                total: creditMemo.total,
+                subtotal: creditMemo.subtotal,
+              },
+              status: creditMemo.status,
               products: creditMemo.products.map((cp: any) => ({
                 productId: cp.product._id,
                 name: cp.product.name,

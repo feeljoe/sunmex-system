@@ -188,14 +188,15 @@ if (preorder.status === "cancelled") {
     head: [["Brand", "Product", "UPC", "SKU", "Qty", "Price", "Total"]],
     body: sortedProducts.map((p: any) => {
       const prod = p.productInventory.product;
+      const price = p.actualCost ?? 0;
       return [
         prod.brand?.name || "-",
         `${prod.name} ${(prod.weight && prod.unit)? prod.weight + "" + prod.unit.toUpperCase(): ""}` ,
         prod.upc,
         prod.sku,
         p.quantity,
-        `$${prod.unitPrice.toFixed(2)}`,
-        `$${(p.quantity * prod.unitPrice).toFixed(2)}`,
+        `$${price.toFixed(2)}`,
+        `$${(p.quantity * price).toFixed(2)}`,
       ];
     }),
     styles: {fontSize: 8},
@@ -213,17 +214,24 @@ if (preorder.status === "cancelled") {
   totalPages = (doc as any).internal.getNumberOfPages();
   doc.setPage(totalPages);
   
-  const footerY = pageHeight - 100;
+  const finalY = (doc as any).lastAutoTable.finalY;
+  const totalsHeight = 70;
+
+  if (finalY + totalsHeight > pageHeight - 40) {
+    doc.addPage();
+  }
+
+  const totalsY = pageHeight - 80;
   const isDelivered = preorder.status === "delivered";
   const amountToShow = isDelivered
   ? preorder.total
   : preorder.subtotal;
   autoTable(doc, {
-    startY: footerY,
+    startY: totalsY,
     theme: "grid",
     head: [[ isDelivered? "Total": "Subtotal"]],
     body: [[ `$${amountToShow.toFixed(2)}`],],
-    styles: { fontSize: 12, halign: "center"},
+    styles: { fontSize: 8, halign: "center"},
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)
       textColor: 255,           // white text
@@ -236,7 +244,7 @@ if (preorder.status === "cancelled") {
 
   if(preorder.status === "delivered" && preorder.deliverySignature) {
     const sigX = 40;
-    const sigY = footerY -10;
+    const sigY = totalsY -50;
     doc.text(preorder.client.clientName, sigX, sigY);
     doc.addImage(preorder.deliverySignature, "PNG", sigX, sigY - 40, 120, 40);
   }

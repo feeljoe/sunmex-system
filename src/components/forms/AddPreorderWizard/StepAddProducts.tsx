@@ -253,7 +253,7 @@ export default function StepAddProducts({
                 }>
                   <div className="font-medium capitalize">
                     {inv.product.brand?.name}{" "}
-                    {inv.product.name}
+                    {inv.product.name}{" "} ({inv.product.weight}{inv.product.unit?.toUpperCase()})
                   </div>
                   <div className="text-sm text-gray-500">
                     SKU: {inv.product.sku} | Available:{" "}

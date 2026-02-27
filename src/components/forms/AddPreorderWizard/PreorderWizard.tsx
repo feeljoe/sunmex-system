@@ -66,7 +66,7 @@ export default function PreorderWizard({
       caseSize: p.productInventory?.product?.caseSize,
       sku: p.productInventory?.product?.sku,
       quantity: p.quantity,
-      maxQty: p.productInventory?.currentInventory, // editing shouldn't limit inventory unless you want
+      maxQty: p.productInventory?.currentInventory, 
     })) || []
   );
   const [showPreorderType, setShowPreorderType] = useState(false);

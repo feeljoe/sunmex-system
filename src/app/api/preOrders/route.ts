@@ -48,10 +48,6 @@ export async function GET(req: Request) {
           createdBy: vendorIdObj,
           status: "pending",
         },
-        {
-          createdBy: vendorIdObj,
-          ...baseFilters,
-        }
       ];
     }else {
       Object.assign(matchQuery, baseFilters);

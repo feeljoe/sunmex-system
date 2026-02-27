@@ -10,10 +10,10 @@ export async function PATCH(
   const { id } = await context.params;
 
   try {
-    const { paymentMethod, checkNumber } = await req.json();
+    const { payments } = await req.json();
 
-    if (!paymentMethod) {
-      throw new Error("Payment method required");
+    if (!payments || !Array.isArray(payments)) {
+      throw new Error("Payments Array Required");
     }
 
     const preorder = await PreOrder.findById(id);
@@ -23,9 +23,15 @@ export async function PATCH(
       throw new Error("Preorder not delivered");
     }
 
-    preorder.paymentMethod = paymentMethod;
-    preorder.checkNumber =
-      paymentMethod === "check" ? checkNumber : null;
+    const totalPaid = payments.reduce(
+      (sum: number, p: any) => sum + Number(p.amount),
+      0
+    );
+    if(totalPaid !== preorder.total){
+      throw new Error ("Payment total does not match order total");
+    }
+
+    preorder.payments = payments;
     preorder.paymentStatus = "paid";
 
     await preorder.save();
