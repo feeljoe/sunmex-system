@@ -236,7 +236,7 @@ export function StepInfo({ form, setForm }: any) {
                               ${alreadyAdded ? "text-gray-400 cursor-not-allowed" : ""}
                             `}
                         >
-                            <div className="font-medium capitalize">{product.name.toLowerCase()}</div>
+                            <div className="font-medium capitalize">{product.name.toLowerCase()} ({product.weight}{product.unit?.toUpperCase()})</div>
                             <div className="text-sm text-gray-500">{product.sku}</div>
                         </div>
                     );

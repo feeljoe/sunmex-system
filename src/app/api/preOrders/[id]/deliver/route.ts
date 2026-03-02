@@ -70,7 +70,7 @@ export async function PATCH(
     let newTotal = 0;
 
     for (const p of preorder.products) {
-      const unitPrice = p.productInventory?.product?.unitPrice || 0;
+      const unitPrice = p.actualCost || p.productInventory?.product?.unitPrice || 0;
       const deliveredQty = Number(p.deliveredQuantity || 0);
 
       newTotal += deliveredQty * unitPrice;

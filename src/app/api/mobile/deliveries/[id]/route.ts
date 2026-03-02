@@ -31,6 +31,7 @@ export async function GET(
           populate: { path: "brand" },
         },
       })
+      .populate("routeAssigned")
       .lean();
 
     if (!order) {

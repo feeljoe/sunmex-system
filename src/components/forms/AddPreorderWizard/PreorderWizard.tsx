@@ -180,7 +180,7 @@ export default function PreorderWizard({
           setPreorderType(type);
           setPreorderReason(reason);
           setShowPreorderType(false);
-          setStep(2);
+          setStep(step === 2? 3 : 2);
           }}
         />
       )}

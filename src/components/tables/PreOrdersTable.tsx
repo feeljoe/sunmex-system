@@ -196,7 +196,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
     <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
       {userRole ==="admin" &&
       <>
-      <div className="flex mb-4">
+      <div className="flex justify-between mb-4">
         <DateRangePicker
           fromDate={fromDate}
           toDate={toDate}
@@ -205,6 +205,25 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
             setToDate(to);
           }}
         />  
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/preOrders/for-routes");
+            if(!res.ok){
+              alert("Failed to export");
+              return;
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "preorders-for-routes.xlsx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-xl hover:bg-green-300 cursor-pointer transition-all duration:300">
+            Export for Routes
+          </button>
       </div>
       
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
