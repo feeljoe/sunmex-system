@@ -47,6 +47,10 @@ export async function GET(req: Request) {
           populate: { path: "brand" },
         },
       })
+      .populate({
+        path: "routeAssigned",
+        populate: ({ path: "user"}),
+      })
       .lean();
 
     const clientIds = orders.map(o => o.client._id);
@@ -95,6 +99,15 @@ export async function GET(req: Request) {
         },
         requiresPayment:
           order.client.paymentTerm?.name === "Due on Receipt",
+        payments: order.payments ?? [],
+        routeAssigned: {
+          _id: order.routeAssigned._id,
+          code: order.routeAssigned.code,
+          user: {
+            _id: order.routeAssigned.user._id,
+            name: order.routeAssigned.user.firstName + " " + order.routeAssigned.user.lastName,
+          }, 
+        },
         products,
         creditMemo: creditMemo
           ? {

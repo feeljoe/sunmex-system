@@ -31,7 +31,10 @@ export async function GET(
           populate: { path: "brand" },
         },
       })
-      .populate("routeAssigned")
+      .populate({
+        path:"routeAssigned",
+        populate: { path: "user" },
+      })
       .lean();
 
     if (!order) {
@@ -59,6 +62,15 @@ export async function GET(
         name: order.client.clientName,
         billingAddress: order.client.billingAddress,
         paymentTerm: order.client.paymentTerm,
+      },
+      payments: order.payments,
+      routeAssigned: {
+        _id: order.routeAssigned._id,
+        code: order.routeAssigned.code,
+        user: {
+          _id: order.routeAssigned.user._id,
+          name: order.routeAssigned.user.firstName + " " + order.routeAssigned.user.lastName,
+        }, 
       },
       totals: {
         subtotal: order.subtotal,
