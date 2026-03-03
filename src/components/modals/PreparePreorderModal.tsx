@@ -114,7 +114,7 @@ export default function PrepareOrderModal({
 
                             <div className="flex-1">
                                 <div className="font-semibold">
-                                    {p.productInventory.product.brand.name} - {p.productInventory.product.name}
+                                    {p.productInventory.product.brand.name} - {p.productInventory.product.name} {p.productInventory.product.weight && (`(${p.productInventory.product.weight}${p.productInventory.product.unit?.toUpperCase()})`)}
                                 </div>
                                 <div className="text-md text-gray-600">
                                     SKU: {p.productInventory.product.sku} | UPC: {p.productInventory.product.upc}
