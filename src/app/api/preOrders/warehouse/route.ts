@@ -36,8 +36,7 @@ export async function GET(req: Request) {
       })
       .populate("cancelledBy")
       .sort({createdAt: 1})
-      .skip((page - 1) * limit)
-      .limit(limit),
+      .skip((page - 1) * limit),
       PreOrder.countDocuments(),
     ]);
     return NextResponse.json({
