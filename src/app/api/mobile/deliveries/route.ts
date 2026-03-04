@@ -58,7 +58,6 @@ export async function GET(req: Request) {
     const creditMemos = await CreditMemo.find({
       preorder: { $in: orderIds },
       routeAssigned: route._id,
-      status: "pending",
     })
       .populate({
         path: "products.product",
