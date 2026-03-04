@@ -66,6 +66,8 @@ export async function GET(
           brand: p.productInventory.product.brand?.name,
           quantity: picked, // DRIVER SEES PICKED
           deliveredQuantity: p.deliveredQuantity ?? 0,
+          weight: p.productInventory.product.weight ?? "",
+          uom: p.productInventory.product.unit ?? "",
           unitPrice: p.actualCost ?? 0,
         };
       })

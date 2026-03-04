@@ -83,6 +83,8 @@ export async function GET(req: Request) {
             productId: p.productInventory.product._id,
             name: p.productInventory.product.name,
             brand: p.productInventory.product.brand?.name,
+            weight: p.productInventory.product.weight ?? "",
+            uom: p.productInventory.product.unit ?? "",
             quantity: picked, // DRIVER SEES PICKED
             deliveredQuantity: p.deliveredQuantity ?? 0,
             unitPrice: p.actualCost ?? 0,
