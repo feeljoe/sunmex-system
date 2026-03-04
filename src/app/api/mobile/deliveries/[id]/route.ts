@@ -100,25 +100,7 @@ export async function GET(
         total: order.total,
       },
       products,
-      creditMemo: creditMemo
-        ? {
-            id: creditMemo._id,
-            total: creditMemo.total,
-            subtotal: creditMemo.subtotal,
-            products: creditMemo.products.map((cp: any) => ({
-              product: {
-                _id: cp.product._id,
-                name: cp.product.name,
-                brand: {
-                  _id: cp.product.brand._id,
-                  name: cp.product.brand.name,
-                },
-              },
-              quantity: cp.quantity,
-              pickedQuantity: cp.pickedQuantity,
-            })),
-          }
-        : null,
+      creditMemo: creditMemo ?? null,
     };
 
     return NextResponse.json(formatted);
