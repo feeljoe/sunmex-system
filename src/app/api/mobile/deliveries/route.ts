@@ -79,6 +79,7 @@ export async function GET(req: Request) {
           const picked = p.pickedQuantity ?? 0;
     
           return {
+            productInventory: p.productInventory._id,
             productId: p.productInventory.product._id,
             name: p.productInventory.product.name,
             brand: p.productInventory.product.brand?.name,
