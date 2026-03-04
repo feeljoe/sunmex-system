@@ -48,7 +48,6 @@ export async function GET(
 
     const creditMemo = await CreditMemo.findOne({
       preorder: order._id,
-      status: "pending",
     })
       .populate({
         path: "products.product",
