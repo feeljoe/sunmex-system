@@ -119,8 +119,10 @@ export default function PreorderDetailsModal({
               <tr>
                 <th className="p-2">Brand</th>
                 <th className="p-2">Product</th>
+                <th className="p-2">SKU</th>
                 <th className="p-2">UPC</th>
-                <th className="p-2 text-center">Qty</th>
+                <th className="p-2 text-center">Ordered Qty</th>
+                <th className="p-2 text-center">Picked Qty</th>
                 <th className="p-2 text-right">Unit Price</th>
                 <th className="p-2 text-right">Line Total</th>
               </tr>
@@ -129,10 +131,14 @@ export default function PreorderDetailsModal({
               {sortedProducts.map((p: any) => {
                 const unitPrice =
                   p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0;
-                  totalQty += p.quantity;
+                  const picked = p.pickedQuantity ?? 0;
+                  const ordered = p.quantity ?? 0;
+                  totalQty += ordered;
+
+                  const isDifferent = picked !== ordered;
 
                 return (
-                  <tr key={p.productInventory?._id} className="border-t">
+                  <tr key={p.productInventory?._id} className={`border-t ${isDifferent ? "bg-yellow-50" : ""}`}>
                     <td className="p-2 capitalize">
                       {p.productInventory?.product?.brand?.name.toLowerCase()}
                     </td>
@@ -140,10 +146,24 @@ export default function PreorderDetailsModal({
                       {p.productInventory?.product?.name.toLowerCase()}
                     </td>
                     <td className="p-2">
+                      {p.productInventory?.product?.sku}
+                    </td>
+                    <td className="p-2">
                       {p.productInventory?.product?.upc}
                     </td>
                     <td className="p-2 text-center">
-                      {p.quantity}
+                      {ordered}
+                    </td>
+                    <td
+                      className={`p-2 text-center font-bold ${
+                        picked === 0
+                          ? "text-red-600"
+                          : picked !== ordered
+                          ? "text-orange-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {picked}
                     </td>
                     <td className="p-2 text-right">
                       {formatCurrency(unitPrice)}
@@ -176,9 +196,9 @@ export default function PreorderDetailsModal({
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
           <button
-          disabled={preorder.status !== "pending" && userRole !== "admin"}
+          disabled={preorder.status === "ready" || preorder.status === "delivered"}
             onClick={() => router.push(`/pages/sales/preorders/edit/${preorder._id}`)}
-            className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(preorder.status !== "pending" && userRole !== "admin") ? "opacity-50": ""}`}>
+            className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(preorder.status === "ready" || preorder.status === "delivered") ? "opacity-50": ""}`}>
               Edit
             </button>
           <button

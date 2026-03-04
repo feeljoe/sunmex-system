@@ -38,10 +38,15 @@ export async function PATCH(
 
      const clientId = typeof preorder.client === "object" ? preorder.client._id : preorder.client;
 
-     await CreditMemo.updateMany(
-      { client: clientId, status: "pending"},
-      { $set: { routeAssigned: route._id } }
-     );
+     const pendingCreditMemo = await CreditMemo.findOne({
+        client: clientId, 
+        status: "pending",
+     });
+     if(pendingCreditMemo){
+      pendingCreditMemo.routeAssigned = route._id;
+      pendingCreditMemo.preorder = preorder._id;
+      await pendingCreditMemo.save();
+     }
 
     if (!preorder) return NextResponse.json({ error: "Preorder not found" }, { status: 404 });
 

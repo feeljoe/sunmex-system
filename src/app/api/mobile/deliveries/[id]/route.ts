@@ -32,7 +32,7 @@ export async function GET(
         },
       })
       .populate({
-        path:"routeAssigned",
+        path: "routeAssigned",
         populate: { path: "user" },
       })
       .lean();
@@ -41,9 +41,13 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // 🔒 Optional but recommended:
+    if (order.status !== "ready" && order.status !== "delivered") {
+      return NextResponse.json({ error: "Order not available for delivery" }, { status: 400 });
+    }
+
     const creditMemo = await CreditMemo.findOne({
-      client: order.client._id,
-      routeAssigned: order.routeAssigned,
+      preorder: order._id,
       status: "pending",
     })
       .populate({
@@ -51,6 +55,22 @@ export async function GET(
         populate: { path: "brand" },
       })
       .lean();
+
+    // 🔥 Normalize products for driver
+    const products = order.products
+      .map((p: any) => {
+        const picked = p.pickedQuantity ?? 0;
+
+        return {
+          productId: p.productInventory.product._id,
+          name: p.productInventory.product.name,
+          brand: p.productInventory.product.brand?.name,
+          quantity: picked, // DRIVER SEES PICKED
+          deliveredQuantity: p.deliveredQuantity ?? 0,
+          unitPrice: p.actualCost ?? 0,
+        };
+      })
+      .filter((p: any) => p.quantity > 0); // HIDE ZERO PICKED
 
     const formatted = {
       orderId: order._id,
@@ -63,30 +83,46 @@ export async function GET(
         billingAddress: order.client.billingAddress,
         paymentTerm: order.client.paymentTerm,
       },
-      payments: order.payments,
+      payments: order.payments ?? [],
       routeAssigned: {
         _id: order.routeAssigned._id,
         code: order.routeAssigned.code,
         user: {
           _id: order.routeAssigned.user._id,
-          name: order.routeAssigned.user.firstName + " " + order.routeAssigned.user.lastName,
-        }, 
+          name:
+            order.routeAssigned.user.firstName +
+            " " +
+            order.routeAssigned.user.lastName,
+        },
       },
       totals: {
         subtotal: order.subtotal,
         total: order.total,
       },
-      products: order.products,
+      products,
       creditMemo: creditMemo
         ? {
-            _id: creditMemo._id,
+            id: creditMemo._id,
             total: creditMemo.total,
-            products: creditMemo.products,
+            subtotal: creditMemo.subtotal,
+            products: creditMemo.products.map((cp: any) => ({
+              product: {
+                _id: cp.product._id,
+                name: cp.product.name,
+                brand: {
+                  _id: cp.product.brand._id,
+                  name: cp.product.brand.name,
+                },
+              },
+              quantity: cp.quantity,
+              pickedQuantity: cp.pickedQuantity,
+            })),
           }
         : null,
     };
 
     return NextResponse.json(formatted);
+
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message },

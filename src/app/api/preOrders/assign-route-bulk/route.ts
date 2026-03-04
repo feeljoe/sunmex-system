@@ -44,10 +44,15 @@ export async function PATCH(req: Request) {
           ? preorder.client._id
           : preorder.client;
 
-      await CreditMemo.updateMany(
-        { client: clientId, status: "pending" },
-        { $set: { routeAssigned: route._id } }
-      );
+      const pendingCreditMemo = await CreditMemo.findOne({
+        client: clientId, 
+        status: "pending",
+      });
+      if(pendingCreditMemo){
+      pendingCreditMemo.routeAssigned = route._id;
+      pendingCreditMemo.preorder = preorder._id;
+      await pendingCreditMemo.save();
+      }
     }
 
     return NextResponse.json(

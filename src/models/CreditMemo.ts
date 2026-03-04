@@ -5,6 +5,7 @@ const CreditMemoSchema = new Schema(
   {
     number: {type: String, required: true, unique: true},
     client: { type: Schema.Types.ObjectId, ref: "Client", required: true },
+    preorder: {type: Schema.Types.ObjectId, ref: "PreOrder"},
     products: [
       {
         product: { type: Schema.Types.ObjectId, ref: "Product" },

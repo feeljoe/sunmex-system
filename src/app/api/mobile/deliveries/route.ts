@@ -53,10 +53,10 @@ export async function GET(req: Request) {
       })
       .lean();
 
-    const clientIds = orders.map(o => o.client._id);
+    const orderIds = orders.map(o => o._id);
 
     const creditMemos = await CreditMemo.find({
-      client: { $in: clientIds },
+      preorder: { $in: orderIds },
       routeAssigned: route._id,
       status: "pending",
     })
@@ -69,21 +69,27 @@ export async function GET(req: Request) {
     const creditMemoMap = new Map<string, any>();
 
     creditMemos.forEach(cm => {
-      creditMemoMap.set(cm.client.toString(), cm);
+      creditMemoMap.set(cm.preorder.toString(), cm);
     });
 
     const formatted = orders.map(order => {
-      const creditMemo = creditMemoMap.get(order.client._id.toString());
-
-      const products = order.products.map((p: any) => ({
-        productId: p.productInventory.product._id,
-        name: p.productInventory.product.name,
-        brand: p.productInventory.product.brand?.name,
-        quantity: p.quantity,
-        deliveredQuantity: p.deliveredQuantity ?? 0,
-        unitPrice: p.actualCost ?? 0,
-      }));
-
+      const creditMemo = creditMemoMap.get(order._id.toString());
+    
+      const products = order.products
+        .map((p: any) => {
+          const picked = p.pickedQuantity ?? 0;
+    
+          return {
+            productId: p.productInventory.product._id,
+            name: p.productInventory.product.name,
+            brand: p.productInventory.product.brand?.name,
+            quantity: picked, // DRIVER SEES PICKED
+            deliveredQuantity: p.deliveredQuantity ?? 0,
+            unitPrice: p.actualCost ?? 0,
+          };
+        })
+        .filter((p: { quantity: number; }) => p.quantity > 0); // HIDE ZERO PICKED
+    
       return {
         orderId: order._id,
         number: order.number,
@@ -105,27 +111,14 @@ export async function GET(req: Request) {
           code: order.routeAssigned.code,
           user: {
             _id: order.routeAssigned.user._id,
-            name: order.routeAssigned.user.firstName + " " + order.routeAssigned.user.lastName,
-          }, 
+            name:
+              order.routeAssigned.user.firstName +
+              " " +
+              order.routeAssigned.user.lastName,
+          },
         },
         products,
-        creditMemo: creditMemo
-          ? {
-              id: creditMemo._id,
-              number: creditMemo.number,
-              totals: {
-                total: creditMemo.total,
-                subtotal: creditMemo.subtotal,
-              },
-              status: creditMemo.status,
-              products: creditMemo.products.map((cp: any) => ({
-                productId: cp.product._id,
-                name: cp.product.name,
-                quantity: cp.quantity,
-                pickedQuantity: cp.pickedQuantity,
-              })),
-            }
-          : null,
+        creditMemo: creditMemo ?? null,
       };
     });
 
