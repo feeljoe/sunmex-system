@@ -5,14 +5,15 @@ import { NextResponse } from "next/server";
 const toCents = (value: number) => Math.round(value * 100);
 export async function PATCH(
   req: Request,
-  context: { params: Promise<{ id: string }>}
+  context: { params: { id: string }}
 ) {
   await connectToDatabase();
-  const { id } = await context.params;
+  const { id } = context.params;
 
   try {
     const { payments } = await req.json();
-
+    console.log("PATCH /preOrder/:id/pay: ", {id, payments});
+    
     if (!payments || !Array.isArray(payments)) {
       throw new Error("Payments Array Required");
     }
@@ -31,6 +32,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    console.error("PATCH error:", err.message);
     return NextResponse.json(
       { error: err.message },
       { status: 400 }
