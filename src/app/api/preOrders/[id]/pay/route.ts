@@ -2,6 +2,7 @@ import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import { NextResponse } from "next/server";
 
+const toCents = (value: number) => Math.round(value * 100);
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }>}
@@ -21,14 +22,6 @@ export async function PATCH(
 
     if (preorder.status !== "delivered") {
       throw new Error("Preorder not delivered");
-    }
-
-    const totalPaid = payments.reduce(
-      (sum: number, p: any) => sum + Number(p.amount),
-      0
-    );
-    if(totalPaid !== preorder.total){
-      throw new Error ("Payment total does not match order total");
     }
 
     preorder.payments = payments;

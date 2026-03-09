@@ -34,7 +34,7 @@ export async function PATCH(
         productLine.returnedQuantity = incoming.returnedQuantity;
 
         const price = productLine.effectiveUnitPrice ?? productLine.unitPrice ?? productLine.actualCost ?? 0;
-        calculateTotal += incoming.pickedQuantity * price;
+        calculateTotal += incoming.pickedQuantity * Math.round(price * 100);
 
         //Update inventory
         await ProductInventory.updateOne(
@@ -44,8 +44,8 @@ export async function PATCH(
         );
     }
 
-    creditMemo.total = calculateTotal;
-    creditMemo.signature = body.signature;
+    creditMemo.total = Number((calculateTotal/100).toFixed(2));
+    creditMemo.returnSignature = body.signature;
     creditMemo.returnedAt = new Date();
     creditMemo.status = "received";
 

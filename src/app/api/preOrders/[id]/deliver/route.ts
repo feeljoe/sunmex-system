@@ -4,6 +4,8 @@ import ProductInventory from "@/models/ProductInventory";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+const toCents = (value: number) => Math.round(value * 100);
+const fromCents = (cents: number) => Number((cents/100).toFixed(2));
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -66,17 +68,17 @@ export async function PATCH(
       }
     }
 
-    // Recalculate total based on delivered quantities
-    let newTotal = 0;
+    // Recalculate total based on delivered quantities using cents
+    let newTotalCents = 0;
 
     for (const p of preorder.products) {
       const unitPrice = p.actualCost || p.productInventory?.product?.unitPrice || 0;
       const deliveredQty = Number(p.deliveredQuantity || 0);
 
-      newTotal += deliveredQty * unitPrice;
+      newTotalCents += deliveredQty * toCents(unitPrice);
     }
 
-    preorder.total = preorder.type === "noCharge" ? 0: newTotal;
+    preorder.total = preorder.type === "noCharge" ? 0: fromCents(newTotalCents);
 
 
     preorder.status = "delivered";
