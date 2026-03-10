@@ -8,10 +8,10 @@ const toCents = (value: number) => Math.round(value * 100);
 const fromCents = (cents: number) => Number((cents/100).toFixed(2));
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }>}
 ) {
   await connectToDatabase();
-  const { id } = await params;
+  const { id } = await context.params;
 
   const session = await mongoose.startSession();
   session.startTransaction();

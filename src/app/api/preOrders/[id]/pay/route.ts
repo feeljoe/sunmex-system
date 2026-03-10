@@ -3,10 +3,10 @@ import PreOrder from "@/models/PreOrder";
 import { NextResponse } from "next/server";
 export async function PATCH(
   req: Request,
-  context: { params: { id: string }}
+  context: { params: Promise<{ id: string }>}
 ) {
   await connectToDatabase();
-  const { id } = context.params;
+  const { id } = await context.params;
 
   try {
     const { payments } = await req.json();
