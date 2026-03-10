@@ -75,7 +75,7 @@ export async function PATCH(
       const unitPrice = p.actualCost || p.productInventory?.product?.unitPrice || 0;
       const deliveredQty = Number(p.deliveredQuantity || 0);
 
-      newTotalCents += deliveredQty * toCents(unitPrice);
+      newTotalCents += toCents(deliveredQty * unitPrice);
     }
 
     preorder.total = preorder.type === "noCharge" ? 0: fromCents(newTotalCents);
