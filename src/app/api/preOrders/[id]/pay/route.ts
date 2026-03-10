@@ -1,8 +1,6 @@
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import { NextResponse } from "next/server";
-
-const toCents = (value: number) => Math.round(value * 100);
 export async function PATCH(
   req: Request,
   context: { params: { id: string }}

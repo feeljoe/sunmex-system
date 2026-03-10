@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import CreditMemo from "@/models/CreditMemo";
 import Route from "@/models/Route";
+import { DateTime } from "luxon";
 
 export async function GET(req: Request) {
   try {
@@ -24,12 +25,11 @@ export async function GET(req: Request) {
     if (!route) {
       return NextResponse.json({ deliveries: [] });
     }
+    const phoenixNow = DateTime.now().setZone("America/Phoenix");
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = phoenixNow.startOf("day").toJSDate();
 
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    const endOfToday = phoenixNow.endOf("day").toJSDate();
 
     const orders = await PreOrder.find({
       routeAssigned: route._id,
