@@ -20,16 +20,37 @@ export async function GET(req: Request) {
       type: "driver",
       user: user._id,
     });
-    console.log("ROUTE FOUND:", route);
 
     if (!route) {
       return NextResponse.json({ deliveries: [] });
     }
     const phoenixNow = DateTime.now().setZone("America/Phoenix");
 
-    const startOfToday = phoenixNow.startOf("day").toJSDate();
-
-    const endOfToday = phoenixNow.endOf("day").toJSDate();
+    const startOfToday = DateTime.fromObject(
+      {
+        year: phoenixNow.year,
+        month: phoenixNow.month,
+        day: phoenixNow.day,
+        hour: 0,
+        minute: 0,
+        second: 0,
+        millisecond: 0,
+      },
+      { zone: "UTC" } // force UTC for Mongo query
+    ).toJSDate();
+    
+    const endOfToday = DateTime.fromObject(
+      {
+        year: phoenixNow.year,
+        month: phoenixNow.month,
+        day: phoenixNow.day,
+        hour: 23,
+        minute: 59,
+        second: 59,
+        millisecond: 999,
+      },
+      { zone: "UTC" }
+    ).toJSDate();
 
     const orders = await PreOrder.find({
       routeAssigned: route._id,
