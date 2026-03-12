@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { getNextBusinessDay } from "@/utils/getNextBusinessDay";
+import { DateTime } from "luxon";
 
 export async function PATCH(
   req: Request,
@@ -106,10 +107,17 @@ export async function PATCH(
         : undefined;
     }
 
-    const assembledAt = new Date();
+    const phoenixNow = DateTime.now().setZone("America/Phoenix");
+    const nextBusinessDay = DateTime.fromJSDate(
+      getNextBusinessDay(phoenixNow.toJSDate())
+    ).setZone("America/Phoenix");
+
+    const phoenixMidnight = nextBusinessDay.startOf("day");
+    const deliveryUTC = phoenixMidnight.toUTC().toJSDate();
+    const assembledAt = phoenixNow.toUTC().toJSDate();
     preorder.assembledBy = new mongoose.Types.ObjectId(sessionUser?.user?.id);
     preorder.assembledAt = assembledAt;
-    preorder.deliveryDate = getNextBusinessDay(assembledAt);
+    preorder.deliveryDate = deliveryUTC;
     preorder.status = "ready";
     
     await preorder.save({ session });

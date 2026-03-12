@@ -12,6 +12,7 @@ const CreditMemoSchema = new Schema(
         quantity: { type: Number, required: true },
         pickedQuantity: {type: Number, default: 0},
         returnedQuantity: {type: Number},
+        warehouseVerifiedQuantity: {type: Number},
         actualCost: { type: Number, default: 0 }, // optional if cost changes
         returnReason: {
           type: String,
@@ -28,6 +29,15 @@ const CreditMemoSchema = new Schema(
     returnedAt: {type: Date},
     returnSignature: {
       type: String,
+    },
+    receivedBy: {type: Schema.Types.ObjectId, ref: "User"},
+    driverSignature: {type: String},
+    warehouseSignature: {type: String},
+    warehouseReceivedAt: {type: Date},
+    warehouseStatus: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending"
     },
     cancelledAt: {type: Date},
     cancelledBy: {type: Schema.Types.ObjectId, ref: "User"},

@@ -21,7 +21,14 @@ export default function WarehousePage() {
                         </svg>
                     </div>
                 </Link>
-            
+                <Link href="/pages/warehouse/returns" className="w-40 h-50 lg:w-50 lg:h-80 bg-white rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
+                    <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
+                        Returns
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-10">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                        </svg>
+                    </div>
+                </Link>
         </div>
   );
   }

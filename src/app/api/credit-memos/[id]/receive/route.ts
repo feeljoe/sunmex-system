@@ -32,16 +32,25 @@ export async function PATCH(
 
         productLine.pickedQuantity = incoming.pickedQuantity;
         productLine.returnedQuantity = incoming.returnedQuantity;
+        productLine.returnReason = incoming.returnReason;
 
         const price = productLine.effectiveUnitPrice ?? productLine.unitPrice ?? productLine.actualCost ?? 0;
         calculateTotal += incoming.pickedQuantity * Math.round(price * 100);
 
         //Update inventory
-        await ProductInventory.updateOne(
+        let inventoryUpdate: any = {};
+        if(incoming.returnReason === "good return"){
+          inventoryUpdate.onRouteInventory = incoming.pickedQuantity;
+        }else if (incoming.returnReason === "credit memo"){
+          inventoryUpdate.inactiveInventory = incoming.pickedQuantity;
+        }
+        if(Object.keys(inventoryUpdate).length > 0){
+          await ProductInventory.updateOne(
             {product: incoming.product },
-            { $inc: { onRouteInventory: incoming.pickedQuantity } },
+            { $inc: inventoryUpdate },
             { session }
-        );
+          );
+        }
     }
 
     creditMemo.total = Number((calculateTotal/100).toFixed(2));
