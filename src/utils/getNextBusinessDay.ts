@@ -1,18 +1,16 @@
+import { DateTime } from "luxon";
 export function getNextBusinessDay(date: Date) {
-    const next = new Date(date);
-    next.setDate(next.getDate() + 1);
-  
-    const day = next.getDay(); // 0 = Sun, 6 = Sat
-  
-    if (day === 6) {
-      // Saturday → Monday
-      next.setDate(next.getDate() + 2);
-    } else if (day === 0) {
-      // Sunday → Monday
-      next.setDate(next.getDate() + 1);
-    }
-  
-    next.setHours(0, 0, 0, 0);
-    return next;
+  let newDate = DateTime.fromJSDate(date, {zone: "America/Phoenix" });
+  //always add one more day
+  newDate = newDate.plus({days: 1});
+  //if day is saturday, set it to monday
+  if(newDate.weekday === 6){
+    newDate = newDate.plus({days: 2});
   }
-  
+  //if day is sunday, set it to monday
+  else if(newDate.weekday === 7){
+    newDate = newDate.plus({days: 1});
+  }
+  newDate = newDate.startOf("day");
+  return newDate.toUTC().toJSDate();
+}

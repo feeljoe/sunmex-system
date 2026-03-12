@@ -108,16 +108,12 @@ export async function PATCH(
     }
 
     const phoenixNow = DateTime.now().setZone("America/Phoenix");
-    const nextBusinessDay = DateTime.fromJSDate(
-      getNextBusinessDay(phoenixNow.toJSDate())
-    ).setZone("America/Phoenix");
-
-    const phoenixMidnight = nextBusinessDay.startOf("day");
-    const deliveryUTC = phoenixMidnight.toUTC().toJSDate();
     const assembledAt = phoenixNow.toUTC().toJSDate();
+    const deliveryDate = getNextBusinessDay(assembledAt);
+
     preorder.assembledBy = new mongoose.Types.ObjectId(sessionUser?.user?.id);
     preorder.assembledAt = assembledAt;
-    preorder.deliveryDate = deliveryUTC;
+    preorder.deliveryDate = deliveryDate;
     preorder.status = "ready";
     
     await preorder.save({ session });
