@@ -6,6 +6,19 @@ import CreditMemo from "@/models/CreditMemo";
 import Route from "@/models/Route";
 import { DateTime } from "luxon";
 
+function addBusinessDays(date: Date, days: number): DateTime {
+  let result = DateTime.fromJSDate(date);
+  const increment = days >= 0 ? 1 : -1;
+  let remaining = Math.abs(days);
+
+  while (remaining > 0) {
+    result = result.plus({ days: increment });
+    const weekday = result.weekday; // 1 = Monday, 7 = Sunday
+    if (weekday >= 1 && weekday <= 5) remaining--;
+  }
+
+  return result;
+}
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
@@ -25,7 +38,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ deliveries: [] });
     }
     const phoenixNow = DateTime.now().setZone("America/Phoenix");
+    const today = phoenixNow;
+    // Subtract 2 business days to find relevant credit memo creation day
+    const pickUpDay = addBusinessDays(today.toJSDate(), -2);
 
+    // Start/end of that day in UTC for Mongo query
+    const startOfPickUpDay = pickUpDay.set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toUTC().toJSDate();
+    const endOfPickUpDay = pickUpDay.set({ hour: 23, minute: 59, second: 59, millisecond: 999 }).toUTC().toJSDate();
+    
     const startOfToday = DateTime.fromObject(
       {
         year: phoenixNow.year,
@@ -94,10 +114,12 @@ export async function GET(req: Request) {
 
     const standaloneCreditMemos = await CreditMemo.find({
       routeAssigned: route._id,
+      status: { $in: ["pending", "received"] },
       $or: [
         { preorder: { $exists: false } },
         { preorder: null },
       ],
+      createdAt: { $gte: startOfPickUpDay, $lte: endOfPickUpDay }, // <--- only today's pick up
     })
       .populate({
         path: "client",
