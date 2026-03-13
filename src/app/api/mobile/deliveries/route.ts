@@ -92,6 +92,58 @@ export async function GET(req: Request) {
       creditMemoMap.set(cm.preorder.toString(), cm);
     });
 
+    const standaloneCreditMemos = await CreditMemo.find({
+      routeAssigned: route._id,
+      $or: [
+        { preorder: { $exists: false } },
+        { preorder: null },
+      ],
+    })
+      .populate({
+        path: "client",
+      })
+      .populate({
+        path: "products.product",
+        populate: { path: "brand" },
+      })
+      .lean();
+
+      const formattedStandalone = standaloneCreditMemos.map((cm: any) => {
+        const products = cm.products.map((p: any) => ({
+          productId: p.product._id,
+          name: p.product.name,
+          brand: p.product.brand?.name,
+          weight: p.product.weight ?? "",
+          uom: p.product.unit ?? "",
+          quantity: p.quantity,
+          deliveredQuantity: p.deliveredQuantity ?? 0,
+          unitPrice: p.unitPrice ?? 0,
+        }));
+        return {
+          orderId: null, // important so the app knows it's not an order
+          creditMemoId: cm._id,
+          number: cm.number,
+          status: cm.status,
+          client: {
+            id: cm.client._id,
+            name: cm.client.clientName,
+            billingAddress: cm.client.billingAddress,
+          },
+          totals: {
+            subtotal: cm.subtotal,
+            total: cm.total,
+          },
+          requiresPayment: false,
+          payments: [],
+          routeAssigned: {
+            _id: route._id,
+            code: route.code,
+          },
+          products,
+          creditMemo: cm,
+        };
+      });
+
     const formatted = orders.map(order => {
       const creditMemo = creditMemoMap.get(order._id.toString());
     
@@ -145,7 +197,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ deliveries: formatted });
+    return NextResponse.json({ deliveries: [...formatted, ...formattedStandalone] });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message },

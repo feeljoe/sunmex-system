@@ -19,7 +19,10 @@ export async function GET(
 
     const { id } = await context.params;
 
-    const order = await PreOrder.findById(id)
+    // -----------------------------
+    // Try to fetch preorder first
+    // -----------------------------
+    let order = await PreOrder.findById(id)
       .populate({
         path: "client",
         populate: { path: "paymentTerm" },
@@ -37,42 +40,106 @@ export async function GET(
       })
       .lean();
 
+    // -----------------------------
+    // If no preorder, try credit memo directly
+    // -----------------------------
+    let creditMemo: any = null;
+
     if (!order) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      creditMemo = await CreditMemo.findById(id)
+        .populate({
+          path: "client",
+          populate: { path: "paymentTerm" },
+        })
+        .populate({
+          path: "products.product",
+          populate: { path: "brand" },
+        })
+        .lean();
+
+      if (!creditMemo) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
+      // Format standalone credit memo for driver
+      const products = creditMemo.products.map((p: any) => ({
+        productId: p.product._id,
+        name: p.product.name,
+        brand: p.product.brand?.name,
+        quantity: p.quantity,
+        deliveredQuantity: p.deliveredQuantity ?? 0,
+        weight: p.product.weight ?? "",
+        uom: p.product.unit ?? "",
+        unitPrice: p.unitPrice ?? 0,
+      }));
+
+      const formatted = {
+        orderId: creditMemo._id,
+        number: creditMemo.number,
+        status: creditMemo.status,
+        deliveryDate: creditMemo.deliveryDate ?? null,
+        client: {
+          _id: creditMemo.client._id,
+          name: creditMemo.client.clientName,
+          billingAddress: creditMemo.client.billingAddress,
+          paymentTerm: creditMemo.client.paymentTerm,
+        },
+        payments: creditMemo.payments ?? [],
+        routeAssigned: creditMemo.routeAssigned
+          ? {
+              _id: creditMemo.routeAssigned._id,
+              code: creditMemo.routeAssigned.code,
+              user: {
+                _id: creditMemo.routeAssigned.user._id,
+                name:
+                  creditMemo.routeAssigned.user.firstName +
+                  " " +
+                  creditMemo.routeAssigned.user.lastName,
+              },
+            }
+          : null,
+        totals: {
+          subtotal: creditMemo.subtotal ?? 0,
+          total: creditMemo.total ?? 0,
+        },
+        products,
+        creditMemo: creditMemo,
+        standalone: true,
+      };
+
+      return NextResponse.json(formatted);
     }
 
-    // 🔒 Optional but recommended:
+    // -----------------------------
+    // Existing logic for preorder
+    // -----------------------------
     if (order.status !== "ready" && order.status !== "delivered") {
-      return NextResponse.json({ error: "Order not available for delivery" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Order not available for delivery" },
+        { status: 400 }
+      );
     }
 
-    const creditMemo = await CreditMemo.findOne({
-      preorder: order._id,
-    })
+    creditMemo = await CreditMemo.findOne({ preorder: order._id })
       .populate({
         path: "products.product",
         populate: { path: "brand" },
       })
       .lean();
 
-    // 🔥 Normalize products for driver
     const products = order.products
-      .map((p: any) => {
-        const picked = p.pickedQuantity ?? 0;
-
-        return {
-          productInventory: p.productInventory._id,
-          productId: p.productInventory.product._id,
-          name: p.productInventory.product.name,
-          brand: p.productInventory.product.brand?.name,
-          quantity: picked, // DRIVER SEES PICKED
-          deliveredQuantity: p.deliveredQuantity ?? 0,
-          weight: p.productInventory.product.weight ?? "",
-          uom: p.productInventory.product.unit ?? "",
-          unitPrice: p.actualCost ?? 0,
-        };
-      })
-      .filter((p: any) => p.quantity > 0); // HIDE ZERO PICKED
+      .map((p: any) => ({
+        productInventory: p.productInventory._id,
+        productId: p.productInventory.product._id,
+        name: p.productInventory.product.name,
+        brand: p.productInventory.product.brand?.name,
+        quantity: p.pickedQuantity ?? 0,
+        deliveredQuantity: p.deliveredQuantity ?? 0,
+        weight: p.productInventory.product.weight ?? "",
+        uom: p.productInventory.product.unit ?? "",
+        unitPrice: p.actualCost ?? 0,
+      }))
+      .filter((p: any) => p.quantity > 0);
 
     const formatted = {
       orderId: order._id,
@@ -103,14 +170,12 @@ export async function GET(
       },
       products,
       creditMemo: creditMemo ?? null,
+      standalone: false,
     };
 
     return NextResponse.json(formatted);
 
   } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 401 });
   }
 }

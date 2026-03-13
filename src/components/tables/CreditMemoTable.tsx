@@ -8,6 +8,7 @@ import { DateRangePicker } from "../ui/DateRangePicker";
 import CancelCreditMemoModal from "../modals/CancelCreditMemoModal";
 import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
+import AssignRouteModal from "../modals/AssignRouteModal";
 
 export function CreditMemosTable({ userRole, userId }: { userRole: string; userId: string }) {
   const statusColors: Record<string, string> = {
@@ -22,6 +23,9 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   const [vendorInput, setVendorInput] = useState("");
   const [routeInput, setRouteInput] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [assignRouteModalOpen, setAssignRouteModalOpen] = useState(false);
+  const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
 
   const todayISO = () => new Date().toISOString().split("T")[0];
   const today = todayISO();
@@ -327,6 +331,33 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
         <table className="text-left lg:text-lg">
           <thead>
             <tr className="border-b">
+            {userRole === "admin" && (
+              <>
+                <th className="p-2">
+                  <input
+                    type="checkbox"
+                    checked={
+                      items.length > 0 &&
+                      items.every((it: any) => selectedIds.includes(it._id))
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const selectable = items
+                          .filter((it: any) => it.status === "pending")
+                          .map((it: any) => it._id);
+
+                        setSelectedIds(selectable);
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                    className="h-5 w-5"
+                  />
+                </th>
+
+                <th className="p-2">Assign Route</th>
+              </>
+              )}
               <th className="p-2">Number #</th>
               <th className="p-2">Client</th>
               <th className="p-2">Subtotal</th>
@@ -359,6 +390,48 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                 className="border-b hover:bg-gray-50 cursor-pointer text-sm"
                 onClick={() => setSelected(it)}
               >
+                {userRole === "admin" && it.status === "pending" && (
+                  <>
+                    <td className="p-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(it._id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds((prev) => [...prev, it._id]);
+                          } else {
+                            setSelectedIds((prev) =>
+                              prev.filter((id) => id !== it._id)
+                            );
+                          }
+                        }}
+                        className="h-5 w-5 cursor-pointer"
+                      />
+                    </td>
+
+                    <td className="p-2 text-center">
+                      <button
+                        className="bg-blue-500 text-white px-3 py-3 rounded-xl cursor-pointer hover:bg-blue-300 transition-all duration:300"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCreditMemo(it);
+                          setAssignRouteModalOpen(true);
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 1 13.5 5.625v1.5c0 .621.504 1.125 1.125 1.125h1.5a3.375 3.375 0 0 1 3.375 3.375M9 15l2.25 2.25L15 12" />
+                      </svg>
+                      </button>
+                    </td>
+                  </>
+                )}
+                {userRole === "admin" && it.status !== "pending" && (
+                  <>
+                    <td className="p-2 text-center">-</td>
+                    <td className="p-2 text-center">-</td>
+                  </>
+                )}
                 <td className="p-2 whitespace-nowrap">{it.number}</td>
                 <td className="p-2 whitespace-nowrap capitalize">{it.client?.clientName.toLowerCase()}</td>
                 <td className="p-2 whitespace-nowrap">{formatCurrency(it.subtotal)}</td>
@@ -418,8 +491,22 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
           </tbody>
         </table>
       </div>
-
-      <div className="flex justify-end items center gap-4 mt-4">
+      <div className="flex justify-between items-center w-full">
+        <div>
+      {userRole === "admin" && selectedIds.length > 0 && (
+          <button
+            onClick={() => {
+              setSelectedCreditMemo(null);
+              setAssignRouteModalOpen(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-xl"
+          >
+            Assign {selectedIds.length} Selected
+          </button>
+        )}
+        </div>
+      <div className="flex justify-end items-center gap-4 mt-4">
+        
             <span className='mt-1'>
               Showing {items.length} of {total}
             </span>
@@ -447,6 +534,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
               </svg>
             </button>
           </div>
+        </div>
 
       {selected && (
         <CreditMemoDetailsModal
@@ -472,6 +560,22 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
             setMessage("");
           }}
           collection="Credit Memo"
+        />
+      )}
+      {assignRouteModalOpen && (
+        <AssignRouteModal
+          bulkMode={selectedIds.length > 0}
+          creditMemoIds={selectedIds.length > 0 ? selectedIds : undefined}
+          creditMemoId={selectedCreditMemo?._id}
+          currentRouteId={selectedCreditMemo?.routeAssigned?._id}
+          onClose={() => {
+            setAssignRouteModalOpen(false);
+            setSelectedIds([]);
+          }}
+          onAssigned={() => {
+            reload();
+            setSelectedIds([]);
+          }}
         />
       )}
     </div>

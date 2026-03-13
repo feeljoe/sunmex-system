@@ -7,18 +7,22 @@ import BulkAssignConfirmModal from "./BulkAssignConfirmModal";
 export default function AssignRouteModal({
   clientName,
   preorderId,
+  creditMemoId,
   currentRouteId,
   onClose,
   onAssigned,
   preorderIds,
+  creditMemoIds,
   bulkMode,
 }: {
   clientName?: string;
   preorderId?: string;
+  creditMemoId?: string;
   currentRouteId?: string;
   onClose: () => void;
   onAssigned: (data: any) => void;
   preorderIds?: string[];
+  creditMemoIds?: string[];
   bulkMode?: boolean;
 }) {
   const { items: routes } = useList("/api/routes");
@@ -26,41 +30,47 @@ export default function AssignRouteModal({
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const selectedRouteLabel =
-    routes.find((r: any) => r._id === selectedRoute)
-    ? `${routes.find((r: any) => r._id === selectedRoute).code}
-      (${routes.find((r: any) => r._id === selectedRoute).user?.firstName}
-      ${routes.find((r: any) => r._id === selectedRoute).user?.lastName})`
+  const route = routes.find((r: any) => r._id === selectedRoute);
+
+  const selectedRouteLabel = route
+    ? `${route.code} (${route.user?.firstName} ${route.user?.lastName})`
     : "";
 
-  const handleAssignSingle = async () => {
-    if (!selectedRoute || !preorderId) return;
-    setLoading(true);
-    const res = await fetch(`/api/preOrders/${preorderId}/assign-route`, {
-      method: "PATCH",
-      body: JSON.stringify({ routeId: selectedRoute, preorderId: preorderId}),
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const data = await res.json();
-    setLoading(false);
-
-    if (res.ok) {
-      onAssigned(data);
-      onClose();
-    } else {
-      alert(data.error || "Error assigning route");
-    }
-  };
+    const handleAssignSingle = async () => {
+      if (!selectedRoute || (!preorderId && !creditMemoId)) return;
+    
+      setLoading(true);
+    
+      const res = await fetch(`/api/preOrders/assign-route-bulk`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          routeId: selectedRoute,
+          preorderIds: preorderId ? [preorderId] : undefined,
+          creditMemoIds: creditMemoId ? [creditMemoId] : undefined
+        }),
+      });
+    
+      const data = await res.json();
+      setLoading(false);
+    
+      if (res.ok) {
+        onAssigned(data);
+        onClose();
+      } else {
+        alert(data.error || "Error assigning route");
+      }
+    };
   const handleAssignBulk = async () => {
-    if(!preorderIds?.length || !selectedRoute) return;
+    if (!selectedRoute || (!preorderIds?.length && !creditMemoIds?.length)) return;
     setLoading(true);
     const res = await fetch(`/api/preOrders/assign-route-bulk`, {
       method: "PATCH",
       headers: {"Content-Type": "application/json" },
       body: JSON.stringify({
         routeId: selectedRoute,
-        preorderIds
+        preorderIds,
+        creditMemoIds
       }),
     });
     const data = await res.json();
@@ -80,8 +90,11 @@ export default function AssignRouteModal({
       
           <h2 className="text-xl lg:text-2xl text-center font-semibold mb-10 lg:mb-0">
             {bulkMode
-            ? `Assign Route to ${preorderIds?.length} Preorders`
-            : `Assign Route to ${clientName}`}
+              ? `Assign Route to ${
+                  (preorderIds?.length || 0) + (creditMemoIds?.length || 0)
+                } Items`
+              : `Assign Route to ${clientName}`
+            }
           </h2>
 
       <select
@@ -112,7 +125,11 @@ export default function AssignRouteModal({
               ? () =>setConfirmOpen(true)
               : handleAssignSingle
           }
-          disabled={!selectedRoute || loading}
+          disabled={
+            !selectedRoute ||
+            loading ||
+            (!preorderIds?.length && !creditMemoIds?.length && !preorderId && !creditMemoId)
+          }
         >
           {loading 
             ? "Assigning..." 
@@ -126,7 +143,7 @@ export default function AssignRouteModal({
     </div>
     {confirmOpen && bulkMode && (
       <BulkAssignConfirmModal
-        count={preorderIds?.length || 0}
+        count={(preorderIds?.length || 0) + (creditMemoIds?.length || 0)}
         routeLabel={selectedRouteLabel}
         loading={loading}
         onCancel={() => setConfirmOpen(false)}
