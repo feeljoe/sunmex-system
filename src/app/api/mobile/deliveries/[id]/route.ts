@@ -55,6 +55,10 @@ export async function GET(
           path: "products.product",
           populate: { path: "brand" },
         })
+        .populate({
+          path: "routeAssigned",
+          populate: { path: "user" },
+        })
         .lean();
 
       if (!creditMemo) {
@@ -90,13 +94,15 @@ export async function GET(
           ? {
               _id: creditMemo.routeAssigned._id,
               code: creditMemo.routeAssigned.code,
-              user: {
+              user: creditMemo.routeAssigned.user
+              ? {
                 _id: creditMemo.routeAssigned.user._id,
                 name:
                   creditMemo.routeAssigned.user.firstName +
                   " " +
                   creditMemo.routeAssigned.user.lastName,
-              },
+              }
+              : null,
             }
           : null,
         totals: {
