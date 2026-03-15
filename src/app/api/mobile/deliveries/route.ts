@@ -137,6 +137,8 @@ export async function GET(req: Request) {
       const formattedStandalone = standaloneCreditMemos.map((cm: any) => {
         const products = cm.products.map((p: any) => ({
           productId: p.product._id,
+          upc: p.product.upc,
+          sku: p.product.sku,
           name: p.product.name,
           brand: p.product.brand?.name,
           weight: p.product.weight ?? "",
@@ -184,6 +186,8 @@ export async function GET(req: Request) {
           return {
             productInventory: p.productInventory._id,
             productId: p.productInventory.product._id,
+            sku: p.product.sku,
+            upc: p.product.upc,
             name: p.productInventory.product.name,
             brand: p.productInventory.product.brand?.name,
             weight: p.productInventory.product.weight ?? "",

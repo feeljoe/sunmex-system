@@ -68,6 +68,8 @@ export async function GET(
       // Format standalone credit memo for driver
       const products = creditMemo.products.map((p: any) => ({
         productId: p.product._id,
+        sku: p.product.sku,
+        upc: p.product.upc,
         name: p.product.name,
         brand: p.product.brand?.name,
         quantity: p.quantity,
@@ -138,6 +140,8 @@ export async function GET(
       .map((p: any) => ({
         productInventory: p.productInventory._id,
         productId: p.productInventory.product._id,
+        sku: p.product.sku,
+        upc: p.product.upc,
         name: p.productInventory.product.name,
         brand: p.productInventory.product.brand?.name,
         quantity: p.pickedQuantity ?? 0,
