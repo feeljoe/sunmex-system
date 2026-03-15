@@ -128,6 +128,10 @@ export async function GET(req: Request) {
         path: "products.product",
         populate: { path: "brand" },
       })
+      .populate({
+        path: "routeAssigned",
+        populate:{path:"user"},
+      })
       .lean();
 
       const formattedStandalone = standaloneCreditMemos.map((cm: any) => {
@@ -158,8 +162,12 @@ export async function GET(req: Request) {
           requiresPayment: false,
           payments: [],
           routeAssigned: {
-            _id: route._id,
-            code: route.code,
+            _id: cm.routeAssigned._id,
+            code: cm.routeAssigned.code,
+            user: {
+              _id: cm.routeAssigned.user._id,
+              name: cm.routeAssigned.user.firstName + " " + cm.routeAssigned.user.lastName,
+            }
           },
           products,
           creditMemo: cm,

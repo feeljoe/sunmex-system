@@ -74,7 +74,8 @@ export async function GET(
       }));
 
       const formatted = {
-        orderId: creditMemo._id,
+        orderId: null,
+        creditMemoId: creditMemo._id,
         number: creditMemo.number,
         status: creditMemo.status,
         deliveryDate: creditMemo.deliveryDate ?? null,
