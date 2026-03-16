@@ -140,8 +140,8 @@ export async function GET(
       .map((p: any) => ({
         productInventory: p.productInventory._id,
         productId: p.productInventory.product._id,
-        sku: p.product.sku,
-        upc: p.product.upc,
+        sku: p.productInventory.product.sku,
+        upc: p.productInventory.product.upc,
         name: p.productInventory.product.name,
         brand: p.productInventory.product.brand?.name,
         quantity: p.pickedQuantity ?? 0,
