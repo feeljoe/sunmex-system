@@ -1,0 +1,46 @@
+{
+  "name": "sistemasunmex",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "build:brands": "rm -rf dist && tsc scripts/importBrands.ts --outDir dist/scripts",
+    "import:brands": "node dist/scripts/scripts/importBrands.js"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "axios": "^1.13.4",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.3.3",
+    "framer-motion": "^12.23.26",
+    "jsonwebtoken": "^9.0.3",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
+    "luxon": "^3.7.2",
+    "mongoose": "^9.3.0",
+    "next": "^16.2.1",
+    "next-auth": "^4.24.13",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "xlsx": "^0.18.5",
+    "xmlbuilder2": "^4.0.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.10.10",
+    "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
+  }
+}
