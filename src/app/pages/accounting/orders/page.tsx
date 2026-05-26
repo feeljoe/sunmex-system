@@ -336,7 +336,7 @@ export default function AccountingOrdersPage() {
                     </span>
                   </td>
                   <td className="p-2">
-                    <span className="px-2 py-1 rounded-full text-xs font-semibold">
+                    <span className="px-2 py-1 rounded-full text-sm font-semibold">
                       {o.client?.paymentTerm?.toUpperCase() || "-"}
                     </span>
                   </td>
@@ -348,7 +348,7 @@ export default function AccountingOrdersPage() {
 
                     {/* SHOW PAYMENTS IF PAID */}
                     {o.type === "order" && o.computedStatus === "paid" && (
-                        <div className="flex flex-col text-md text-left">
+                        <div className="flex flex-col text-sm text-left">
                         {o.payments && o.payments.length > 0 ? (
                             o.payments.map((p, idx) => (
                             <div key={idx} className="flex justify-center gap-10 font-bold">
@@ -383,7 +383,7 @@ export default function AccountingOrdersPage() {
 
                     {/* PAYMENT INPUT FOR NON-PAID */}
                     {o.type === "order" && o.computedStatus !== "paid" && (
-                        <div className="flex flex-wrap gap-4 w-full h-full items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-4 w-full h-full items-center justify-between" onClick={(e) => e.stopPropagation()}>
                         <div className="border h-10 w-28 rounded-xl">
                             <select
                             onChange={(e) =>

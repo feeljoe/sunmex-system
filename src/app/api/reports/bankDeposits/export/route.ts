@@ -13,8 +13,8 @@ export async function GET(req: Request) {
     try{
         await connectToDatabase();
         const { searchParams } = new URL(req.url);
-        const phoenixNow = DateTime.now()
-        .setZone("America/Phoenix");
+        const phoenixNow = DateTime.now();
+        phoenixNow.setZone("America/Phoenix");
 
         const fromDate = searchParams.get("fromDate");
         const toDate = searchParams.get("toDate");
@@ -30,16 +30,14 @@ export async function GET(req: Request) {
         if(fromDate || toDate){
             query.deliveredAt = {};
             if(fromDate) {
-                const startOfDay = DateTime.fromISO(fromDate)
-                    .setZone("America/Phoenix")
+                const startOfDay = DateTime.fromISO(fromDate, {zone: "America/Phoenix"})
                     .startOf("day")
                     .toUTC()
                     .toJSDate();
                 query.deliveredAt.$gte = startOfDay;
             }
             if(toDate) {
-                const endOfDay = DateTime.fromISO(toDate)
-                    .setZone("America/Phoenix")
+                const endOfDay = DateTime.fromISO(toDate, {zone: "America/Phoenix"})
                     .endOf("day")
                     .toUTC()
                     .toJSDate();

@@ -142,11 +142,11 @@ export async function GET(req: NextRequest) {
       {
         $addFields: {
           isDSD: {
-            $eq: [{ $toLower: "$chain.name" }, "dsd"],
+            $eq: ["$paymentTerm.dueDays", 0],
           },
           creditTotal: {
             $cond: [
-              { $eq: [{ $toLower: "$chain.name" }, "dsd"] },
+              { $eq: ["$paymentTerm.dueDays", 0] },
               { $sum: "$credits.total" },
               0,
             ],
@@ -296,11 +296,6 @@ export async function GET(req: NextRequest) {
         : []),
 
       {
-        $match: {
-          $expr: { $ne: [{ $toLower: "$chain.name" }, "dsd"] },
-        },
-      },
-      {
         $lookup: {
           from: "paymentterms",
           localField: "client.paymentTerm",
@@ -312,6 +307,12 @@ export async function GET(req: NextRequest) {
         $unwind: {
           path: "$paymentTerm",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $match: {
+          $expr: { $ne: ["$paymentTerm.dueDays", 0] },
         },
       },
 
