@@ -5,19 +5,25 @@ import { SearchBar } from "../ui/SearchBar";
 import { useEffect, useState } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
 import { ExportExcelButton } from "../ui/ExportExcelButton";
+import SubmitResultModal from "../modals/SubmitResultModal";
 
 export function InventoryTable() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items, total, meta, reload } = useList("/api/productInventory", {
     page,
     limit,
     search,
   });
+  const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
   useEffect(() => {
         setPage(1);
       }, [search]);
+
+      useEffect(() => {
+        setTimeout(() => {setSubmitStatus(null);},3000);
+      }, [reload]);
   
       const totalPages = total > 0? Math.ceil(total/limit): 1;
       const totalInventoryMoney = meta?.totalInventoryMoney ?? 0;
@@ -25,7 +31,7 @@ export function InventoryTable() {
         v != null ? `$${v.toFixed(2)}` : "-";
 
   return (
-    <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
+    <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[75vh] w-[90vw]">
       <div className="flex justify-between mb-4 gap-5">
         <SearchBar
           placeholder="Search inventory..."
@@ -34,7 +40,7 @@ export function InventoryTable() {
         />
         <div className="flex gap-5">
           <ExportExcelButton/>
-          <RefreshButton onRefresh={reload}/>
+          <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
         </div>
       </div>
       <div className='flex-1 overflow-auto'>
@@ -105,6 +111,15 @@ export function InventoryTable() {
           </svg>
         </button>
       </div>
+      {/* Loading animation */}
+      {submitStatus && (
+          <SubmitResultModal
+              status={submitStatus}
+              message={""}
+              onClose={() => setSubmitStatus(null)}
+              collection="General Reports"
+          />
+      )}
     </div>   
   );
 }

@@ -12,7 +12,7 @@ import { useLookupMap } from '@/utils/useLookupMap';
 export function ProductsTable() {
 
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
@@ -30,6 +30,9 @@ export function ProductsTable() {
   useEffect(() => {
     setPage(1);
   }, [search]);
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);}, 3000);
+  }, [reload]);
   
       const requestDelete = (product: any) => {
           setProductToDelete(product);
@@ -70,15 +73,15 @@ export function ProductsTable() {
 
   return (
   <>
-    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
-      <div className="flex justify-between items-center mb-4">
+    <div className='bg-(--secondary) rounded-lg shadow p-6 flex h-[75vh] w-[90vw] flex-col'>
+      <div className="flex justify-between items-center gap-5 mb-4">
         <SearchBar
             placeholder="Search products..."
             onSearch={setSearch}
             debounce
         />
         
-        <RefreshButton onRefresh={reload}/>
+        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
       </div>
       <div className='flex-1 overflow-auto'>
       <table className='w-full text-left'>

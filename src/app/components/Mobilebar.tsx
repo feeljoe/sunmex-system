@@ -27,10 +27,14 @@ export default function Mobilebar({ isOpen, toggleSidebar }: { isOpen: boolean; 
                     <Bars3Icon className={`w-10 h-10 text-gray-300 hover:bg-white hover:text-gray-700 rounded`}/>
                 </button>
             </div>
-            <nav className="space-y-4 p-4">
+            <nav className={`space-y-4 p-4 ${isOpen ? "" : "hidden"}`}>
                 {/* MAIN PAGE */}
         <div>
-          <Link href="/pages/dashboard" onClick={toggleSidebar} className="flex items-center gap-3 p-2 hover:bg-white hover:text-gray-700 rounded">
+          <Link href="/pages/dashboard" 
+            onClick={() => {
+            toggleSidebar();
+           }} 
+           className="flex items-center gap-3 p-2 hover:bg-white hover:text-gray-700 rounded">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
             </svg>
@@ -111,6 +115,15 @@ export default function Mobilebar({ isOpen, toggleSidebar }: { isOpen: boolean; 
             <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
           </svg>
             {isOpen && <span>Reports</span>}
+          </Link>
+        </div>
+        {/* ACCOUNTING */}
+        <div>
+          <Link href="/pages/accounting" onClick={toggleSidebar} className="flex items-center gap-3 p-2 hover:bg-white hover:text-gray-700 rounded">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
+          </svg>
+            {isOpen && <span>Accounting</span>}
           </Link>
         </div>
       </nav>

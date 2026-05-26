@@ -109,7 +109,6 @@ export default function AssignRouteModal({
               className="p-2 rounded-xl bg-white shadow-xl w-full"
               value={deliveryDate || ""}
               onChange={(e) => setDeliveryDate(e.target.value)}
-              max={DateTime.now().setZone("America/Phoenix").toISODate() || ""}
             />
           </div>
           )}
@@ -124,7 +123,7 @@ export default function AssignRouteModal({
         <option value="">Select a route</option>
         {routes.map((r: any) => (
           <option key={r._id} value={r._id}>
-            {r.code} - ({r.user.firstName} {r.user.lastName})
+            {r?.code} - ({r?.user?.firstName} {r?.user?.lastName})
           </option>
         ))}
       </select>

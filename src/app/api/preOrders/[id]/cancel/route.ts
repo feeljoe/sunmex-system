@@ -52,6 +52,8 @@ export async function PATCH(
         preorder.cancelledAt = new Date();
         preorder.cancelledBy = user?.user?.id;
         preorder.cancelReason = payload.reason;
+        preorder.updatedBy = user?.user.id;
+        preorder.updatedAt = new Date();
         await preorder.save({ session });
         await session.commitTransaction();
         return NextResponse.json(preorder);

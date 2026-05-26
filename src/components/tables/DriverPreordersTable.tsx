@@ -11,7 +11,7 @@ type ViewMode = "ready" | "delivered";
 
 export default function DriverPreordersTable({userRole} : {userRole: string | undefined}) {
   const [page, setPage] = useState(1);
-  const [limit] = useState(25);
+  const [limit] = useState(100);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const { items: preorders, total, reload } = useList('/api/preOrders/driver', {
@@ -49,7 +49,7 @@ export default function DriverPreordersTable({userRole} : {userRole: string | un
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="bg-(--secondary) rounded-xl shadow p-6 lg:p-10 flex flex-col h-4/5">
+    <div className="bg-(--secondary) rounded-xl shadow p-6 lg:p-10 flex flex-col h-[75vh] w-[90vw]">
       <h1 className="text-2xl font-semibold mb-4">
         {view === "ready"? "Ready for Delivery" : "Delivered"}
       </h1>

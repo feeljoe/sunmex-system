@@ -1,11 +1,11 @@
 import { connectToDatabase } from "@/lib/db";
-import TruckLoad from "@/models/TruckLoad";
+import Route from "@/models/Route";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   await connectToDatabase();
 
-  const loads = await TruckLoad.find({
+  const loads = await Route.find({
     status: "pending",
   })
     .populate("route")

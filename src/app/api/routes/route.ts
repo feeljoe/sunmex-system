@@ -25,7 +25,8 @@ export async function GET(req: Request) {
       Route.find(query)
       .populate("user")
       .populate("clients")
-      .sort({name: 1})
+      .populate({path: "inventory", populate: {path: "product", populate: { path: "brand"}}})
+      .sort({code: 1})
       .skip((page - 1) * limit)
       .limit(limit),
       Route.countDocuments(query),

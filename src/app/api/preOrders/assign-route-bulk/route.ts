@@ -4,6 +4,8 @@ import Route from "@/models/Route";
 import CreditMemo from "@/models/CreditMemo";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // HELPER: add/subtract business days
 function addBusinessDays(date: Date, days: number): DateTime {
@@ -20,7 +22,7 @@ function addBusinessDays(date: Date, days: number): DateTime {
 
 export async function PATCH(req: Request) {
   await connectToDatabase();
-
+  const session = await getServerSession(authOptions);
   try {
     const {
       routeId,
@@ -66,6 +68,8 @@ export async function PATCH(req: Request) {
 
         preorder.routeAssigned = route._id;
         preorder.status = newStatus;
+        preorder.updatedBy = session?.user.id;
+        preorder.updatedAt = new Date();
 
         await preorder.save();
         assignedPreorders++;
@@ -85,6 +89,8 @@ export async function PATCH(req: Request) {
         if (pendingCreditMemo) {
           pendingCreditMemo.routeAssigned = route._id;
           pendingCreditMemo.preorder = preorder._id;
+          preorder.updatedBy = session?.user.id;
+          preorder.updatedAt = new Date();
 
           await pendingCreditMemo.save();
           assignedCreditMemos++;
@@ -102,13 +108,17 @@ export async function PATCH(req: Request) {
 
       for (const cm of creditMemos) {
         cm.routeAssigned = route._id;
+        cm.updatedBy = session?.user.id;
+        cm.updatedAt = new Date();
 
         // Keep preorder null if standalone
         if (!cm.preorder) {
           cm.preorder = null;
         }
         if(deliveryDate !== undefined && deliveryDate !== null && deliveryDate !== ""){
-          const selectedDelivery = DateTime.fromISO(deliveryDate).setZone("America/Phoenix");
+          const selectedDelivery = DateTime.fromISO(deliveryDate, {
+            zone: "America/Phoenix",
+          });
           const startOfPickUp = selectedDelivery.startOf("day");
           const pickUpDay = addBusinessDays(startOfPickUp.toJSDate(), -2);
           cm.createdAt = pickUpDay.toUTC().toJSDate();

@@ -12,7 +12,7 @@ import EditClientModal from '../modals/EditClientModal';
 
 export function ClientsTable() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items, total, reload } = useList('/api/clients', {
     page,
@@ -22,6 +22,10 @@ export function ClientsTable() {
   useEffect(() => {
         setPage(1);
       }, [search]);
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);},3000);
+  }, [reload]);
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<any | null>(null);
@@ -65,14 +69,14 @@ export function ClientsTable() {
         const totalPages = total > 0? Math.ceil(total/limit): 1;
   return (
     <>
-    <div className='bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-4/5'>
-      <div className="flex justify-between items-center mb-4">
+    <div className='bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-[75vh] w-[90vw]'>
+      <div className="flex justify-between items-center gap-5 mb-4">
               <SearchBar
                   placeholder="Search clients..."
                   onSearch={setSearch}
                   debounce
               />
-              <RefreshButton onRefresh={reload}/>
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading")}}/>
             </div>
             <div className='flex-1 overflow-auto'>
       <table className='w-full text-left'>

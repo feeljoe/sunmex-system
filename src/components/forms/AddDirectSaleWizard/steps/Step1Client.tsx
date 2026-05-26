@@ -1,68 +1,116 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useList } from "@/utils/useList";
+import { useMemo, useState } from "react";
 
-type Client = {
-  _id: string;
-  clientName: string;
-};
-
-export default function Step1Client({
-  routeId,
-  form,
-  setForm,
-  onNext,
+export default function StepSelectClient({
+  userRole,
+  selectedClient,
+  onSelect
 }: {
-  routeId: string;
-  form: any;
-  setForm: (v: any) => void;
-  onNext: () => void;
+  userRole: string,
+  selectedClient: any,
+  onSelect: (client: any) => void;
 }) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    async function loadClients() {
-      const res = await fetch(`/api/routes/${routeId}/clients`);
-      const data = await res.json();
-      setClients(data);
-      setLoading(false);
+  /**
+   * ADMIN → fetch clients directly
+   */
+  const {
+    items: adminClients,
+    loading: loadingAdmin,
+  } = useList(userRole === "admin" ? "/api/clients" : "", {
+    search: search || undefined,
+  });
+
+  /**
+   * VENDOR → fetch routes
+   */
+  const {
+    items: vendorClients,
+    loading: loadingVendor,
+  } = useList(userRole === "vendor" ? "/api/routes/my" : "");
+
+  /**
+   * Normalize into a single client list
+   */
+  const allClients = useMemo(() => {
+    if (userRole === "admin") {
+      return Array.isArray(adminClients) ? adminClients : [];
     }
-    loadClients();
-  }, [routeId]);
 
-  if (loading) {
-    return <p>Loading clients...</p>;
-  }
+    if (userRole === "vendor") {
+      return vendorClients || [];
+    }
+
+    return [];
+  }, [userRole, adminClients, vendorClients]);
+
+  /**
+   * Client-side filtering (safe, stable)
+   */
+  const filteredClients = useMemo(() => {
+    if (!search.trim()) return allClients;
+
+    const q = search.toLowerCase();
+    return allClients.filter((c) =>
+      c.clientName?.toLowerCase().includes(q)
+    );
+  }, [allClients, search]);
+
+  const loading = loadingAdmin || loadingVendor;
+
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Select Client</h2>
+    <div className="space-y-4 h-full w-full flex flex-col">
+      <h2 className="text-xl font-semibold text-center">
+        Select Client
+      </h2>
 
-      <select
-        value={form.clientId}
-        onChange={(e) =>
-          setForm((prev: any) => ({
-            ...prev,
-            clientId: e.target.value,
-          }))
-        }
-        className="w-full p-3 border rounded-lg"
-      >
-        <option value="">-- Select Client --</option>
-        {clients.map((client) => (
-          <option key={client._id} value={client._id}>
-            {client.clientName}
-          </option>
-        ))}
-      </select>
-      <div className="flex justify-end items-center">
-      <button
-            onClick={onNext}
-            className="bg-blue-500 text-xl text-white px-5 py-3 cursor-pointer"
-        > 
-            Next
-        </button>
+      {/* 🔍 Search */}
+      <input
+        type="text"
+        placeholder="Search client..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full p-3 rounded-xl bg-white shadow-xl"
+      />
+
+    {loading && (
+      <p>Loading clients...</p>
+    )}
+      {/* 📋 Client list */}
+      <div className="flex-1 overflow-y-auto space-y-2">
+        {filteredClients.length === 0 && (
+          <p className="text-center text-gray-500">
+            No available clients for today
+          </p>
+        )}
+
+        {filteredClients.map((client) => {
+          const isSelected = selectedClient?._id === client._id;
+
+          return (
+            <button
+              key={client._id}
+              type="button"
+              onClick={() => onSelect(client)}
+              className={`w-full text-left p-3 rounded-xl border transition-all duration:500 capitalize
+                ${
+                  isSelected
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white hover:bg-gray-100"
+                }`}
+            >
+              {client.clientName.toLowerCase()} <span className={`text-gray-400 text-sm ${
+                  isSelected
+                    ? "text-white"
+                    : ""
+                }`}>({client.billingAddress?.addressLine}, {client.billingAddress?.city}, {client.billingAddress?.state}, {client.billingAddress?.country}, {client.billingAddress?.zipCode})</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

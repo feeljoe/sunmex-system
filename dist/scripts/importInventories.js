@@ -68,7 +68,7 @@ function importInventories() {
                         skipped++;
                         return [3 /*break*/, 6];
                     }
-                    return [4 /*yield*/, Product_1.default.findOne({ sku: row.sku })];
+                    return [4 /*yield*/, Product_1.default.findOne({ sku: row.sku, })];
                 case 3:
                     product = _a.sent();
                     if (!product) {
@@ -76,7 +76,7 @@ function importInventories() {
                         skipped++;
                         return [3 /*break*/, 6];
                     }
-                    return [4 /*yield*/, ProductInventory_1.default.findOne({ product: product._id })];
+                    return [4 /*yield*/, ProductInventory_1.default.findOne({ product: product._id, })];
                 case 4:
                     inventory = _a.sent();
                     if (!inventory) {

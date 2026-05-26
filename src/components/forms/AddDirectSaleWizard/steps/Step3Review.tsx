@@ -1,100 +1,38 @@
-"use client";
-
-import { useState } from "react";
-import { generateDirectSalePDF } from "@/utils/generateDirectSalePDF";
-
-export default function Step3Review({
-  form,
-  routeId,
-  onNext,
-  onBack,
-}: {
-  form: any;
-  routeId: string;
-  onNext: () => void;
-  onBack: () => void;
-}) {
-  const [generatingPDF, setGeneratingPDF] = useState(false);
-
-  const grandTotal = form.products.reduce(
-    (sum: number, p: any) => sum + p.quantity * p.unitPrice,
-    0
-  );
-
-  const handleGeneratePDF = () => {
-    setGeneratingPDF(true);
-    try {
-      generateDirectSalePDF({
-        ...form,
-        routeId,
-        total: grandTotal,
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
-
+export default function StepReviewDirect({ client, products, total }: any) {
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Review Direct Sale</h2>
-
-      <div className="border p-4 rounded-lg">
-        <p className="font-semibold">Client:</p>
-        <p>{form.clientName || "Not selected"}</p>
+    <div className="space-y-4 h-full flex flex-col">
+      <h2 className="text-xl font-bold text-center">Confirm Sale</h2>
+      <div className="p-4 bg-blue-50 rounded-xl">
+        <p className="text-sm text-gray-600 font-bold uppercase">Client</p>
+        <p className="text-lg capitalize">{client.clientName?.toLowerCase()} ({client.billingAddress?.addressLine?.toLowerCase()}, {client.billingAddress?.city?.toLowerCase()} {client.billingAddress?.state?.toLowerCase()}, {client.billingAddress?.zipCode?.toLowerCase()})</p>
       </div>
-
-      <div className="border p-4 rounded-lg">
-        <p className="font-semibold mb-2">Products:</p>
-        <table className="w-full text-left border">
-          <thead>
-            <tr className="border-b">
-              <th className="p-2">Product</th>
-              <th className="p-2">Qty</th>
-              <th className="p-2">Unit Price</th>
-              <th className="p-2">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {form.products.map((p: any) => (
-              <tr key={p.productInventory}>
-                <td className="p-2">{p.productName}</td>
-                <td className="p-2">{p.quantity}</td>
-                <td className="p-2">${p.unitPrice.toFixed(2)}</td>
-                <td className="p-2">
-                  ${(p.quantity * p.unitPrice).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <p className="font-semibold mt-2 text-right">
-          Grand Total: ${grandTotal.toFixed(2)}
-        </p>
+      <div className="flex-1 overflow-auto bg-white rounded-xl p-4 space-y-2">
+        <div className="flex justify-between border-b-2">
+          <div className="w-full border-l text-center">
+            <span>Product</span>
+          </div>
+          <div className="flex justify-between w-full text-center">
+            <span className="w-full border-l">Qty</span>
+            <span className="w-full border-l">Price</span>
+            <span className="w-full border-l border-r">Line Total</span>
+          </div>
+        </div>
+        {products.map((p: any) => (
+          <div key={p.inventoryId} className="flex justify-between border-b-2">
+          <div className="w-full border-l">
+            <span className="pl-2">{p.brand} {p.name} {p.weight ? `(${p.weight}${p.unit?.toUpperCase()})` : ``}</span>
+          </div>
+          <div className="flex justify-between w-full text-center">
+            <span className="w-full border-l">{p.quantity}</span>
+            <span className="w-full border-l">${p.unitPrice}</span>
+            <span className="w-full border-l border-r">${(p.quantity * p.unitPrice).toFixed(2)}</span>
+          </div>
+        </div>
+        ))}
       </div>
-
-      <div className="flex justify-between items-center">
-        <button
-            onClick={onBack}
-            className="bg-gray-200 text-xl px-5 py-3 cursor-pointer"
-        > 
-            Go back
-        </button>
-        <button
-          onClick={handleGeneratePDF}
-          className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-all duration-300"
-          disabled={generatingPDF}
-        >
-          {generatingPDF ? "Generating..." : "Generate PDF"}
-        </button>
-        <button
-          onClick={onNext}
-          className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-all duration-300"
-        >
-          Continue to Signature
-        </button>
+      <div className="text-right p-2">
+        <p className="text-gray-500">Total Units: {products.reduce((a: any, b: any) => a + b.quantity, 0)}</p>
+        <p className="text-2xl font-bold text-green-700">Total: ${total.toFixed(2)}</p>
       </div>
     </div>
   );

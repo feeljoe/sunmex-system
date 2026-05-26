@@ -1,9 +1,10 @@
 "use client";
 
 import { useList } from "@/utils/useList";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PrepareOrderModal from "../modals/PreparePreorderModal";
 import { RefreshButton } from "../ui/RefreshButton";
+import SubmitResultModal from "../modals/SubmitResultModal";
 
 export function WarehousePreordersTable(user: any) {
     const {items:preorders, reload} = useList("/api/preOrders/warehouse");
@@ -14,6 +15,7 @@ export function WarehousePreordersTable(user: any) {
     const [selectedRoute, setSelectedRoute] = useState<string>("");
     const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
     const [statusView, setStatusView] = useState<"all" | "pending" | "completed">("pending");
+    const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
 
     const filteredPreorders = preorders
     .filter((p: any) => {
@@ -30,9 +32,19 @@ export function WarehousePreordersTable(user: any) {
     const formatDate = (v?: string) =>
         v? new Date(v).toLocaleDateString(): "-";
 
+
+    const statusColors: Record<string, string> = {
+        assigned: "bg-purple-500",
+        ready: "bg-green-600",
+      };
+
+    useEffect(() => {
+        setTimeout(() => {setSubmitStatus(null);}, 3000);
+    }, [reload]);
+
     return (
         <>
-            <div className="bg-(--secondary) rounded-xl shadow-xl p-6 space-y-4 flex flex-col h-4/5">
+            <div className="bg-(--secondary) rounded-xl shadow-xl p-6 space-y-4 flex flex-col h-[75vh] w-[90vw]">
                 <div className="flex items-center justify-between">
                     <div className="flex gap-6 items-center">
                         
@@ -74,7 +86,7 @@ export function WarehousePreordersTable(user: any) {
 
                     </div>
 
-                    <RefreshButton onRefresh={reload}/>
+                    <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
                 </div>
                 <div className="overflow-y-auto">
                 <table className="w-full text-left">
@@ -101,7 +113,15 @@ export function WarehousePreordersTable(user: any) {
                                             0
                                         )}
                                     </td>
-                                    <td className="p-2 capitalize whitespace-nowrap">{p.status}</td>
+                                    <td className="p-2">
+                                        <div
+                                            className={`px-2 py-2 rounded-xl text-center text-sm text-white font-bold ${
+                                            statusColors[p.status] || "bg-gray-500"
+                                            }`}
+                                        >
+                                            {p.status?.toUpperCase()}
+                                        </div>
+                                    </td>
                                     <td className="p-2 whitespace-nowrap">{formatDate(p.createdAt)}</td>
                                     <td className="p-2 whitespace-nowrap">
                                         <button
@@ -131,6 +151,14 @@ export function WarehousePreordersTable(user: any) {
                         setSelectedPreorder(null);
                         reload();
                     }}
+                />
+            )}
+            {submitStatus && (
+                <SubmitResultModal
+                    status={submitStatus}
+                    message={""}
+                    onClose={() => setSubmitStatus(null)}
+                    collection="Warehouse Preorders"
                 />
             )}
         </>

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { DateRangePicker } from "../ui/DateRangePicker";
 import PreorderDetailsModal from "../modals/PreorderDetailsModal";
 import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
+import SubmitResultModal from "../modals/SubmitResultModal";
 
 export function GeneralReportsTable(){
     const statusColors: Record<string, string> = {
@@ -33,6 +34,14 @@ export function GeneralReportsTable(){
     const [selectedPreorder, setSelectedPreorder] = useState<any | null> (null);
     const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
     const [loadingRow, setLoadingRow] = useState<string | null>(null);
+    const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
+
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportType, setExportType] = useState<"general" | "bankDeposits" | "">("");
+    const [exportStep, setExportStep] = useState<1 | 2>(1);
+    const [general, setGeneral] = useState(false);
+    const [bank, setBank] = useState(false);
+
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -66,11 +75,15 @@ export function GeneralReportsTable(){
         toDate,
     });
 
+    useEffect(() => {
+        setTimeout(() => {setSubmitStatus(null);},3000);
+      }, [reload]);
+
     const handleExport = async () => {
         try {
           const params = new URLSearchParams({
             page: "1",
-            limit: "1000000", // export ALL filtered data
+            limit: "1000000000", // export ALL filtered data
             search,
             fromDate: fromDate || "",
             toDate: toDate || "",
@@ -81,8 +94,10 @@ export function GeneralReportsTable(){
             warehouseId: warehouseId || "",
             export: "true", // important flag
           });
-      
-          const res = await fetch(`/api/reports/general/export?${params.toString()}`);
+          const endpoint = exportType === "general" 
+            ? `/api/reports/general/export?${params.toString()}`
+            : `/api/reports/bankDeposits/export?${params.toString()}`;
+          const res = await fetch(endpoint);
           if (!res.ok) throw new Error("Export failed");
       
           const blob = await res.blob();
@@ -96,16 +111,17 @@ export function GeneralReportsTable(){
             return d.toLocaleDateString("en-US");
           };
           
-          let fileName = "general-report.xlsx";
+          const prefix = exportType === "general" ? "general-report" : "bank-deposits-report";
+          let fileName = `${prefix}.xlsx`;
           
           if (fromDate && toDate) {
             if (fromDate === toDate) {
-              fileName = `general-report-${formatDateForFile(fromDate)}.xlsx`;
+              fileName = `${prefix}-${formatDateForFile(fromDate)}.xlsx`;
             } else {
-              fileName = `general-report-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.xlsx`;
+              fileName = `${prefix}-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.xlsx`;
             }
           } else if (fromDate) {
-            fileName = `general-report-from-${formatDateForFile(fromDate)}.xlsx`;
+            fileName = `${prefix}-from-${formatDateForFile(fromDate)}.xlsx`;
           }
           
           a.download = fileName;
@@ -157,23 +173,19 @@ export function GeneralReportsTable(){
             })
             : "-";
     return (
-        <div className="bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-4/5">
-            <div className="flex justify-between mb-4 gap-5">
-                <SearchBar
-                    placeholder="Search Reports..."
-                    onSearch={setSearch}
-                    debounce
-                />
-                <RefreshButton onRefresh={reload} />
-                <button
-                    onClick={handleExport}
-                    className="px-5 py-1 bg-green-600 text-white rounded-xl shadow-xl cursor-pointer hover:bg-green-300 transition-all duration:300"
+        <div className="bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-[75vh] w-[90vw]">
+            <div className="w-full flex justify-end mb-5">
+            <button
+                    onClick={() => {
+                        setIsExportModalOpen(true);
+                        setExportStep(1); // Ensure we start on step 1
+                    }}
+                    className="px-2 py-2 bg-green-600 text-white rounded-xl shadow-xl cursor-pointer hover:bg-green-300 transition-all duration:300"
                     >
-                    Export General Report
+                    Export Report
                 </button>
             </div>
-            <p className="border-b text-center text-xl font-bold mb-4">Filters</p>
-            <div className="flex mb-4 justify-center">
+            <div className="flex justify-between mb-4 gap-5">
                 <DateRangePicker
                     fromDate={fromDate}
                     toDate={toDate}
@@ -182,7 +194,14 @@ export function GeneralReportsTable(){
                     setToDate(to);
                     }}
                 />
+                <SearchBar
+                    placeholder="Search Reports..."
+                    onSearch={setSearch}
+                    debounce
+                />
+                <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}} />
             </div>
+            <p className="border-b text-center text-xl font-bold mb-4">Filters</p>
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                 <select onChange={(e) => setTypeFilter(e.target.value)} className="p-2 rounded-xl bg-white h-8 cursor-pointer">
                     <option value="">All Types</option>
@@ -305,6 +324,93 @@ export function GeneralReportsTable(){
                     Next
                 </button>
             </div>
+            {/* Export Selection Modal */}
+            {isExportModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-(--secondary) p-6 rounded-xl shadow-2xl w-96 max-w-[90vw]">
+                    {exportStep === 1 ? (
+                            <>
+                                <h2 className="text-xl font-bold mb-4 border-b pb-2">Select Report Type</h2>
+                                <div className="flex flex-col gap-3 mb-6">
+                                    <label 
+                                        className={`flex items-center justify-between cursor-pointer p-4 rounded-xl transition-all duration-200 ${
+                                            exportType === "general" 
+                                                ? "bg-blue-500 text-white shadow-sm" 
+                                                : "bg-white hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        <span className="text-lg font-medium">General Report</span>
+                                        <input 
+                                            type="radio" 
+                                            name="exportType" 
+                                            value="general"
+                                            checked={exportType === "general"}
+                                            onChange={() => setExportType("general")}
+                                            className="hidden" // This hides the default dot
+                                        />
+                                    </label>
+
+                                    <label 
+                                        className={`flex items-center justify-between cursor-pointer p-4 rounded-xl transition-all duration-200 ${
+                                            exportType === "bankDeposits" 
+                                                ? "bg-blue-500 text-white shadow-sm" 
+                                                : "bg-white hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        <span className="text-lg font-medium">Bank Deposits Report</span>
+                                        <input 
+                                            type="radio" 
+                                            name="exportType" 
+                                            value="bankDeposits"
+                                            checked={exportType === "bankDeposits"}
+                                            onChange={() => setExportType("bankDeposits")}
+                                            className="hidden" // This hides the default dot
+                                        />
+                                    </label>
+                                </div>
+                                <div className="flex justify-between gap-3">
+                                    <button 
+                                        onClick={() => {setIsExportModalOpen(false); setExportType("");}} 
+                                        className="px-4 py-2 bg-gray-300 rounded-xl hover:bg-gray-400 transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={() => setExportStep(2)} 
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors cursor-pointer"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-xl font-bold mb-4 border-b pb-2 text-center">Confirm Export</h2>
+                                <p className="mb-6 text-gray-700 text-center">
+                                    Are you sure you want to generate the <br/>
+                                    <strong className="text-black text-lg">
+                                        {exportType === "general" ? "General Report" : "Bank Deposits Report"}
+                                    </strong>?
+                                </p>
+                                <div className="flex justify-between gap-3">
+                                    <button 
+                                        onClick={() => setExportStep(1)} 
+                                        className="px-4 py-2 bg-gray-300 rounded-xl hover:bg-gray-400 transition-colors cursor-pointer"
+                                    >
+                                        Back
+                                    </button>
+                                    <button 
+                                        onClick={handleExport} 
+                                        className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors cursor-pointer"
+                                    >
+                                        Confirm & Export
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
             {/* Preorder Modal */}
             {selectedPreorder && (
                 <PreorderDetailsModal
@@ -320,6 +426,15 @@ export function GeneralReportsTable(){
                     creditMemo={selectedCreditMemo}
                     onClose={() => setSelectedCreditMemo(null)}
                     onEdit={selectedCreditMemo}
+                />
+            )}
+            {/* Loading animation */}
+            {submitStatus && (
+                <SubmitResultModal
+                    status={submitStatus}
+                    message={""}
+                    onClose={() => setSubmitStatus(null)}
+                    collection="General Reports"
                 />
             )}
         </div>

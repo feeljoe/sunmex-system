@@ -18,7 +18,7 @@ export function SupplierOrdersTable() {
     cancelled: "bg-red-500 text-white",
   };
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items, total, reload } = useList('/api/supplierOrders', {
     page,
@@ -26,8 +26,12 @@ export function SupplierOrdersTable() {
     search,
   });
   useEffect(() => {
-        setPage(1);
-      }, [search]);
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);}, 3000);
+  }, [reload]);
       
   const [confirmOpen, setConfirmOpen] = useState(false);
     const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
@@ -92,14 +96,14 @@ export function SupplierOrdersTable() {
   const {map: supplierMap} = useLookupMap("/api/suppliers");
   return (
     <>
-    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
-      <div className='flex justify-between'>
+    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-[75vh] w-[90vw]'>
+      <div className='flex justify-between gap-5 mb-4'>
       <SearchBar
           placeholder="Search brands..."
           onSearch={setSearch}
           debounce
       />
-      <RefreshButton onRefresh={reload}/>
+      <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
       </div>
       <div className='flex-1 overflow-auto mt-2 rounded-xl'>
       <table className='w-full text-left'>

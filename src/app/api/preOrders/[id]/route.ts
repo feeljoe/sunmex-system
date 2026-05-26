@@ -1,7 +1,9 @@
+import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import ProductInventory from "@/models/ProductInventory";
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 export async function DELETE(
@@ -55,6 +57,7 @@ export async function PATCH(
 
   const session = await mongoose.startSession();
   session.startTransaction();
+  const sessionUser = await getServerSession(authOptions);
 
   try {
     const { id } = await context.params;
@@ -288,6 +291,9 @@ export async function PATCH(
             0),
       0
     );
+
+    preorder.updatedBy = sessionUser?.user.id;
+    preorder.updatedAt = new Date();
 
     await preorder.save({session});
 

@@ -4,13 +4,15 @@ import { RefreshButton } from '../ui/RefreshButton';
 import { SearchBar } from '../ui/SearchBar';
 import { useEffect, useState } from 'react';
 import { SupplierReceiptSummaryModal } from '../modals/SupplierReceiptSummaryModal';
+import SubmitResultModal from '../modals/SubmitResultModal';
 
 export function SupplierReceiptsTable() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
 
   const formatCurrency = (v?: number) =>
     v != null ? `$${v.toFixed(2)}` : "-";
@@ -24,8 +26,12 @@ export function SupplierReceiptsTable() {
     search,
   });
   useEffect(() => {
-        setPage(1);
-      }, [search]);
+    setPage(1);
+  }, [search]);
+  
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);}, 3000);
+  }, [reload]);
   
   const totalPages = total > 0? Math.ceil(total/limit): 1;
 
@@ -35,14 +41,14 @@ export function SupplierReceiptsTable() {
   }
 
   return (
-    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
-      <div className="flex justify-between items-center mb-4">
+    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-[75vh] w-[90vw]'>
+      <div className="flex justify-between items-center gap-5 mb-4">
               <SearchBar
                   placeholder="Search Invoice..."
                   onSearch={setSearch}
                   debounce
               />
-              <RefreshButton onRefresh={reload}/>
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
             </div>
       <div className='flex-1 overflow-x-auto'>
       <table className='w-full text-left'>
@@ -116,6 +122,14 @@ export function SupplierReceiptsTable() {
           setShowSummary(false);
           setSelectedReceipt(null);
         }}/>
+        {submitStatus && (
+          <SubmitResultModal
+            status={submitStatus}
+            message={""}
+            onClose={() => setSubmitStatus(null)}
+            collection='Supplier Receipts'
+          />
+        )}
     </div>
   );
 }

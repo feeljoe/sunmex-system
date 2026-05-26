@@ -329,8 +329,8 @@ export default function StepAddProducts({
           >
             <div className="flex flex-col text-left">
               <span className="mt-2 capitalize">
-                {p.name?.toLowerCase()} {p.weight}
-                {p.unit?.toUpperCase()} ({p.caseSize} Units per case)
+                {p.brand?.toLowerCase()} {p.name?.toLowerCase()} {p.weight}
+                {p.unit?.toUpperCase()} {p.caseSize ? `(${p.caseSize} Units per case)` : ""}
               </span>
               <span className="text-gray-400 text-xs">
                 SKU: {p.sku} | Available: {Math.round(p.maxQty)}
@@ -352,7 +352,7 @@ export default function StepAddProducts({
                 inputMode="numeric"
                 min={0}
                 max={Math.round(p.maxQty)}
-                value={p.quantity}
+                value={p.quantity || ""}
                 onChange={(e) =>
                   updateQty(p.inventoryId, Number(e.target.value))
                 }
@@ -364,7 +364,7 @@ export default function StepAddProducts({
                   type="number"
                   min={0}
                   max={Math.round(p.maxQty)}
-                  value={p.pickedQuantity ?? 0}
+                  value={p.pickedQuantity ?? ""}
                   onChange={(e) =>
                     setProducts(prev =>
                       prev.map(prod =>
@@ -389,7 +389,7 @@ export default function StepAddProducts({
                   type="number"
                   min={0}
                   max={Math.round(p.maxQty)}
-                  value={p.deliveredQuantity ?? 0}
+                  value={p.deliveredQuantity ?? ""}
                   onChange={(e) =>
                     setProducts(prev =>
                       prev.map(prod =>

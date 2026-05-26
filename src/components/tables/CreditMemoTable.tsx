@@ -18,7 +18,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   };
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(25);
+  const [limit] = useState(100);
   const [search, setSearch] = useState("");
   const [vendorInput, setVendorInput] = useState("");
   const [routeInput, setRouteInput] = useState("");
@@ -81,11 +81,15 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
     page,
     limit,
     search,
-    fromDate: appliedFilters.fromDate,
-    toDate: appliedFilters.toDate,
-    vendorId: appliedFilters.vendorId,
-    routeId: appliedFilters.routeId,
+    fromDate: fromDate,
+    toDate: toDate,
+    vendorId: vendorInput,
+    routeId: routeInput,
   });
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);},3000);
+  }, [reload]);
 
   const [selected, setSelected] = useState<any | null>(null);
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
@@ -175,20 +179,11 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   ];
 
   return (
-    <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
+    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[85vh] ${userRole === "admin" ? "w-[90vw]" : "w-[97vw]"}`}>
       {userRole === "admin" && (
         <>
-        <div className="flex items-center mb-4">
-          <DateRangePicker
-            fromDate={fromDate}
-            toDate={toDate}
-            onChange={(from, to) => {
-              setFromDate(from);
-              setToDate(to);
-            }}
-          />
-        </div>
-        <div className="grid grid-cols lg:grid-cols-3 gap-4 mb-4">
+        <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
+        <div className="flex w-full items-center justify-center gap-5 mb-5">
       {/* VENDOR */}
       <select
         value={vendorInput}
@@ -202,27 +197,28 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
       {/* ROUTE */}
       <select
         value={routeInput}
-        onChange={(e) => setRouteInput(e.target.value)}
+        onChange={(e) => {
+          setRouteInput(e.target.value);
+        }}
         className="p-2 rounded bg-white h-10"
       >
         <option value="">All Routes</option>
         {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
       </select>
-      {/* FILTER BUTTON */}
-      <div className="flex mb-4">
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded-xl"
-          onClick={applyFilters}
-        >
-          Apply Filters
-        </button>
-      </div>
       </div>
       </>
       )}
       <div className="flex justify-between mb-4 gap-5">
+      <DateRangePicker
+            fromDate={fromDate}
+            toDate={toDate}
+            onChange={(from, to) => {
+              setFromDate(from);
+              setToDate(to);
+            }}
+          />
         <SearchBar placeholder="Search credit memos..." onSearch={setSearch} debounce />
-        <RefreshButton onRefresh={reload} />
+        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}} />
       </div>
       {userRole === "admin" && (
       <div className="flex flex-wrap gap-2 mb-3">
@@ -378,6 +374,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
               {userRole === "admin" && (
                 <>
                   <th className="p-2">Cancelled Date</th>
+                  <th className="p-2">Cancelled At</th>
                   <th className="p-2">Cancelled By</th>
                 </>
               )}
@@ -388,7 +385,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
             {items.map((it: any) => (
               <tr
                 key={it._id}
-                className="border-b hover:bg-gray-50 cursor-pointer text-sm"
+                className={`border-b hover:bg-gray-50 cursor-pointer text-sm font-bold ${it.status==="cancelled"? "text-red-500": ""}`}
                 onClick={() => setSelected(it)}
               >
                 {userRole === "admin" && it.status === "pending" && (
@@ -447,15 +444,15 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                 {userRole === "admin" && (
                   <>
                     <td className="p-2 whitespace-nowrap capitalize">
-                      {it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()}
+                      {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()}
                     </td>
                     <td className="p-2 whitespace-nowrap">{formatDate(it.createdAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.createdAt)}</td>
                     {it.routeAssigned &&
-                      <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName.toLowerCase() } {it.routeAssigned?.user?.lastName.toLowerCase()} </td>
+                      <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName?.toLowerCase() } {it.routeAssigned?.user?.lastName?.toLowerCase()} </td>
                     }
                     {(it.routeAssigned === undefined) &&
-                      <td className="p-2 whitespace-nowrap capitalize"> 001 | {it.createdBy?.firstName.toLowerCase()} {it.createdBy?.lastName.toLowerCase()} </td>
+                      <td className="p-2 whitespace-nowrap capitalize"> 001 | {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()} </td>
                     }
                     <td className="p-2 whitespace-nowrap">{formatDate(it.returnedAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.returnedAt)}</td>
@@ -482,8 +479,9 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
 
                 {userRole === "admin" && (
                   <>
-                    <td className="p-2 text-red-500 whitespace-nowrap">{formatDate(it.cancelledAt)}</td>
-                    <td className="p-2 text-red-500 whitespace-nowrap capitalize">
+                    <td className="p-2 whitespace-nowrap">{formatDate(it.cancelledAt)}</td>
+                    <td className="p-2 whitespace-nowrap">{formatTime(it.cancelledAt)}</td>
+                    <td className="p-2 whitespace-nowrap capitalize">
                       {it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}
                     </td>
                   </>
@@ -569,7 +567,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
           bulkMode={selectedIds.length > 0}
           creditMemoIds={selectedIds.length > 0 ? selectedIds : undefined}
           creditMemoId={selectedCreditMemo?._id}
-          clientName={selectedClient.clientName}
+          clientName={selectedClient?.clientName ?? ""}
           currentRouteId={selectedCreditMemo?.routeAssigned?._id}
           onClose={() => {
             setAssignRouteModalOpen(false);

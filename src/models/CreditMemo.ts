@@ -6,6 +6,7 @@ const CreditMemoSchema = new Schema(
     number: {type: String, required: true, unique: true},
     client: { type: Schema.Types.ObjectId, ref: "Client", required: true },
     preorder: {type: Schema.Types.ObjectId, ref: "PreOrder"},
+    directSale: {type: Schema.Types.ObjectId, ref: "DirectSale"},
     products: [
       {
         product: { type: Schema.Types.ObjectId, ref: "Product" },
@@ -42,6 +43,8 @@ const CreditMemoSchema = new Schema(
     cancelledAt: {type: Date},
     cancelledBy: {type: Schema.Types.ObjectId, ref: "User"},
     cancelReason:{type: String},
+    updatedAt: {type: Date},
+    updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
   },
   { versionKey: false }
 );

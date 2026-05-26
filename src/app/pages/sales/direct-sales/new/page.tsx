@@ -16,8 +16,8 @@ export default async function NewSalePage() {
 
     await connectToDatabase();
     let route = null;
-    if(userRole === "onRoute"){
-        route = await Route.findOne({user: userId, active:true}).lean();
+    if(userRole === "vendor"){
+        route = await Route.findOne({user: userId}).lean();
     }
 
     return (
@@ -31,8 +31,8 @@ export default async function NewSalePage() {
             {route?.inventory.length<= 0 && (
                 <p className="mt-10 text-2xl text-center dark:text-white">No inventory available</p>
             )}
-            {userRole === "admin" || userRole === "onRoute" &&(
-            <AddDirectSaleWizard route={route}/>
+            {userRole === "admin" || userRole === "vendor" &&(
+            <AddDirectSaleWizard userRole={userRole} userId={userId}/>
             )}
         </div>
     );

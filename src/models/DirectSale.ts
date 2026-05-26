@@ -13,7 +13,7 @@ const DirectSaleSchema = new Schema(
             required: true,
         },
 
-        seller: {
+        createdBy: {
             type: Types.ObjectId,
             ref: "User",
             required: true,
@@ -23,7 +23,11 @@ const DirectSaleSchema = new Schema(
             ref: "Client",
             required: true,
         },
-
+        status: {
+            type: String,
+            enum: ["pending", "delivered", "cancelled"],
+            default: "pending",
+          },
         products: [
             {
                 product: {
@@ -54,6 +58,20 @@ const DirectSaleSchema = new Schema(
             type: Date,
             required: true,
         },
+        updatedAt: {type: Date},
+        updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
+        paymentStatus: {
+            type: String,
+            enum: ["pending", "paid"],
+            default: "pending"
+          },
+        payments: [
+            {
+                type: { type: String, enum: ["cash", "check"] },
+                amount: Number,
+                checkNumber: String
+            }
+        ],
     },
     {timestamps: true}
 );

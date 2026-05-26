@@ -6,6 +6,7 @@ import SupplierOrder from "@/models/SupplierOrder";
 import ProductInventory from "@/models/ProductInventory";
 import User from "@/models/User";
 import Supplier from "@/models/Supplier";
+import { DateTime } from "luxon";
 
 export async function GET(req: Request) {
   try {
@@ -14,6 +15,8 @@ export async function GET(req: Request) {
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
 
     const query: any= {};
     if(search){
@@ -30,7 +33,25 @@ export async function GET(req: Request) {
             {supplier: {$in: supplierIds}},
             {poNumber: {$in: supplierOrderIds}},
           ];
-        }
+    }
+    if(fromDate || toDate) {
+      query.receivedAt = {};
+      if(fromDate){
+
+        query.receivedAt.$gte = DateTime.fromISO(fromDate)
+          .setZone("America/Phoenix")
+          .startOf("day")
+          .toUTC()
+          .toJSDate();
+      }
+      if(toDate){
+        query.receivedAt.$lte = DateTime.fromISO(toDate)
+          .setZone("America/Phoenix")
+          .endOf("day")
+          .toUTC()
+          .toJSDate();
+      }
+    }
     const [items, total] = await Promise.all([
       SupplierReceipt.find(query)
       .populate("supplier")
@@ -42,7 +63,7 @@ export async function GET(req: Request) {
           path: "brand",
         },
       })
-      .sort({poNumber: -1})
+      .sort({receivedAt: -1})
       .skip((page - 1) * limit)
       .limit(limit),
       SupplierReceipt.countDocuments(query),

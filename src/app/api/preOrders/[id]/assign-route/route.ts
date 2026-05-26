@@ -4,6 +4,8 @@ import PreOrder from "@/models/PreOrder";
 import Route from "@/models/Route";
 import { NextResponse } from "next/server";
 import CreditMemo from "@/models/CreditMemo";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function PATCH(
   req: Request
@@ -11,6 +13,8 @@ export async function PATCH(
     await connectToDatabase();
   try {
     const { routeId, preorderId } = await req.json();
+
+    const session = await getServerSession(authOptions);
 
     // validate route exists
     const route = await Route.findById(routeId);
@@ -28,6 +32,9 @@ export async function PATCH(
 
     preorder.routeAssigned = route._id;
     preorder.status = newStatus;
+    preorder.updatedBy = session?.user.id;
+    preorder.updatedAt = new Date();
+
     await preorder.save();
 
     await preorder.populate("client");

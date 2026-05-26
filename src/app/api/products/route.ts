@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       const brandIds = brands.map(b => b._id);
       const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
       matchStage.$or = [
+        {vendorSku: {$regex: search, $options: "i"}},
         {sku: {$regex: search, $options: "i"}},
         {upc: {$regex: search, $options: "i"}},
         {name: {$regex: search, $options: "i"}},

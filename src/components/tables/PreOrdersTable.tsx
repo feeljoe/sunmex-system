@@ -84,12 +84,16 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
     page,
     limit,
     search,
-    fromDate: appliedFilters.fromDate,
-    toDate: appliedFilters.toDate,
-    vendorId: appliedFilters.vendorId,
-    routeId: appliedFilters.routeId,
-    warehouseUserId: appliedFilters.warehouseUserId,
+    fromDate: userRole === "vendor" ? today : fromDate,
+    toDate: userRole === "vendor" ? today : toDate,
+    vendorId: userRole === "vendor" ? userId : vendorInput,
+    routeId: routeInput,
+    warehouseUserId: warehouseInput,
   });
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);},3000);
+  }, [reload]);
 
   const [assignRouteModalOpen, setAssignRouteModalOpen] = useState(false);
   const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
@@ -194,25 +198,21 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   ];
   
   return (
-    <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-4/5">
+    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[80vh] ${userRole === "admin" ? "w-[88vw]" : "w-[97vw]"}`}>
       {userRole ==="admin" &&
       <>
-      <div className="flex justify-between mb-4">
-        <DateRangePicker
-          fromDate={fromDate}
-          toDate={toDate}
-          onChange={(from, to) => {
-            setFromDate(from);
-            setToDate(to);
-          }}
-        />  
+      <div className="flex justify-end gap-5 mb-4">
         <button
           onClick={async () => {
+            setSubmitStatus("loading");
             const res = await fetch("/api/preOrders/for-routes");
             if(!res.ok){
-              alert("Failed to export");
+              setMessage("Failed to export");
+              setSubmitStatus("error");
               return;
             }
+            setMessage("Export complete");
+            setSubmitStatus("success");
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -226,13 +226,13 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
             Export for Routes
           </button>
       </div>
-      
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+      <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
+      <div className="flex justify-between gap-4 mb-5 flex-wrap">
       {/* VENDOR */}
       <select
         value={vendorInput}
         onChange={(e) => setVendorInput(e.target.value)}
-        className="p-2 rounded-xl bg-white h-10 cursor-pointer"
+        className="p-2 rounded-xl bg-white h-10 w-40 lg:w-60 cursor-pointer"
       >
         <option value="">All Vendors</option>
         {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
@@ -242,7 +242,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={routeInput}
         onChange={(e) => setRouteInput(e.target.value)}
-        className="p-2 rounded-xl bg-white h-10 cursor-pointer"
+        className="p-2 rounded-xl bg-white h-10 w-40 lg:w-60 cursor-pointer"
       >
         <option value="">All Routes</option>
         {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
@@ -252,30 +252,29 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={warehouseInput}
         onChange={(e) => setWarehouseInput(e.target.value)}
-        className="p-2 rounded-xl h-10 bg-white cursor-pointer"
+        className="p-2 rounded-xl h-10 w-40 lg:w-60 bg-white cursor-pointer"
       >
         <option value="">All Warehouse</option>
         {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
       </select>
-      {/* FILTER BUTTON */}
-      <div className="flex mb-4">
-        <button
-          className="px-4 py-2 bg-blue-500 text-white w-full rounded-xl cursor-pointer"
-          onClick={applyFilters}
-        >
-          Apply Filters
-        </button>
-      </div>
       </div>
       </>
       }
       <div className="flex justify-between mb-4 gap-5">
+      <DateRangePicker
+          fromDate={fromDate}
+          toDate={toDate}
+          onChange={(from, to) => {
+            setFromDate(from);
+            setToDate(to);
+          }}
+        />  
         <SearchBar
           placeholder="Search preorders..."
           onSearch={setSearch}
           debounce
         />
-        <RefreshButton onRefresh={reload}/>
+        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
       </div>
       <div className="flex lg:flex-wrap whitespace-nowrap overflow-auto gap-2 mb-3">
       {userRole === "admin" && (

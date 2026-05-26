@@ -13,8 +13,7 @@ export default function AppLayout({children, role}: {children: React.ReactNode; 
   
   const isAdmin = role ==="admin";
   return (
-    <html lang="en" className="h-full">
-      <body className="h-full flex">
+      <div className="h-full flex">
         {isAdmin &&  (
         <div className="hidden lg:block">
         <Sidebar isOpen={sidebarOpen} toggleSidebar={()=> setSidebarOpen(!sidebarOpen)} />
@@ -31,7 +30,6 @@ export default function AppLayout({children, role}: {children: React.ReactNode; 
             {children}
           </Providers>
         </div>
-      </body>
-    </html>
+      </div>
   );
 }

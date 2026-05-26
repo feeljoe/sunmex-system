@@ -50,6 +50,8 @@ export async function POST(req: Request) {
         returnReason: p.returnReason,
         }
       }),
+      updatedBy: session?.user.id,
+      updatedAt: new Date(),
     });
 
     return NextResponse.json(creditMemo, { status: 201 });

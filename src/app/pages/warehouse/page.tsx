@@ -13,9 +13,9 @@ export default function WarehousePage() {
 
                     </div>
                 </Link>
-                <Link href="/pages/warehouse/truckload" className="w-40 h-50 lg:w-50 lg:h-80 bg-white rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
-                    <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
-                        Truck Load
+                <Link href="/pages/warehouse/load-requests" className="w-40 h-50 lg:w-50 lg:h-80 bg-white rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
+                    <div className="flex flex-col items-center text-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
+                        Load Requests
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-10">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                         </svg>

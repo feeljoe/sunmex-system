@@ -115,14 +115,14 @@ export default function CreditMemoDetailsModal({
               <tr key={idx} className="border-b">
                 <td className="p-2 capitalize whitespace-nowrap">
                   {p.product?.brand?.name?.toLowerCase() || "-"} {p.product?.name?.toLowerCase() ||
-                    "-"} {p.product.weight && p.product.unit && (<>{p.product?.weight}{p.product?.unit?.toUpperCase()}</>)}
+                    "-"} {p.product?.weight && p.product?.unit && (<>{p.product?.weight}{p.product?.unit?.toUpperCase()}</>)}
                 </td>
                 <td className="p-2 text-center whitespace-nowrap">
-                  {p.product.sku ||
+                  {p.product?.sku ||
                     "-"}
                 </td>
                 <td className="p-2 text-center whitespace-nowrap">
-                  {p.product.upc ||
+                  {p.product?.upc ||
                     "-"}
                 </td>
                 <td className="p-2 text-center whitespace-nowrap">{p.quantity}</td>

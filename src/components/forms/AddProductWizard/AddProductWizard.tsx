@@ -7,7 +7,6 @@ import { Step1BasicInfo } from "./Step1BasicInfo";
 import { Step2Packaging } from "./Step2Packaging";
 import { Step3Image } from "./Step3Image";
 import { ConfirmModal } from "../../modals/ConfirmModal";
-import { AnimatedStep } from "@/components/ui/AnimatedStep";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import { productConfirmConfig } from "@/components/modals/configConfirms/confirmConfig";
 import { useLookupMap } from "@/utils/useLookupMap";
@@ -144,18 +143,15 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
     const {map: brandMap} = useLookupMap("/api/brands");
 
   return (
-    <div className="w-full bg-(--tertiary) p-5 rounded-xl shadow-xl">
+    <div className="w-full h-full bg-(--tertiary) p-5 rounded-xl shadow-xl">
       <ProgressBar step={step} steps={steps}/>
-
-    <AnimatedStep>
+      <div className="h-4/5">
         {step === 1 && <Step1BasicInfo form={form} setForm={setForm} />}
         {step === 2 && <Step2Packaging form={form} setForm={setForm} />}
         {step === 3 && <Step3Image form={form} setForm={setForm} />}
-    </AnimatedStep>
-      
-
+      </div>
       <div className="flex justify-between">
-      <div>
+      <div className="">
             <button hidden={step === 1} onClick={back} className="px-5 py-3 bg-gray-300 rounded-xl shadow-xl cursor-pointer">
                 Go Back
             </button>

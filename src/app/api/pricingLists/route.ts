@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
-    const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
+    const limit = Math.min(Number(searchParams.get("limit")) || 1000, 10000);
     const search = searchParams.get("search")?.trim() || "";
 
     const query: any= {};

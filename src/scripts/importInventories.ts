@@ -32,14 +32,14 @@ async function importInventories() {
       continue;
     }
 
-    const product = await Product.findOne({ sku: row.sku });
+    const product = await Product.findOne({ sku: row.sku, } as any);
     if (!product) {
       console.warn(`❌ Product not found for SKU: ${row.sku}`);
       skipped++;
       continue;
     }
 
-    const inventory = await ProductInventory.findOne({ product: product._id });
+    const inventory = await ProductInventory.findOne({ product: product._id, } as any);
     if (!inventory) {
       console.warn(`❌ Inventory not found for SKU: ${row.sku}`);
       skipped++;

@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/db";
 import CreditMemo from "@/models/CreditMemo";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
@@ -13,6 +15,8 @@ export async function PATCH(
 
   const session = await mongoose.startSession();
   session.startTransaction();
+
+  const user = await getServerSession(authOptions);
 
   try {
     const { id } = await context.params;
@@ -49,6 +53,8 @@ export async function PATCH(
     }));
 
     creditMemo.subtotal = subtotal;
+    creditMemo.updatedBy = user?.user.id;
+    creditMemo.updatedAt = new Date();
 
     await creditMemo.save({ session });
 

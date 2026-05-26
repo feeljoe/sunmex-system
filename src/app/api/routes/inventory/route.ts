@@ -2,27 +2,22 @@ import { connectToDatabase } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Route from "@/models/Route";
-import ProductInventory from "@/models/ProductInventory";
 import { NextResponse } from "next/server";
 
 export async function GET(){
     await connectToDatabase();
     const session = await getServerSession(authOptions);
 
-    if(!session || session.user.role !== "onRoute") {
+    if(!session || session.user.role !== "vendor") {
         return NextResponse.json({error: "Unauthorized"}, {status: 401});
     }
 
-    const route = await Route.findOne({user: session.user.id});
+    const route = await Route.findOne({user: session.user.id})
+    .populate("user")
+    .populate("clients")
+    .populate({path: "inventory", populate: {path: "product", populate: { path: "brand"}}})
+    .sort({code: 1})
     if(!route) return NextResponse.json([]);
 
-    const inventory = await ProductInventory.find({
-        route: route._id,
-        onRouteInventory: {$gt: 0},
-    }).populate({
-        path: "product",
-        populate: {path: "brand"},
-    });
-
-    return NextResponse.json(inventory);
+    return NextResponse.json(route);
 }

@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { RefreshButton } from '../ui/RefreshButton';
 export function BrandsTable() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items, total, reload } = useList('/api/brands', {
     page,
@@ -18,6 +18,10 @@ export function BrandsTable() {
   useEffect(() => {
       setPage(1);
     }, [search]);
+
+    useEffect(() => {
+      setTimeout(() => {setSubmitStatus(null);},3000);
+    }, [reload]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [brandToDelete, setBrandToDelete] = useState<any | null>(null);
@@ -56,15 +60,15 @@ export function BrandsTable() {
 
   return (
     <>
-    <div className='bg-(--secondary) rounded-lg shadow flex flex-col p-6 h-4/5'>
-      <div className="flex justify-between items-center mb-4">
-                <SearchBar
-                    placeholder="Search brands..."
-                    onSearch={setSearch}
-                    debounce
-                />
-                <RefreshButton onRefresh={reload}/>
-            </div>
+    <div className='bg-(--secondary) rounded-lg shadow flex flex-col p-6 h-[75vh] w-[90vw]'>
+      <div className="flex justify-between items-center gap-5 mb-4">
+          <SearchBar
+              placeholder="Search brands..."
+              onSearch={setSearch}
+              debounce
+          />
+          <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+      </div>
       <div className='flex-1 overflow-auto'>
       <table className='w-full text-left'>
         <thead>

@@ -9,7 +9,7 @@ import { supplierConfirmConfig } from '../modals/configConfirms/confirmConfig';
 
 export function SuppliersTable() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items, total, reload } = useList('/api/suppliers', {
     page,
@@ -20,6 +20,10 @@ export function SuppliersTable() {
   useEffect(() => {
     setPage(1);
   }, [search]);
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);}, 3000);
+  }, [reload]);
   
   const [confirmOpen, setConfirmOpen] = useState(false);
     const [supplierToDelete, setsupplierToDelete] = useState<any | null>(null);
@@ -59,14 +63,14 @@ export function SuppliersTable() {
 
   return (
     <>
-    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-4/5'>
-      <div className="flex justify-between items-center mb-4">
+    <div className='bg-(--secondary) rounded-lg shadow p-6 flex flex-col h-[75vh] w-[90vw]'>
+      <div className="flex justify-between items-center gap-5 mb-4">
               <SearchBar
                   placeholder="Search chains..."
                   onSearch={setSearch}
                   debounce
               />
-              <RefreshButton onRefresh={reload}/>
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
             </div>
             <div className='flex-1 overflow-auto'>
       <table className='w-full text-left'>

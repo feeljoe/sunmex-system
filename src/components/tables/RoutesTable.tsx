@@ -4,24 +4,31 @@ import { useEffect, useState } from "react";
 import RouteFormModal from "../forms/AddRouteForm";
 import { RefreshButton } from "../ui/RefreshButton";
 import { SearchBar } from "../ui/SearchBar";
+import SubmitResultModal from "../modals/SubmitResultModal";
 
 export function RouteList() {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const { items: routes, total, reload } = useList("/api/routes", {
     page,
     limit,
     search
   });
+  const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
+
   useEffect(() => {
-          setPage(1);
-        }, [search]);
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setTimeout(() => {setSubmitStatus(null);}, 3000);
+  }, [reload]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const totalPages = total > 0? Math.ceil(total/limit): 1;
   return (
-    <div className="bg-(--secondary) rounded-xl shadow p-6 flex flex-col h-4/5">
+    <div className="bg-(--secondary) rounded-xl shadow p-6 flex flex-col h-[75vh] w-[90vw]">
       <div className="flex justify-end mb-8">
         <button
           onClick={() => {
@@ -34,13 +41,13 @@ export function RouteList() {
         </button>
       </div>
 
-      <div className="flex justify-between mb-4">
+      <div className="flex justify-between gap-5 mb-4">
               <SearchBar
                 placeholder="Search routes..."
                 onSearch={setSearch}
                 debounce
               />
-              <RefreshButton onRefresh={reload}/>
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
             </div>
             <div className='flex-1 overflow-auto'>
       <table className="w-full text-left">
@@ -121,6 +128,14 @@ export function RouteList() {
             setOpen(false);
             reload();
           }}
+        />
+      )}
+      {submitStatus && (
+        <SubmitResultModal
+          status={submitStatus}
+          message={""}
+          onClose={() => setSubmitStatus(null)}
+          collection="Routes"
         />
       )}
     </div>

@@ -45,6 +45,23 @@ const SupplierReceiptSchema = new mongoose.Schema(
 
     total: { type: Number, required: true },
     
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "overdue"],
+      default: "pending"
+    },
+    payments: [
+      {
+        type: {
+          type: String,
+          enum: ["cash", "check", "transfer"],
+        },
+        amount: {type: Number},
+        checkNumber: {type: String},
+        date: { type: Date },
+      },
+    ],
+    
     quickbooks: {
       synced: Boolean,
       qbTxnId: String,

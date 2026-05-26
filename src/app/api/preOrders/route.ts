@@ -326,6 +326,8 @@ export async function POST(req: Request) {
           subtotal: body.type === "noCharge" ? 0: total,
           createdBy: new mongoose.Types.ObjectId(user?.user.id),
           status: "pending",
+          updatedAt: new Date(),
+          updatedBy: new mongoose.Types.ObjectId(user?.user.id),
         },
       ],
       { session }

@@ -3,6 +3,8 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import Users from "@/models/User";
 import { connectToDatabase } from "./db";
+import { NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -87,4 +89,25 @@ export async function verifyPassword(plainPassword: string, passwordHash: string
 export async function hashPassword(plainPassword: string, saltRounds = 10): Promise<string> {
   const salt = await bcrypt.genSalt(saltRounds);
   return bcrypt.hash(plainPassword, salt);
+}
+
+export function getUserFromRequest(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("authorization");
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return null;
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      userId: string;
+      role: string;
+    };
+
+    return decoded;
+  } catch (error) {
+    return null;
+  }
 }

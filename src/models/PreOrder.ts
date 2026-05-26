@@ -40,6 +40,8 @@ const PreorderSchema = new Schema(
     },
     cancelledAt: {type: Date},
     cancelledBy: {type: Schema.Types.ObjectId, ref: "User"},
+    updatedAt: {type: Date},
+    updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
     cancelReason:{type: String},
     paymentMethod: {
       type: String,
