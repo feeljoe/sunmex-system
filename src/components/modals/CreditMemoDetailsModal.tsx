@@ -29,10 +29,10 @@ export default function CreditMemoDetailsModal({
   const router = useRouter();
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-(--secondary) rounded-xl shadow-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto">
+      <div className="bg-(--secondary) rounded-xl shadow-xl p-6 w-full max-w-2xl lg:max-w-5xl max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4 py-2 border-b">
           <h2 className="lg:text-2xl font-semibold">
-            Credit Memo #{creditMemo.number}
+            Credit Memo details for #{creditMemo.number}
           </h2>
           <button
             onClick={onClose}

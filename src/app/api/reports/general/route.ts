@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get("page") || 1);
   const limit = Number(searchParams.get("limit") || 100);
 
-  const type = searchParams.get("type"); // "preorder" | "creditMemo" | null
+  const type = searchParams.get("type"); // "preorder" | "creditMemo" | directSale | null
   const status = searchParams.get("status");
   const vendorId = searchParams.get("vendorId");
   const driverId = searchParams.get("driverId");
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     new Date(dateStr + "T00:00:00");
 
   // ---------------- MATCH BUILDER ----------------
-  const buildMatch = (isPreorder: boolean) => {
+  const buildMatch = (isPreorder: boolean, isDirectSale: boolean) => {
     const match: any = {};
 
     if (status) match.status = status;
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (fromDate || toDate) {
-      const dateField = isPreorder ? "deliveredAt" : "returnedAt";
+      const dateField = (isPreorder || isDirectSale) ? "deliveredAt" : "returnedAt";
 
       match[dateField] = {};
 
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
   // ---------------- PREORDER PIPELINE ----------------
   const preorderPipeline = [
-    { $match: buildMatch(true) },
+    { $match: buildMatch(true, false) },
 
     { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "client" } },
     { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
@@ -146,9 +146,49 @@ export async function GET(req: NextRequest) {
     },
   ];
 
+  // ---------------- DIRECT SALE PIPELINE ----------------
+  const directSalePipeline = [
+    { $match: buildMatch(false, true) },
+
+    { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "client" } },
+    { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "createdBy" } },
+    { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "routes", localField: "route", foreignField: "_id", as: "route" } },
+    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "users", localField: "route.user", foreignField: "_id", as: "route" } },
+    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+
+    {
+      $project: {
+        _id: 1,
+        type: { $literal: "directSale" },
+        number: 1,
+        clientName: "$client.clientName",
+        subtotal: 1,
+        total: 1,
+        status: 1,
+        createdAt: 1,
+
+        createdBy: {
+          $concat: ["$createdBy.firstName", " ", "$createdBy.lastName"],
+        },
+
+        handledCode: "$route.code",
+
+        completedAt: "$deliveredAt",
+
+        cancelledAt: 1,
+      },
+    },
+  ];
+
   // ---------------- CREDIT MEMO PIPELINE ----------------
   const creditMemoPipeline = [
-    { $match: buildMatch(false) },
+    { $match: buildMatch(false, false) },
 
     { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "client" } },
     { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
@@ -209,9 +249,32 @@ export async function GET(req: NextRequest) {
       ...preorderPipeline,
       ...buildSortStages(),
     ];
-
     const result = await connection.db
       .collection("preorders")
+      .aggregate([
+        ...pipeline,
+        {
+          $facet: {
+            data: [{ $skip: skip }, { $limit: limit }],
+            total: [{ $count: "count" }],
+          },
+        },
+      ])
+      .toArray();
+
+    return NextResponse.json({
+      items: result[0].data,
+      total: result[0].total[0]?.count || 0,
+    });
+  }
+
+  if (type === "directSale") {
+    pipeline = [
+      ...directSalePipeline,
+      ...buildSortStages(),
+    ];
+    const result = await connection.db
+      .collection("directsales")
       .aggregate([
         ...pipeline,
         {
@@ -236,7 +299,7 @@ export async function GET(req: NextRequest) {
     ];
 
     const result = await connection.db
-      .collection("creditmemos") // ✅ KEY FIX
+      .collection("creditmemos")
       .aggregate([
         ...pipeline,
         {
@@ -261,6 +324,12 @@ export async function GET(req: NextRequest) {
       $unionWith: {
         coll: "creditmemos",
         pipeline: creditMemoPipeline,
+      },
+    },
+    {
+      $unionWith: {
+        coll: "directsales",
+        pipeline: directSalePipeline,
       },
     },
     ...buildSortStages(),

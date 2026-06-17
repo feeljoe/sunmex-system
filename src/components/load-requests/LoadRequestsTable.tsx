@@ -9,6 +9,7 @@ import LoadRequestDetailsModal from "../modals/LoadRequestDetailsModal";
 import AssignLoadRequestRouteModal from "../modals/AssignLoadRequestModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { DateRangePicker } from "../ui/DateRangePicker";
+import { DateTime } from "luxon";
 
 export function LoadRequestsTable() {
   const router = useRouter();
@@ -23,8 +24,8 @@ export function LoadRequestsTable() {
   const [statusView, setStatusView] = useState<"all" | "pending" | "assigned" | "prepared"> ("all");
   const [submitStatus, setSubmitStatus] = useState<"loading" | null> (null);
 
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
+  const [toDate, setToDate] = useState<string>(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
 
   const { items, total, reload } = useList("/api/load-requests", {
     page,

@@ -10,6 +10,8 @@ import PreorderDetailsModal from "../modals/PreorderDetailsModal";
 import { RefreshButton } from "../ui/RefreshButton";
 import { DateRangePicker } from "../ui/DateRangePicker";
 import PreorderWizard from "../forms/AddPreorderWizard/PreorderWizard";
+import { DateTime } from "luxon";
+import { formatCurrency } from "@/utils/format";
 
 export function PreordersTable({ userRole, userId }:{ userRole: string, userId: string}) {
   const statusColors: Record<string, string> = {
@@ -31,8 +33,8 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   const todayISO = () =>
     new Date().toISOString().split("T")[0]; // YYYY-MM-DD  
 
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>(userRole === "vendor" ? "" : () => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
+  const [toDate, setToDate] = useState<string>(userRole === "vendor" ? "" : () => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
   const today = todayISO();
    // Applied filters (used in useList)
    const [appliedFilters, setAppliedFilters] = useState({
@@ -102,9 +104,6 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [submitStatus, setSubmitStatus] = useState< "loading" | "success" | "error" | null> (null);
   const [message, setMessage] = useState("");
-  
-  const formatCurrency = (v?: number) =>
-    v != null ? `$${v.toFixed(2)}` : "-";
 
   const formatDate = (v?: string) =>
     v ? new Date(v).toLocaleDateString() : "-";
@@ -153,16 +152,6 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
 
   const totalPages = total > 0? Math.ceil(total/limit): 1;
 
-  const applyFilters = () => {
-    setPage(1);
-    setAppliedFilters({
-      fromDate,
-      toDate,
-      vendorId: vendorInput,
-      routeId: routeInput,
-      warehouseUserId: warehouseInput
-    });
-  }
   const toggleFilters = (key: string, value: string) => {
     setActiveFilters((prev) => {
       const newFilters = { ...prev };
@@ -276,7 +265,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
         />
         <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
       </div>
-      <div className="flex lg:flex-wrap whitespace-nowrap overflow-auto gap-2 mb-3">
+      <div className="flex whitespace-nowrap overflow-auto gap-2 mb-3">
       {userRole === "admin" && (
         <>
         {filterOptions.map((f)=>{
@@ -287,7 +276,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
 
           if(f.key === "total" || f.key === "subtotal"){
             return (
-              <div key={f.key} className="flex whitespace-nowrap items-center gap-2">
+              <div key={f.key} className="flex whitespace-nowrap items-center gap-5">
                 {!isInputActive ? (
                   <button
                     onClick={() => {

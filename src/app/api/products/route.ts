@@ -46,6 +46,20 @@ export async function GET(req: Request) {
       },
 
       { $unwind: "$brand" },
+      {
+        $lookup: {
+          from: "types",
+          localField: "productType",
+          foreignField: "_id",
+          as: "productType",
+        },
+      },
+
+      { $unwind: {
+        path: "$productType",
+        preserveNullAndEmptyArrays: true
+      }
+     },
 
       // ⭐ SORT BY BRAND NAME FIRST, THEN PRODUCT NAME
       {

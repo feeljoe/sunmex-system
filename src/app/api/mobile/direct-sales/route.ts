@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
       paymentStatus, // 'pending' or 'paid'
       payments,      // Array of cash/check objects
       signature,
+      status,
     } = body;
 
     if (!clientId || !products?.length || !signature) {
@@ -184,6 +185,8 @@ export async function POST(req: NextRequest) {
     // 4. Save the deducted inventory to the DB
     await route.save({ session });
 
+    const targetStatus = status || (signature ? "delivered" : "pending");
+
     // 5. Create the Direct Sale Document
     const [sale] = await DirectSale.create(
       [
@@ -192,7 +195,7 @@ export async function POST(req: NextRequest) {
           route: route._id,
           createdBy: user.userId,
           client: clientId,
-          status: "delivered", // Or 'delivered' based on your schema
+          status: targetStatus, // based on your schema
           products: products.map((p: any) => ({
             product: p.productId,
             quantity: p.quantity,
@@ -201,8 +204,8 @@ export async function POST(req: NextRequest) {
           total,
           paymentStatus: paymentStatus || "pending",
           payments: payments || [],
-          signature,
-          deliveredAt: new Date(),
+          signature: signature || null,
+          deliveredAt: targetStatus === "delivered" ? new Date(): null,
         },
       ],
       { session }

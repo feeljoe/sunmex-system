@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     const search = searchParams.get("search")?.trim() || "";
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
+    const supplier = searchParams.get("supplier");
 
     const query: any= {};
     if(search){
@@ -33,6 +34,9 @@ export async function GET(req: Request) {
             {supplier: {$in: supplierIds}},
             {poNumber: {$in: supplierOrderIds}},
           ];
+    }
+    if(supplier && mongoose.Types.ObjectId.isValid(supplier)){
+      query.supplier = new mongoose.Types.ObjectId(supplier);
     }
     if(fromDate || toDate) {
       query.receivedAt = {};
@@ -52,11 +56,38 @@ export async function GET(req: Request) {
           .toJSDate();
       }
     }
-    const [items, total] = await Promise.all([
+
+    const statsPipeline = [
+      { $match: query },
+      {
+        $project: {
+          total: { $ifNull: ["$total", 0] },
+          paidAmount: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$payments", []] },
+                as: "p",
+                in: { $ifNull: ["$$p.amount", 0] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalInvoice: { $sum: "$total" },
+          totalPaid: { $sum: "$paidAmount" }
+        }
+      }
+    ];
+
+    const [items, total, statsResult] = await Promise.all([
       SupplierReceipt.find(query)
       .populate("supplier")
       .populate("supplierOrder")
       .populate("elaboratedBy")
+      .populate("payments")
       .populate({
         path: "items.product",
         populate: {
@@ -67,14 +98,23 @@ export async function GET(req: Request) {
       .skip((page - 1) * limit)
       .limit(limit),
       SupplierReceipt.countDocuments(query),
+      SupplierReceipt.aggregate(statsPipeline)
     ]);
+
+    const amountPaid = statsResult[0]?.totalPaid || 0;
+    const totalInvoice = statsResult[0]?.totalInvoice || 0;
+    const amountOwed = Math.max(totalInvoice - amountPaid, 0);
+
     return NextResponse.json({
       items,
       total,
       page,
-      limit
+      limit,
+      amountPaid,
+      amountOwed,
     });
   }catch(err: any){
+    console.log("Error: ", err);
     return NextResponse.json({ error: String(err.message) }, {status: 500 });
   }
 }

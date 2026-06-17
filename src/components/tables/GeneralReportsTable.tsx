@@ -8,6 +8,8 @@ import { DateRangePicker } from "../ui/DateRangePicker";
 import PreorderDetailsModal from "../modals/PreorderDetailsModal";
 import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
+import DirectSaleDetailsModal from "../modals/DirectSaleDetailsModal";
+import { DateTime } from "luxon";
 
 export function GeneralReportsTable(){
     const statusColors: Record<string, string> = {
@@ -26,22 +28,20 @@ export function GeneralReportsTable(){
     const [vendorId, setVendorId] = useState("");
     const [driverId, setDriverId] = useState("");
     const [warehouseId, setWarehouseId] = useState("");
-    const [fromDate, setFromDate] = useState("");
-    const [toDate, setToDate] = useState("");
+    const [fromDate, setFromDate] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
+    const [toDate, setToDate] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
     const [vendors, setVendors] = useState<any[]>([]);
     const [drivers, setDrivers] = useState<any[]>([]);
     const [warehouseUsers, setWarehouseUsers] = useState<any[]>([]);
     const [selectedPreorder, setSelectedPreorder] = useState<any | null> (null);
     const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
+    const [selectedDirectSale, setSelectedDirectSale] = useState<any | null>(null);
     const [loadingRow, setLoadingRow] = useState<string | null>(null);
     const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportType, setExportType] = useState<"general" | "bankDeposits" | "">("");
     const [exportStep, setExportStep] = useState<1 | 2>(1);
-    const [general, setGeneral] = useState(false);
-    const [bank, setBank] = useState(false);
-
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -154,6 +154,14 @@ export function GeneralReportsTable(){
                     setSelectedCreditMemo(data);
                 }
             }
+            if(it.type === "directSale"){
+                const res = await fetch(`/api/direct-sales/${it._id}`);
+                const data = await res.json();
+
+                if(res.ok){
+                    setSelectedDirectSale(data);
+                }
+            }
         }catch (err) {
             console.error("Failed to load item: ", err);
         }finally {
@@ -207,6 +215,7 @@ export function GeneralReportsTable(){
                     <option value="">All Types</option>
                     <option value="preorder">Preorders</option>
                     <option value="creditMemo">Credit Memos</option>
+                    <option value="directSale">Direct Sales</option>
                 </select>
 
                 <select onChange={(e) => setStatusFilter(e.target.value)} className="p-2 rounded-xl bg-white h-8 cursor-pointer">
@@ -274,12 +283,12 @@ export function GeneralReportsTable(){
                         {items.map((it: any) => (
                             <tr key={it._id} onClick={() => handleRowClick(it)} className="border-b hover:bg-gray-100 cursor-pointer whitespace-nowrap">
                                 <td className="p-2 capitalize">
-                                    {it.type === "preorder" ? "Preorder" : "Credit Memo"}
+                                    {it.type === "preorder" ? "Preorder" : it.type === "directSale" ? "Direct Sale" : "Credit Memo"}
                                 </td>
 
                                 <td className="p-2">{it.number}</td>
-                                <td className="p-2">{it.clientName}</td>
-                                <td className="p-2 text-right">{formatCurrency(it.subtotal)}</td>
+                                <td className="p-2 capitalize">{it.clientName?.toLowerCase()}</td>
+                                <td className="p-2 text-right">{(it.type === "preorder" || it.type ==="creditMemo") ? formatCurrency(it.subtotal): formatCurrency(it.total)}</td>
                                 <td className="p-2 text-right">{formatCurrency(it.total)}</td>
                                 <td className="p-2 text-center">
                                     <div className={`px-2 py-2 rounded-xl text-center
@@ -426,6 +435,12 @@ export function GeneralReportsTable(){
                     creditMemo={selectedCreditMemo}
                     onClose={() => setSelectedCreditMemo(null)}
                     onEdit={selectedCreditMemo}
+                />
+            )}
+            {selectedDirectSale && (
+                <DirectSaleDetailsModal
+                    directSale={selectedDirectSale}
+                    onClose={() => setSelectedDirectSale(null)}
                 />
             )}
             {/* Loading animation */}

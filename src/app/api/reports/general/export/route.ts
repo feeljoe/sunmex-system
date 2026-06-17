@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   if (!db) throw new Error("DB not ready");
 
   const matchPreorders: any = { status: "delivered" };
+  const matchDirectSales: any = { status: "delivered" };
   const matchCreditMemos: any = { status: "received" };
 
   const parseLocalDate = (dateStr: string) =>
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     to.setHours(23, 59, 59, 999);
   
     matchPreorders.deliveredAt = { $gte: from, $lte: to };
+    matchDirectSales.deliveredAt = { $gte: from, $lte: to };
     matchCreditMemos.returnedAt = { $gte: from, $lte: to };
   }
 
@@ -111,6 +113,66 @@ export async function GET(req: NextRequest) {
   ];
 
   // --------------------
+  // PREORDERS PIPELINE
+  // --------------------
+  const directSalePipeline = [
+    { $match: matchDirectSales },
+    { $unwind: "$products" },
+
+    { $lookup: { from: "products", localField: "products.product", foreignField: "_id", as: "productData" } },
+    { $unwind: "$productData" },
+
+    { $lookup: { from: "brands", localField: "productData.brand", foreignField: "_id", as: "brandData" } },
+    { $unwind: { path: "$brandData", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "types", localField: "productData.productType", foreignField: "_id", as: "typeData" } },
+    { $unwind: { path: "$typeData", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "clientData" } },
+    { $unwind: "$clientData" },
+
+    { $lookup: { from: "chains", localField: "clientData.chain", foreignField: "_id", as: "chainData" } },
+    { $unwind: { path: "$chainData", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "vendorData" } },
+    { $unwind: "$vendorData" },
+
+    { $lookup: { from: "routes", localField: "route", foreignField: "_id", as: "vendorRouteData" } },
+    { $unwind: { path: "$vendorRouteData", preserveNullAndEmptyArrays: true } },
+
+    {
+      $project: {
+        type: "directSale",
+        number: 1,
+        chain: "$chainData.name",
+        clientNumber: "$clientData.clientNumber",
+        clientName: "$clientData.clientName",
+        vendorName: { $concat: ["$vendorData.firstName", " ", "$vendorData.lastName"] },
+        vendorRoute: "$vendorRouteData.code",
+        createdAt: 1,
+        createdDay: { $dayOfMonth: "$createdAt" },
+        createdMonth: { $month: "$createdAt" },
+        createdYear: { $year: "$createdAt" },
+        deliveredAt: 1,
+        deliveredDay: { $dayOfMonth: "$deliveredAt" },
+        deliveredMonth: { $month: "$deliveredAt" },
+        deliveredYear: { $year: "$deliveredAt" },
+        productSku: "$productData.sku",
+        brand: "$brandData.name",
+        productName: "$productData.name",
+        typeName: "$typeData.name",
+        originalQty: "$products.quantity",
+        assembledQty: "$products.quantity",
+        deliveredQty: "$products.quantity",
+        cost: "$productData.unitCost",
+        price: "$products.unitPrice",
+        creditMemo: { $literal: 0 },
+        goodReturn: { $literal: 0 },
+      },
+    },
+  ];
+
+  // --------------------
   // CREDIT MEMOS PIPELINE
   // --------------------
   const creditMemoPipeline = [
@@ -181,12 +243,13 @@ export async function GET(req: NextRequest) {
     },
   ];
 
-  const [preorders, creditMemos] = await Promise.all([
+  const [preorders, directSales, creditMemos] = await Promise.all([
     db.collection("preorders").aggregate(preorderPipeline).toArray(),
+    db.collection("directsales").aggregate(directSalePipeline).toArray(),
     db.collection("creditmemos").aggregate(creditMemoPipeline).toArray(),
   ]);
 
-  const rows = [...preorders, ...creditMemos].map((r) => ({
+  const rows = [...preorders, ...directSales, ...creditMemos].map((r) => ({
     Number: r.number || "",
     Chain: r.chain || "",
     "Client #": r.clientNumber || "",

@@ -29,7 +29,7 @@ export function ExportExcelButton() {
   };
 
   return (
-    <div title="Export to Excel" className="flex bg-(--primary) rounded-xl items-center text-white justify-center hover:bg-(--tertiary) transition-all duration:500">
+    <div title="Export to Excel" className="flex bg-green-500 rounded-xl items-center text-white justify-center hover:bg-(--tertiary) transition-all duration:500">
       <button
         onClick={handleExport}
         className="px-2 py-2 rounded-xl cursor-pointer"

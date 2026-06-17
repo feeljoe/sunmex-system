@@ -15,21 +15,27 @@ export async function GET(req: Request) {
 
     const search = searchParams.get("search")?.trim() || "";
     const brand = searchParams.get("brand");
+    const type = searchParams.get("type");
     const availableOnly = searchParams.get("availableOnly") === "true";
 
     let matchStage: any = {};
 
-    // ✅ Brand filter
+    // Brand filter
     if (brand && mongoose.Types.ObjectId.isValid(brand)) {
       matchStage["product.brand._id"] = new mongoose.Types.ObjectId(brand);
     }
 
-    // ✅ Available only filter
+    // Type filter
+    if(type && mongoose.Types.ObjectId.isValid(type)) {
+      matchStage["product.productType"] = new mongoose.Types.ObjectId(type);
+    }
+
+    // Available only filter
     if (availableOnly) {
       matchStage.currentInventory = { $gt: 0 };
     }
 
-    // ✅ Search filter
+    // Search filter
     if (search) {
       const brands = await Brand.find({
         name: { $regex: search, $options: "i" },
@@ -70,16 +76,31 @@ export async function GET(req: Request) {
         },
       },
       { $unwind: "$brand" },
+      {
+        $lookup: {
+          from: "types",
+          localField: "product.productType",
+          foreignField: "_id",
+          as: "productType",
+        },
+      },
+
+      { $unwind: {
+          path: "$productType",
+          preserveNullAndEmptyArrays: true
+        }
+       },
 
       {
         $addFields: {
           "product.brand": "$brand",
+          "product.productType": "$productType",
         },
       },
 
       Object.keys(matchStage).length ? { $match: matchStage } : null,
 
-      // ✅ Always sort by product name (brand grouping handled in frontend)
+      // Always sort by product name (brand grouping handled in frontend)
       {
         $sort: {
           "brand.name": 1,
@@ -94,6 +115,26 @@ export async function GET(req: Request) {
             { $limit: limit },
           ],
           totalCount: [{ $count: "count" }],
+          stats: [
+            {
+              $group: {
+                _id: null,
+                totalMoney: {
+                  $sum: {
+                    $multiply: [
+                      {
+                        $add: [
+                          { $ifNull: ["$currentInventory", 0] },
+                          { $ifNull: ["$preSavedInventory", 0] },
+                        ]
+                      },
+                      { $ifNull: ["$product.unitCost", 0] },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
         },
       },
     ].filter(Boolean);
@@ -102,12 +143,14 @@ export async function GET(req: Request) {
 
     const items = result[0]?.items || [];
     const total = result[0]?.totalCount[0]?.count || 0;
+    const totalInventoryMoney = result[0]?.stats[0]?.totalMoney || 0; //Extract the inventory in money
 
     return NextResponse.json({
       items,
       total,
       page,
       limit,
+      totalInventoryMoney,
     });
 
   } catch (err: any) {

@@ -91,6 +91,7 @@ export function ProductsTable() {
             <th className='p-2'>UPC</th>
             <th className='p-2'>Brand</th>
             <th className='p-2'>Name</th>
+            <th className='p-2'>Category</th>
             <th className='p-2'>Cost</th>
             <th className='p-2'>Price</th>
             <th className='p-2 text-right'>Edit</th>
@@ -112,6 +113,7 @@ export function ProductsTable() {
               <td className='p-2 whitespace-nowrap'>{it.upc}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.brand?.name.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap capitalize'>{it.name.toLowerCase()} {it.weight? `(${it.weight}${it.unit?.toUpperCase()})`: ""} {it.caseSize? `(${it.caseSize} Per Case)`: ""}</td>
+              <td className='p-2 whitespace-nowrap capitalize'>{it.productType?.name?.toLowerCase()}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitCost ?? '-'}</td>
               <td className='p-2 whitespace-nowrap'>${it.unitPrice ?? '-'}</td>
               <td className="p-2 text-right whitespace-nowrap">

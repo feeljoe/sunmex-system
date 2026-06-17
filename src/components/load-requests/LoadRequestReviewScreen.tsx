@@ -30,10 +30,15 @@ export default function LoadRequestReviewScreen({
         const data = await res.json();
 
         // Initialize editable quantities
-        data.products = data.products.map((p: any) => ({
-            ...p,
-            approvedQuantity: "",
-        }));
+        data.products = data.products.map((p: any) => {
+            const defaultQty = p.requestedQuantity > p.currentInventory
+            ? p.currentInventory
+            : p.requestedQuantity;
+            return {
+                ...p,
+                approvedQuantity: p.approvedQuantity ?? defaultQty,
+            };
+        });
 
         setLoadRequest(data);
         setLoading(false);
@@ -59,10 +64,16 @@ export default function LoadRequestReviewScreen({
     function resetQuantities() {
         setLoadRequest((prev: any) => ({
             ...prev,
-            products: prev.products.map((p: any) => ({
-                ...p,
-                approvedQuantity: "",
-            })),
+            products: prev.products.map((p: any) => {
+                const defaultQty = p.requestedQuantity > p.currentInventory 
+                    ? p.currentInventory 
+                    : p.requestedQuantity;
+                
+                return {
+                    ...p,
+                    approvedQuantity: p.approvedQuantity ?? defaultQty, // <-- Resets back to default numbers
+                };
+            }),
         }));
     }
 
@@ -144,11 +155,23 @@ export default function LoadRequestReviewScreen({
                 <div className="space-y-4">
                     {loadRequest.products.map((item: any) => {
                         const insufficientInventory = item.currentInventory < item.requestedQuantity;
+                        
+                        // 1. Determine the effective case size (default to 1 if missing or 0)
+                        const caseSize = item.product?.caseSize || 1;
+
+                        // 2. Determine placeholders for both units and cases
+                        const unitPlaceholder = insufficientInventory ? item.currentInventory : item.requestedQuantity;
+                        const casePlaceholder = unitPlaceholder / caseSize;
+
+                        // 3. Derive current cases from the approved units state
+                        const currentApprovedCases = item.approvedQuantity !== "" 
+                            ? Number(item.approvedQuantity) / caseSize 
+                            : "";
 
                         return (
-                        <div
-                            key={item.product._id}
-                            className="bg-white shadow-xl rounded-xl p-4">
+                            <div
+                                key={item.product._id}
+                                className="bg-white shadow-xl rounded-xl p-4">
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <h2 className="font-semibold">
@@ -158,35 +181,68 @@ export default function LoadRequestReviewScreen({
                                         <p className={`text-sm ${ insufficientInventory ? "text-red-500" : "text-gray-500"}`}>
                                             Current Inventory:{" "}
                                             {item.currentInventory}
+                                            {" "}|{" "}
+                                            Case Size:{" "}{item.product?.caseSize ?? "N/A"}
                                         </p>
                                     </div>
-                                    <div className="flex gap-6 items-center text-center">
-                                        <div>
-                                            <p className="text-xs text-gray-400">
-                                                Requested
+                                    
+                                    {/* INPUTS ROW */}
+                                    <div className="flex gap-4 items-center text-center">
+                                        
+                                        {/* READ-ONLY: Requested Units */}
+                                        <div className="flex flex-col items-center justify-center">
+                                            <p className="text-sm text-gray-800">
+                                                Requested Units
                                             </p>
-                                            <p className="w-24 border rounded-lg p-2">
+                                            <p className="w-24 border bg-gray-50 rounded-lg p-2 text-gray-600">
                                                 {item.requestedQuantity}
                                             </p>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-gray-400">
-                                                Approved
+
+                                        {/* INTERACTIVE: Approved Cases */}
+                                        <div className="flex flex-col items-center justify-center">
+                                            <p className="text-sm text-blue-500 font-semibold">
+                                                Cases
                                             </p>
                                             <input
                                                 type="number"
                                                 min={0}
-                                                placeholder={insufficientInventory ? String(item.currentInventory) : String(item.requestedQuantity)}
-                                                max={item.currentInventory}
-                                                value={item.approvedQuantity}
-                                                onChange={(e) => updateApprovedQty(item.product._id, Number(e.target.value)) }
-                                                className="w-24 border text-center rounded-lg p-2"
+                                                placeholder={String(casePlaceholder)}
+                                                value={currentApprovedCases}
+                                                onChange={(e) => {
+                                                    // Multiply cases by caseSize to store as units
+                                                    const caseValue = e.target.value === "" ? "" : Number(e.target.value) * caseSize;
+                                                    updateApprovedQty(item.product._id, caseValue as number);
+                                                }}
+                                                className="w-24 border border-blue-200 text-center rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-hidden"
                                             />
                                         </div>
+
+                                        {/* INTERACTIVE: Approved Units */}
+                                        <div className="flex flex-col items-center justify-center">
+                                            <p className="text-sm text-green-500 font-semibold">
+                                                Approved Units
+                                            </p>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                placeholder={String(unitPlaceholder)}
+                                                max={item.currentInventory}
+                                                value={item.approvedQuantity}
+                                                onChange={(e) => {
+                                                    // Store exact units
+                                                    const unitValue = e.target.value === "" ? "" : Number(e.target.value);
+                                                    updateApprovedQty(item.product._id, unitValue as number);
+                                                }}
+                                                className="w-24 border text-center rounded-lg p-2 focus:ring-2 focus:ring-gray-400 outline-hidden"
+                                            />
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
-                    )})}
+                        );
+                    })}
                 </div>
             </div>
             {/* ACTIONS */}

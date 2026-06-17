@@ -45,6 +45,7 @@ const CreditMemoSchema = new Schema(
     cancelReason:{type: String},
     updatedAt: {type: Date},
     updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
+    paymentProcessed: {type: Boolean, default: false},
   },
   { versionKey: false }
 );

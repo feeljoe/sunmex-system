@@ -6,6 +6,7 @@ import CounterDirectSale from "@/models/CounterDirectSales";
 import Route from "@/models/Route";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
+import { DateTime } from "luxon";
 
 // /api/direct-sales/route.ts
 export async function GET(req: Request) {
@@ -26,21 +27,35 @@ export async function GET(req: Request) {
 
   // VENDOR: Only see their own sales for TODAY
   if (session.user.role === "vendor") {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
+    const phoenixNow = DateTime.now()
+      .setZone("America/Phoenix");
+    const start = phoenixNow
+      .startOf("day")
+      .toUTC()
+      .toJSDate();
+    const end = phoenixNow
+    .endOf("day")
+    .toUTC()
+    .toJSDate();
 
     query.createdAt = { $gte: start, $lte: end };
     query.createdBy = new mongoose.Types.ObjectId(session.user.id);
   } else {
     // ADMIN: Date range and specific creator filters
     if (fromDate && toDate) {
-      const [fy, fm, fd] = fromDate.split("-").map(Number);
-      const [ty, tm, td] = toDate.split("-").map(Number);
-      query.createdAt = {
-        $gte: new Date(fy, fm - 1, fd, 0, 0, 0, 0),
-        $lte: new Date(ty, tm - 1, td, 23, 59, 59, 999),
+      const startOfDate = DateTime.fromISO(fromDate, { zone: "America/Phoenix" })
+        .startOf("day")
+        .toUTC().
+        toJSDate();
+      
+      const endOfDate = DateTime.fromISO(toDate, { zone: "America/Phoenix" })
+        .endOf("day")
+        .toUTC()
+        .toJSDate();
+      
+        query.createdAt = {
+        $gte: startOfDate,
+        $lte: endOfDate,
       };
     }
     if (creatorId) {
@@ -57,11 +72,25 @@ export async function GET(req: Request) {
   }
 
   const items = await DirectSale.find(query)
-    .populate("client", "clientName")
-    .populate("route", "code")
+    .populate({
+      path: "client",
+      populate: {
+        path: "paymentTerm"
+      },
+    })
+    .populate("route")
     .populate("createdBy", "firstName lastName")
     .populate("updatedBy", "firstName lastName")
-    .sort({ createdAt: 1 })
+    .populate({
+      path: "products",
+      populate: {
+        path: "product",
+        populate: {
+          path: "brand",
+        },
+      },
+    })
+    .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
 

@@ -70,16 +70,19 @@ export async function PATCH(
 
     // Recalculate total based on delivered quantities using cents
     let newTotalCents = 0;
+    let newCogsCents = 0;
 
     for (const p of preorder.products) {
       const unitPrice = p.actualCost || p.productInventory?.product?.unitPrice || 0;
+      const unitCost = p.productInventory?.product?.unitCost || 0;
       const deliveredQty = Number(p.deliveredQuantity || 0);
 
       newTotalCents += toCents(deliveredQty * unitPrice);
+      newCogsCents += toCents(deliveredQty * unitCost);
     }
 
     preorder.total = preorder.type === "noCharge" ? 0: fromCents(newTotalCents);
-
+    preorder.cogs = fromCents(newCogsCents);
 
     preorder.status = "delivered";
     preorder.deliveredAt = new Date();

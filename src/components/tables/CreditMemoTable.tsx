@@ -9,6 +9,7 @@ import CancelCreditMemoModal from "../modals/CancelCreditMemoModal";
 import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import AssignRouteModal from "../modals/AssignRouteModal";
+import { DateTime } from "luxon";
 
 export function CreditMemosTable({ userRole, userId }: { userRole: string; userId: string }) {
   const statusColors: Record<string, string> = {
@@ -31,8 +32,8 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   const todayISO = () => new Date().toISOString().split("T")[0];
   const today = todayISO();
 
-  const [fromDate, setFromDate] = useState(userRole === "vendor" ? today : "");
-  const [toDate, setToDate] = useState(userRole === "vendor" ? today : "");
+  const [fromDate, setFromDate] = useState(userRole === "vendor" ? today : () => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
+  const [toDate, setToDate] = useState(userRole === "vendor" ? today : () => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
   const [appliedFilters, setAppliedFilters] = useState({
     fromDate,
     toDate,

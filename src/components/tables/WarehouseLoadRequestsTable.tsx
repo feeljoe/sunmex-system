@@ -33,18 +33,9 @@ export function WarehouseLoadRequestsTable({ user }: any) {
     "/api/load-requests",
     {
       status: statusParam,
+      route: selectedRoute,
     }
   );
-
-  const filtered = loadRequests.filter((lr: any) => {
-    if (
-      selectedRoute &&
-      lr.route?._id !== selectedRoute
-    )
-      return false;
-
-    return true;
-  });
 
   const formatDate = (v?: string) =>
     v ? new Date(v).toLocaleDateString() : "-";
@@ -133,7 +124,7 @@ export function WarehouseLoadRequestsTable({ user }: any) {
             </thead>
 
             <tbody>
-              {filtered.map((lr: any) => (
+              {loadRequests.map((lr: any) => (
                 <tr
                   key={lr._id}
                   className={`border-b hover:bg-gray-50 ${

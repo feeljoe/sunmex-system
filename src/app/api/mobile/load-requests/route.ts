@@ -143,6 +143,7 @@ export async function GET(req: Request) {
       status: {
         $in: ["prepared", "delivered"],
       },
+      
     })
       .populate("routeAssigned", "code")
       .populate("route", "code")

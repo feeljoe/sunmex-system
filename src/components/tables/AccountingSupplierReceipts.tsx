@@ -6,24 +6,30 @@ import { useEffect, useState } from 'react';
 import { SupplierReceiptSummaryModal } from "@/components/modals/SupplierReceiptSummaryModal";
 import SubmitResultModal from '@/components/modals/SubmitResultModal';
 import { DateRangePicker } from '../ui/DateRangePicker';
+import { DateTime } from 'luxon';
+import { formatCurrency } from '@/utils/format';
+import { PaginatedSelect } from '../ui/PaginatedSelect';
 
 export function AccountingSupplierReceiptsTable() {
   const [page, setPage] = useState(1);
   const [limit] = useState(100);
   const [search, setSearch] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
+  const [toDate, setToDate] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
 
   // Payment State
   const [paymentInputs, setPaymentInputs] = useState<Record<string, any>>({});
 
-  const formatCurrency = (v?: number) => v != null ? `$${v.toFixed(2)}` : "-";
   const formatDate = (v?: string) => v ? new Date(v).toLocaleDateString() : "-";
 
-  const { items, total, reload } = useList('/api/supplierReceipts', { page, limit, search, fromDate, toDate });
+  const { items, total, meta, reload } = useList('/api/supplierReceipts', { page, limit, search, fromDate, toDate, supplier: selectedSupplier });
+
+  const amountPaid = meta?.amountPaid || 0;
+  const amountOwed = meta?.amountOwed || 0;
   
   useEffect(() => { setPage(1); }, [search, fromDate, toDate]);
   
@@ -74,7 +80,23 @@ export function AccountingSupplierReceiptsTable() {
 
   return (
     <div className='bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-[75vh] w-[90vw]'>
-      
+      <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
+      <div className="flex gap-4 mb-5 items-center justify-center">
+        <PaginatedSelect
+          endpoint="/api/suppliers"
+          value={selectedSupplier}
+          onChange={setSelectedSupplier}
+          placeholder="All Suppliers"
+        />
+        {(selectedSupplier) && (
+          <button 
+            onClick={() => { setSelectedSupplier(""); }}
+            className="text-md p-2 rounded-xl bg-red-400 text-white hover:underline hover:bg-red-200 transition-all duration:300 cursor-pointer whitespace-nowrap"
+          >
+            Reset Filters
+          </button>
+        )}
+      </div>
       <div className="flex justify-between items-center gap-5 mb-4">
         <DateRangePicker
             fromDate={fromDate}
@@ -92,7 +114,8 @@ export function AccountingSupplierReceiptsTable() {
         <table className='w-full text-left text-sm'>
           <thead className='bg-gray-100 sticky top-0'>
             <tr className='border-b'>
-              <th className='p-2 whitespace-nowrap'>Invoice / PO</th>
+              <th className='p-2 whitespace-nowrap'>Invoice</th>
+              <th className='p-2 whitespace-nowrap'>PO</th>
               <th className='p-2 whitespace-nowrap'>Supplier</th>
               <th className='p-2 whitespace-nowrap text-center'>Date Arrived</th>
               <th className='p-2 whitespace-nowrap text-right'>Total</th>
@@ -116,13 +139,16 @@ export function AccountingSupplierReceiptsTable() {
               return (
                 <tr key={it._id} className='border-b hover:bg-gray-50 cursor-pointer transition-colors' onClick={() => orderSummary(it)}>
                   <td className='p-2 whitespace-nowrap font-bold'>
-                    {it.invoice} <span className="text-gray-400 font-normal">| {it.poNumber}</span>
+                    <span>{it.invoice}</span>
+                  </td>
+                  <td>
+                    <span className="p-2 whitespace-nowrap">{it.poNumber}</span>
                   </td>
                   <td className='p-2 whitespace-nowrap capitalize'>{it.supplier?.name.toLowerCase()}</td>
                   <td className='p-2 whitespace-nowrap text-center'>{formatDate(it.receivedAt)}</td>
                   <td className='p-2 whitespace-nowrap text-right'>{formatCurrency(it.total)}</td>
                   <td className='p-2 whitespace-nowrap text-right text-green-600'>{formatCurrency(paidAmount)}</td>
-                  <td className='p-2 whitespace-nowrap text-right font-bold text-red-600'>{formatCurrency(balance)}</td>
+                  <td className={`p-2 whitespace-nowrap text-right font-bold ${balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatCurrency(balance)}</td>
                   <td className='p-2 whitespace-nowrap text-center'>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusStyle(currentStatus)}`}>
                       {currentStatus.toUpperCase()}
@@ -184,6 +210,11 @@ export function AccountingSupplierReceiptsTable() {
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className='flex justify-end p-2 gap-5 font-bold mt-4 text-lg'>
+        <div>Amount Paid: <span className='text-green-600'>{formatCurrency(amountPaid)}</span></div>
+        <div>Amount Owed: <span className='text-red-600'>{formatCurrency(amountOwed)}</span></div>
       </div>
 
       <div className="flex justify-end items-center gap-4 mt-4">

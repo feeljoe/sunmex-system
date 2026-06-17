@@ -150,7 +150,7 @@ export default function RouteFormModal({
       clients: form.type === "vendor" ? form.clients : [],
     };
 
-    const method = isEdit ? "PUT" : "POST";
+    const method = isEdit ? "PATCH" : "POST";
     const url = isEdit ? `/api/routes/${route._id}` : "/api/routes";
 
     await fetch(url, {

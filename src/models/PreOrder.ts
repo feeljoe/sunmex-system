@@ -68,8 +68,10 @@ const PreorderSchema = new Schema(
       synced: { type: Boolean, default: false },
       qbTxnId: { type: String },
       syncedAt: { type: Date },
-      error: { type: String }
+      error: { type: String },
     },
+    warehouseReturnProcessed: { type: Boolean, default: false },
+    cogs: {type: Number, default: 0},
   },
   { versionKey: false }
 );

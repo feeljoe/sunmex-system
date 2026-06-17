@@ -21,7 +21,7 @@ async function getUser(req: Request) {
         process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET as string
       ) as any;
 
-      if (decoded && ["admin", "driver", "vendor"].includes(decoded.role)) {
+      if (decoded && ["admin", "driver", "vendor", "warehouse"].includes(decoded.role)) {
         // Map _id to id if your JWT uses MongoDB's _id
         return {
            ...decoded,
@@ -38,7 +38,7 @@ async function getUser(req: Request) {
   const session = await getServerSession(authOptions);
   const user = session?.user;
   
-  if (!user || !["admin", "driver", "vendor"].includes(user.role)) {
+  if (!user || !["admin", "driver", "vendor", "warehouse"].includes(user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -57,6 +57,7 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
 
     const search = searchParams.get("search")?.trim() || "";
+    const route = searchParams.get("route");
     const status = searchParams.get("status");
 
     const matchQuery: any = {};
@@ -75,6 +76,13 @@ export async function GET(req: Request) {
     //
     if (status) {
       matchQuery.status = status;
+    }
+
+    //
+    // ROUTE FILTER
+    //
+    if(route) {
+      matchQuery.routeAssigned = new mongoose.Types.ObjectId(route);
     }
 
     const startDate = searchParams.get("startDate");

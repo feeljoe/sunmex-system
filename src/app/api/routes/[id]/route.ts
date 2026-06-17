@@ -4,8 +4,8 @@ import Route from "@/models/Route";
 import User from "@/models/User";
 import Client from "@/models/Client";
 
-/* ---------------- PUT ---------------- */
-export async function PUT(
+/* ---------------- PATCH ---------------- */
+export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }>}
 ) {
@@ -62,7 +62,7 @@ export async function PUT(
     route.type = type;
 
     // user → always stored as array in your schema
-    route.users = user ? [user] : [];
+    route.user = user || null;
 
     // only vendor routes have clients
     route.clients = type === "vendor" ? clients : [];
@@ -75,7 +75,7 @@ export async function PUT(
 
     return NextResponse.json(updatedRoute);
   } catch (err) {
-    console.error("PUT route error:", err);
+    console.error("PATCH route error:", err);
     return NextResponse.json(
       { error: "Failed to update route" },
       { status: 500 }

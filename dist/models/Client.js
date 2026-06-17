@@ -20,7 +20,7 @@ var ClientSchema = new mongoose_1.Schema({
     creditLimit: Number,
     frequency: { type: String, required: true },
     visitingDays: {
-        type: [String], // 👈 THIS IS THE FIX
+        type: [String],
         required: true,
     },
 }, { timestamps: true });

@@ -72,6 +72,7 @@ const DirectSaleSchema = new Schema(
                 checkNumber: String
             }
         ],
+        cogs: {type: Number, default: 0},
     },
     {timestamps: true}
 );

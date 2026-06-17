@@ -6,32 +6,65 @@ import { useEffect, useState } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
 import { ExportExcelButton } from "../ui/ExportExcelButton";
 import SubmitResultModal from "../modals/SubmitResultModal";
+import { PaginatedSelect } from "../ui/PaginatedSelect";
+import { formatCurrency } from "@/utils/format";
 
 export function InventoryTable() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
+
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedType, setSelectedType] = useState("");
+
   const { items, total, meta, reload } = useList("/api/productInventory", {
     page,
     limit,
     search,
+    brand: selectedBrand,
+    type: selectedType,
   });
-  const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
-  useEffect(() => {
-        setPage(1);
-      }, [search]);
 
-      useEffect(() => {
-        setTimeout(() => {setSubmitStatus(null);},3000);
-      }, [reload]);
+  const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedBrand, selectedType]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setSubmitStatus(null);
+    }, 3000);
+  }, [reload]);
   
       const totalPages = total > 0? Math.ceil(total/limit): 1;
       const totalInventoryMoney = meta?.totalInventoryMoney ?? 0;
-      const formatCurrency = (v?: number) =>
-        v != null ? `$${v.toFixed(2)}` : "-";
 
   return (
     <div className="bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[75vh] w-[90vw]">
+      <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
+      <div className="flex gap-4 mb-5 items-center justify-center">
+        <PaginatedSelect
+          endpoint="/api/brands"
+          value={selectedBrand}
+          onChange={setSelectedBrand}
+          placeholder="All Brands"
+        />
+        <PaginatedSelect
+          endpoint="/api/types"
+          value={selectedType}
+          onChange={setSelectedType}
+          placeholder="All Types"
+        />
+        {(selectedBrand || selectedType) && (
+          <button 
+            onClick={() => { setSelectedBrand(""); setSelectedType(""); }}
+            className="text-md p-2 rounded-xl bg-red-400 text-white hover:underline hover:bg-red-200 transition-all duration:300 cursor-pointer whitespace-nowrap"
+          >
+            Reset Filters
+          </button>
+        )}
+      </div>
       <div className="flex justify-between mb-4 gap-5">
         <SearchBar
           placeholder="Search inventory..."
@@ -46,15 +79,17 @@ export function InventoryTable() {
       <div className='flex-1 overflow-auto'>
       <table className="w-full text-left text-sm lg:text-lg">
         <thead>
-          <tr className="border-b">
+          <tr className="border-b whitespace-nowrap">
             <th className="p-2">SKU</th>
             <th className="p-2">UPC</th>
             <th className="p-2">Brand</th>
             <th className="p-2">Name</th>
+            <th className="p-2">Category</th>
             <th className="p-2">Inventory $</th>
             <th className="p-2">Current Inventory</th>
             <th className="p-2">Presaved Inventory</th>
             <th className="p-2">On Route Inventory</th>
+            <th className="p-2">Inactive Inventory</th>
           </tr>
         </thead>
         <tbody>
@@ -71,10 +106,12 @@ export function InventoryTable() {
               <td className="p-2 whitespace-nowrap">{it.product?.upc}</td>
               <td className="p-2 whitespace-nowrap capitalize">{it.product?.brand?.name?.toLowerCase()}</td>
               <td className="p-2 whitespace-nowrap capitalize">{it.product?.name?.toLowerCase()} {(it.product?.unit) &&(<>{it.product?.weight}{it.product?.unit?.toUpperCase()}</>)} {it.product?.caseSize && (<>({it.product?.caseSize} units per case)</>)}</td>
-              <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>${Number(it.currentInventory * it.product.unitCost).toFixed(2)}</td>
+              <td className="p-2 whitespace-nowrap capitalize">{it.product?.productType?.name?.toLowerCase()}</td>
+              <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>{formatCurrency(Number(it.currentInventory * it.product.unitCost))}</td>
               <td className={`p-2 whitespace-nowrap ${it.currentInventory === 0? "text-red-500": ""}`}>{Number(it.currentInventory).toFixed()}</td>
               <td className="p-2 whitespace-nowrap">{Number(it.preSavedInventory).toFixed()}</td>
               <td className="p-2 whitespace-nowrap">{Number(it.onRouteInventory).toFixed()}</td>
+              <td className="p-2 whitespace-nowrap">{Number(it.inactiveInventory).toFixed()}</td>
             </tr>
           ))}
         </tbody>

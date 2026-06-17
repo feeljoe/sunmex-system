@@ -120,17 +120,17 @@ export async function GET(req: Request) {
 
       const formattedStandalone = standaloneCreditMemos.map((cm: any) => {
         const products = cm.products.map((p: any) => ({
-          productId: p.product._id,
-          upc: p.product.upc,
-          sku: p.product.sku,
-          name: p.product.name,
-          brand: p.product.brand?.name,
-          weight: p.product.weight ?? "",
-          uom: p.product.unit ?? "",
-          quantity: p.quantity,
-          deliveredQuantity: p.deliveredQuantity ?? 0,
-          unitPrice: p.unitPrice ?? 0,
-          returnReason: p.returnReason,
+          productId: p?.product?._id,
+          upc: p?.product?.upc,
+          sku: p?.product?.sku,
+          name: p?.product?.name,
+          brand: p?.product?.brand?.name,
+          weight: p?.product?.weight ?? "",
+          uom: p?.product?.unit ?? "",
+          quantity: p?.quantity,
+          deliveredQuantity: p?.deliveredQuantity ?? 0,
+          unitPrice: p?.unitPrice ?? 0,
+          returnReason: p?.returnReason,
         }));
         return {
           orderId: null, // important so the app knows it's not an order
@@ -218,9 +218,15 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ deliveries: [...formatted, ...formattedStandalone] });
   } catch (err: any) {
+    console.error("MOBILE DELIVERIES ERROR: ", err);
+    
+    if (err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
     return NextResponse.json(
-      { error: err.message },
-      { status: 401 }
+      { error: err.message || "Internal Server Error" },
+      { status: 500 }
     );
   }
 }

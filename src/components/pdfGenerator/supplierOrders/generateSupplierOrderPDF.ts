@@ -58,11 +58,8 @@ export function generateSupplierOrderPDF(order: any) {
   const tableRows = order.products.map((p: any) => {
     const qtyUnits = p.quantity || 0;
     const caseSize = p.product?.caseSize || null;
-    const unitCost = p.product?.unitCost || 0;
 
     const qtyCases = caseSize ? (qtyUnits/caseSize) : "-";
-    const casePrice = caseSize ? (unitCost * caseSize) : "-";
-    const totalPrice = qtyUnits * unitCost;
 
     return [
       p.product?.brand?.name || "-",
@@ -71,14 +68,12 @@ export function generateSupplierOrderPDF(order: any) {
       p.product?.vendorSku || "-",
       qtyUnits,
       qtyCases,
-      casePrice !== "-" ? `$${casePrice.toFixed(2)}` : "-",
-      `$${totalPrice.toFixed(2)}`
     ];
   });
 
   autoTable(doc, {
     startY: infoY + 10,
-    head: [["Brand", "Product", "SKU", "Vendor SKU", "Qty Units", "Qty Cases", "Case Price", "Total Price"]],
+    head: [["Brand", "Product", "SKU", "Vendor SKU", "Qty Units", "Qty Cases"]],
     body: tableRows,
     styles: {
       fontSize: 9
@@ -87,16 +82,6 @@ export function generateSupplierOrderPDF(order: any) {
       fillColor: [0,0,0]
     }
   });
-
-  if (order.expectedTotal != null) {
-    doc.setFontSize(14);
-    const bottomY = pageHeight -20;
-    doc.text(
-      `Expected Total: $${order.expectedTotal.toFixed(2)}`,
-      14,
-      bottomY
-    );
-  }
 
   doc.save(`${order.poNumber}.pdf`);
 }

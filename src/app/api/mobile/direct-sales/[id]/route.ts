@@ -86,7 +86,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       const { id } = await params;
       
       // Extract everything that might be passed in
-      const { products, signature, payments, paymentStatus } = await req.json();
+      const { products, signature, payments, paymentStatus, status } = await req.json();
   
       const existingSale = await DirectSale.findById(id).session(session);
       if (!existingSale) throw new Error("Sale not found");
@@ -137,6 +137,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (signature) existingSale.signature = signature;
       if (payments) existingSale.payments = payments;
       if (paymentStatus) existingSale.paymentStatus = paymentStatus;
+
+      if(status) {
+        existingSale.status = status;
+        if (status === "delivered" && !existingSale.deliveredAt){
+          existingSale.deliveredAt = new Date();
+        }
+      }
   
       // Save the Direct Sale document
       await existingSale.save({ session });

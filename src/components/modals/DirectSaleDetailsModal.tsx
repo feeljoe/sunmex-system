@@ -1,17 +1,13 @@
 "use client";
 
-import { generatePreorderPDF } from "@/utils/generatePreorderPDF";
+import { generateDirectSalePDF } from "@/utils/generateDirectSalePDF";
 import { useRouter } from "next/navigation";
-export default function PreorderDetailsModal({
-  preorder,
+export default function DirectSaleDetailsModal({
+  directSale,
   onClose,
-  onEdit,
-  userRole,
 }: {
-  preorder: any;
+  directSale: any;
   onClose: () => void;
-  onEdit: (preorder: any) => void;
-  userRole: string;
 }) {
   /* -----------------------------
      HELPERS
@@ -44,14 +40,14 @@ export default function PreorderDetailsModal({
   /* -----------------------------
      PRODUCTS (SORTED)
   ------------------------------*/
-  const sortedProducts = [...(preorder.products ?? [])].sort((a: any, b: any) => {
-    const brandA = a.productInventory?.product?.brand?.name?.toLowerCase() ?? "";
-    const brandB = b.productInventory?.product?.brand?.name?.toLowerCase() ?? "";
+  const sortedProducts = [...(directSale.products ?? [])].sort((a: any, b: any) => {
+    const brandA = a.product?.brand?.name?.toLowerCase() ?? "";
+    const brandB = b.product?.brand?.name?.toLowerCase() ?? "";
     if (brandA !== brandB) return brandA.localeCompare(brandB);
 
     return (
-      a.productInventory?.product?.name?.localeCompare(
-        b.productInventory?.product?.name
+      a.product?.name?.localeCompare(
+        b.product?.name
       ) ?? 0
     );
   });
@@ -62,12 +58,12 @@ export default function PreorderDetailsModal({
   ==============================*/
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
-      <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl p-6 lg:max-w-5xl max-h-[90vh] overflow-auto">
+      <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl lg:max-w-5xl p-2 space-y-2">
 
         {/* HEADER */}
-        <div className="flex justify-between items-center py-2 mb-4 border-b">
+        <div className="flex justify-between items-center mb-4 py-2 border-b">
           <h2 className="lg:text-2xl font-semibold">
-            Preorder Details for #{preorder?.number}
+            Direct Sale details for #{directSale.number}
           </h2>
           <button
             onClick={onClose}
@@ -79,38 +75,37 @@ export default function PreorderDetailsModal({
           </button>
         </div>
         <h2 className="text-xl font-semibold text-center">
-            {preorder.client?.clientName}
+            {directSale.client?.clientName}
           </h2>
-        <h3 className="text-center mb-4">Address: {preorder.client?.billingAddress?.addressLine}, {preorder.client?.billingAddress?.city}, {preorder.client?.billingAddress?.state}, {preorder.client?.billingAddress?.country}, {preorder.client?.billingAddress?.zipCode} </h3>
+        <h3 className="text-center mb-4">Address: {directSale.client?.billingAddress?.addressLine}, {directSale.client?.billingAddress?.city}, {directSale.client?.billingAddress?.state}, {directSale.client?.billingAddress?.country}, {directSale.client?.billingAddress?.zipCode} </h3>
 
         {/* META INFO */}
         <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm text-center">
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Route</span>
-            <div>{preorder.routeAssigned?.code ?? "-"}</div>
+            <div>{directSale.route?.code ?? "-"}</div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="font-semibold">Created By</span>
+            <div>{directSale.createdBy?.firstName ?? "-"} {directSale.createdBy?.lastName ?? "-"}</div>
           </div>
 
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Status</span>
-            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPreorder[preorder.status]}`}>{preorder.status.toUpperCase()}</span></div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="font-semibold">Type</span>
-            <div><span className={`p-2 rounded-xl text-white ${preorder.type === "noCharge"? "bg-red-600" : "bg-green-600"}`}>{preorder.type === "charge"? "CHARGE" : preorder.type === "noCharge"?"NO CHARGE": "-"}</span></div>
+            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPreorder[directSale.status]}`}>{directSale.status.toUpperCase()}</span></div>
           </div>
 
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Created At</span>
             <div>
-              {formatDate(preorder.createdAt)}{" "}
-              {formatTime(preorder.createdAt)}
+              {formatDate(directSale.createdAt)}{" "}
+              {formatTime(directSale.createdAt)}
             </div>
           </div>
 
           <div className="flex flex-col gap-2 mb-4">
             <span className="font-semibold">Payment Status</span>
-            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPayment[preorder.paymentStatus]}`}>{preorder.paymentStatus.toUpperCase()}</span></div>
+            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPayment[directSale.paymentStatus]}`}>{directSale.paymentStatus.toUpperCase()}</span></div>
           </div>
         </div>
 
@@ -124,8 +119,6 @@ export default function PreorderDetailsModal({
                 <th className="p-2">SKU</th>
                 <th className="p-2">UPC</th>
                 <th className="p-2 text-center">Ordered Qty</th>
-                <th className="p-2 text-center">Picked Qty</th>
-                <th className="p-2 text-center">Delivered Qty</th>
                 <th className="p-2 text-right">Unit Price</th>
                 <th className="p-2 text-right">Line Total</th>
               </tr>
@@ -134,57 +127,30 @@ export default function PreorderDetailsModal({
               {sortedProducts.map((p: any) => {
                 const unitPrice =
                   p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0;
-                  const picked = p.pickedQuantity ?? 0;
                   const ordered = p.quantity ?? 0;
-                  const delivered = p.deliveredQuantity ?? 0;
-
-                  const isDifferent = (picked !== ordered && preorder.status === "ready") || ((delivered !== picked || delivered !== ordered) && preorder.status === "delivered");
-                  
-                  totalQty += preorder.status === "delivered" ? delivered : preorder.status === "ready" ? picked : ordered;
+                  totalQty += ordered;
                 return (
-                  <tr key={p.productInventory?._id} className={`border-t ${isDifferent ? "bg-yellow-50" : ""}`}>
+                  <tr key={p._id} className={`border-t`}>
                     <td className="p-2 capitalize">
-                      {p.productInventory?.product?.brand?.name.toLowerCase()}
+                      {p.product?.brand?.name?.toLowerCase()}
                     </td>
                     <td className="p-2 capitalize">
-                      {p.productInventory?.product?.name.toLowerCase()} {p.productInventory?.product?.weight && (`${p.productInventory?.product?.weight}${p.productInventory?.product?.unit?.toUpperCase()}`)}
+                      {p.product?.name?.toLowerCase()} {p.product?.weight && (`${p.product?.weight}${p.product?.unit?.toUpperCase()}`)}
                     </td>
                     <td className="p-2">
-                      {p.productInventory?.product?.sku}
+                      {p.product?.sku}
                     </td>
                     <td className="p-2">
-                      {p.productInventory?.product?.upc}
+                      {p.product?.upc}
                     </td>
                     <td className="p-2 text-center">
                       {Math.round(ordered)}
-                    </td>
-                    <td
-                      className={`p-2 text-center font-bold ${
-                        picked === 0
-                          ? "text-red-600"
-                          : picked !== ordered
-                          ? "text-orange-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {Math.round(picked)}
-                    </td>
-                    <td
-                      className={`p-2 text-center font-bold ${
-                        delivered === 0
-                          ? "text-red-600"
-                          : delivered < picked
-                          ? "text-orange-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {Math.round(delivered)}
                     </td>
                     <td className="p-2 text-right">
                       {formatCurrency(unitPrice)}
                     </td>
                     <td className="p-2 text-right font-bold">
-                      {formatCurrency(preorder.status === "delivered" ? delivered * unitPrice : preorder.status === "ready" ? picked * unitPrice : ordered * unitPrice)}
+                      {formatCurrency(ordered * unitPrice)}
                     </td>
                   </tr>
                 );
@@ -196,28 +162,15 @@ export default function PreorderDetailsModal({
         <div className="flex justify-end text-2xl font-semibold">
           Total Units: {totalQty}
         </div>
-        {(preorder.total ===0 && preorder.subtotal >= 0) &&
-        <div className="flex justify-end text-2xl font-semibold">
-          Subtotal: {formatCurrency(preorder.subtotal)}
-        </div>
-        }
         {/* TOTAL */}
-        {(preorder.total >= 0 && preorder.status === "delivered") &&
         <div className="flex justify-end text-2xl font-semibold">
-          Total: {formatCurrency(preorder.total)}
+          Total: {formatCurrency(directSale.total)}
         </div>
-        }
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
           <button
-          //disabled={preorder.status === "ready" || preorder.status === "delivered"}
-            onClick={() => router.push(`/pages/sales/preorders/edit/${preorder._id}`)}
-            className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(preorder.status === "ready" || preorder.status === "delivered") ? "opacity-50": ""}`}>
-              Edit
-            </button>
-          <button
-            onClick={() => generatePreorderPDF(preorder)}
+            onClick={() => generateDirectSalePDF(directSale)}
             className="bg-blue-600 text-white px-5 py-3 rounded-xl cursor-pointer"
           >
             PDF

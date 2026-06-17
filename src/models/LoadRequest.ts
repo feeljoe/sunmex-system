@@ -39,16 +39,19 @@ const LoadRequestSchema = new Schema(
       ref: "User",
       required: true,
     },
+    requestedAt: {type: Date},
 
     reviewedBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
     },
+    reviewedAt: {type: Date},
 
     assembledBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
     },
+    assembledAt: {type: Date},
 
     products: [LoadRequestProductSchema],
 
@@ -58,6 +61,8 @@ const LoadRequestSchema = new Schema(
       default: "pending",
     },
     signature: {type: String},
+    deliveryDate: {type: Date},
+    deliveredAt: {type: Date},
   },
   { timestamps: true }
 );

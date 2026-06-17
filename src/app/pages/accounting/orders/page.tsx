@@ -8,6 +8,9 @@ import { DateTime } from "luxon";
 import PreorderDetailsModal from "@/components/modals/PreorderDetailsModal";
 import CreditMemoDetailsModal from "@/components/modals/CreditMemoDetailsModal";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
+import DirectSaleDetailsModal from "@/components/modals/DirectSaleDetailsModal";
+import { formatCurrency } from "@/utils/format";
+import { SearchBar } from "@/components/ui/SearchBar";
 
 type Order = {
   _id: string;
@@ -20,24 +23,21 @@ type Order = {
   balance: number;
   computedStatus: "paid" | "pending" | "overdue" | "unpaid";
   payments: any[];
-  type: "order" | "creditMemo";
+  type: "order" | "directSale" | "creditMemo";
   cogs?: number;
 };
 
 export default function AccountingOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-
   // Default to current week
   const [from, setFrom] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [to, setTo] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
   const [status, setStatus] = useState("all");
+  const [chain, setChain] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [search, setSearch] = useState("");
 
   const [paymentInputs, setPaymentInputs] = useState<Record<string, any>>({});
   const [selectedCredits, setSelectedCredits] = useState<Record<string, number>>({});
-
-  const [chain, setChain] = useState("");
-  const [vendor, setVendor] = useState("");
   const [vendors, setVendors] = useState<any[]>([]);
 
   // Bulk Selection States
@@ -49,16 +49,51 @@ export default function AccountingOrdersPage() {
   const [bulkAmount, setBulkAmount] = useState("");
 
   const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
+  const [selectedDirectSale, setSelectedDirectSale] = useState<any | null>(null);
   const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
   const [loadingRow, setLoadingRow] = useState<string | null>(null);
   const [submitStatus, setSubmitStatus] = useState<"loading" | null> (null);
 
   const { items: chains } = useList("/api/chains", { limit: 1000 });
   
+  const { items: fetchedOrders, meta, loading, reload } = useList("/api/accounting/orders", {
+    from,
+    to,
+    chain: chain !== "all" ? chain : undefined,
+    vendor: vendor !== "all" ? vendor : undefined,
+    status: status !== "all" ? status : undefined,
+    search,
+    limit: 1000,
+  });
+
+  const orders = useMemo<Order[]>(() => {
+    const mappedOrdersAndSales = (fetchedOrders || []).map((item: any) => ({
+      ...item,
+      type: item.source === "directSale" ? "directSale" : "order", 
+    }));
+    const creditMemos = (meta.unlinkedCreditMemos || []).map((cm: any) => ({
+      _id: cm._id,
+      number: cm.number,
+      client: { name: cm.client?.clientName || "No Client" },
+      deliveredAt: cm.returnedAt,
+      total: 0,
+      credits: -cm.total || 0,
+      paid: 0,
+      balance: cm.paymentProcessed ? 0 : (-cm.total || 0),
+      computedStatus: cm.paymentProcessed ? "paid" : "pending",
+      payments: [],
+      type: "creditMemo",
+    }));
+
+    return [...mappedOrdersAndSales, ...creditMemos].sort(
+      (a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime()
+    );
+  }, [fetchedOrders, meta.unlinkedCreditMemos]);
+
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
-        const res = await fetch("/api/routes?limit=100");
+        const res = await fetch("/api/routes?limit=1000");
         const data = await res.json();
         if(res.ok){
           setVendors(data.items.filter((u: any) => u.type === "vendor"));
@@ -70,52 +105,9 @@ export default function AccountingOrdersPage() {
     fetchRoutes();
   }, []);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (from) params.append("from", from);
-    if (to) params.append("to", to);
-    if (chain && chain !== "all") params.append("chain", chain);
-    if (vendor && vendor !== "all") params.append("vendor", vendor);
-    if (status && status !== "all") params.append("status", status);
-
-    const res = await fetch(`/api/accounting/orders?${params.toString()}`);
-    const data = await res.json();
-
-    const ordersData = (data.items || []).map((o: any) => ({
-        ...o,
-        type: "order",
-    }));
-
-    const creditMemos = (data.unlinkedCreditMemos || []).map((cm: any) => ({
-        _id: cm._id,
-        number: cm.number,
-        client: { name: cm.client?.clientName || "No Client" },
-        deliveredAt: cm.returnedAt,
-        total: 0,
-        credits: -cm.total || 0,
-        paid: 0,
-        balance: -cm.total || 0,
-        computedStatus: "pending",
-        payments: [],
-        type: "creditMemo",
-      }));
-
-      const merged = [...ordersData, ...creditMemos].sort(
-        (a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime()
-      );
-
-    setOrders(merged);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [from, to, status, chain, vendor]);
-
   useEffect(() => {
     setTimeout(() => {setSubmitStatus(null);},3000);
-  }, [fetchOrders]);
+  }, [reload]);
 
   const handlePay = async (order: Order) => {
     const input = paymentInputs[order._id];
@@ -132,7 +124,12 @@ export default function AccountingOrdersPage() {
       },
     ];
 
-    const res = await fetch(`/api/preOrders/${order._id}/pay`, {
+    // Determine the correct API endpoint based on the order type!
+    const endpoint = order.type === "directSale" 
+        ? `/api/direct-sales/${order._id}/pay`
+        : `/api/preOrders/${order._id}/pay`;
+
+    const res = await fetch(endpoint, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -142,7 +139,7 @@ export default function AccountingOrdersPage() {
     });
 
     if (res.ok) {
-        fetchOrders();
+        reload();
         setPaymentInputs(prev => ({ ...prev, [order._id]: {} }));
         setSelectedCredits({});
     } else {
@@ -154,6 +151,7 @@ export default function AccountingOrdersPage() {
     if (!bulkAmount || isNaN(Number(bulkAmount))) return alert("Enter a valid amount");
 
     const orderIds = Array.from(selectedItems).filter(id => orders.find(o => o._id === id)?.type === "order");
+    const dsIds = Array.from(selectedItems).filter(id => orders.find(o => o._id === id)?.type === "directSale");
     const cmIds = Array.from(selectedItems).filter(id => orders.find(o => o._id === id)?.type === "creditMemo");
 
     const res = await fetch("/api/accounting/bulk-pay", {
@@ -161,6 +159,7 @@ export default function AccountingOrdersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderIds,
+        dsIds,
         cmIds,
         method: bulkMethod,
         checkNumber: bulkCheckNumber,
@@ -174,7 +173,7 @@ export default function AccountingOrdersPage() {
         setSelectedItems(new Set());
         setBulkAmount("");
         setBulkCheckNumber("");
-        fetchOrders();
+        reload();
     } else {
         alert("Error processing bulk payment");
     }
@@ -195,13 +194,13 @@ export default function AccountingOrdersPage() {
   };
 
   const totals = useMemo(() => {
-    let totalSold = 0;
+    let totalOwed = 0;
     let totalCogs = 0;
     orders.forEach(o => {
-        totalSold += o.total;
+        totalOwed += o.balance;
         totalCogs += o.cogs || 0;
     });
-    return { totalSold, totalCogs, profit: totalSold - totalCogs };
+    return { totalOwed };
   }, [orders]);
 
   // Bulk Modal Calculations
@@ -225,6 +224,12 @@ export default function AccountingOrdersPage() {
         if (res.ok) {
           setSelectedCreditMemo(data);
         }
+      } else if (o.type === "directSale"){
+        const res = await fetch(`/api/direct-sales/${o._id}`);
+        const data = await res.json();
+        if (res.ok) {
+          setSelectedDirectSale(data);
+        }
       }
     } catch (err) {
       console.error("Failed to load item: ", err);
@@ -238,23 +243,19 @@ export default function AccountingOrdersPage() {
       <h1 className="text-3xl font-bold text-center dark:text-white">Accounting - Orders</h1>
     
       <div className="flex flex-col p-4 h-[75vh] w-[90vw] bg-(--secondary) rounded-xl">
-        <div className="flex gap-4 justify-between items-center p-4 rounded-xl">
-          <div>
-              <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t); }} /> 
-          </div>
-          <div>
+        <div className="flex flex-col w-full py-4 gap-4 justify-between items-center rounded-xl">
+        <p className="border-b w-full border-(--quarteary) text-center text-xl font-bold">Filters</p>
+        <div className="flex w-full justify-between">
             <select value={chain} onChange={(e) => setChain(e.target.value)} className="bg-white rounded p-2 h-10">
               <option value="all">All Chains</option>
               {chains.map((c) => (<option key={c._id} value={c._id}>{c.name}</option>))}
             </select>
-          </div>
-          <div>
+
             <select value={vendor} onChange={(e) => setVendor(e.target.value)} className="bg-white rounded p-2 h-10">
               <option value="all">All Vendors</option>
               {vendors.map((v) => (<option key={v.user?._id} value={v.user?._id}>{v.code} | {v.user?.firstName} {v.user?.lastName}</option>))}
             </select>
-          </div>
-          <div>
+          
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white rounded p-2 h-10">
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
@@ -262,8 +263,7 @@ export default function AccountingOrdersPage() {
               <option value="overdue">Overdue</option>
               <option value="paid">Paid</option>
             </select>
-          </div>
-          <div className="flex gap-2">
+
               <button 
                   onClick={() => setIsBulkModalOpen(true)}
                   disabled={selectedItems.size === 0}
@@ -271,7 +271,11 @@ export default function AccountingOrdersPage() {
               >
                   Bulk Pay ({selectedItems.size})
               </button>
-              <RefreshButton onRefresh={() => {fetchOrders(); setSubmitStatus("loading");}}/>
+          </div>
+          <div className="flex w-full gap-4">
+              <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t); }} /> 
+              <SearchBar placeholder="Search document..." onSearch={setSearch} debounce />
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
           </div>
         </div>
 
@@ -324,12 +328,12 @@ export default function AccountingOrdersPage() {
                   <td className="p-2 text-left">{o.client.name}</td>
                   <td className="p-2">{o.number}</td>
                   <td className="p-2">{o.deliveredAt ? new Date(o.deliveredAt).toLocaleDateString() : "-"}</td>
-                  <td className="p-2">${o.total.toFixed(2)}</td>
+                  <td className="p-2">{formatCurrency(o.total)}</td>
                   <td className={`p-2 ${o.credits === 0 ? "" : "text-red-600"}`}>
-                      ${o.credits < 0 ? o.credits.toFixed(2) : -o.credits.toFixed(2)}
+                      {o.credits < 0 ? formatCurrency(o.credits) : formatCurrency(-o.credits)}
                   </td>
-                  <td className="p-2">${o.paid.toFixed(2)}</td>
-                  <td className="font-bold p-2">${o.balance.toFixed(2)}</td>
+                  <td className="p-2">{formatCurrency(o.paid)}</td>
+                  <td className="font-bold p-2">{formatCurrency(o.balance)}</td>
                   <td className="p-2">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusStyle(o.computedStatus)}`}>
                       {o.computedStatus.toUpperCase()}
@@ -347,7 +351,7 @@ export default function AccountingOrdersPage() {
                     )}
 
                     {/* SHOW PAYMENTS IF PAID */}
-                    {o.type === "order" && o.computedStatus === "paid" && (
+                    {(o.type === "order" || o.type === "directSale") && o.computedStatus === "paid" && (
                         <div className="flex flex-col text-sm text-left">
                         {o.payments && o.payments.length > 0 ? (
                             o.payments.map((p, idx) => (
@@ -356,7 +360,7 @@ export default function AccountingOrdersPage() {
                                 <>
                                     <span className="w-full text-center">Cash</span>
                                     <span className="w-full text-center">-</span>
-                                    <span className="w-full text-center">${Number(p.amount).toFixed(2)}</span>
+                                    <span className="w-full text-center">{formatCurrency(p.amount)}</span>
                                 </>
                                 )}
 
@@ -369,7 +373,7 @@ export default function AccountingOrdersPage() {
                                    {p.checkNumber ? `#${p.checkNumber}` : ""}
                                 </span>
                                 <span className="w-full text-center">
-                                    ${Number(p.amount).toFixed(2)}
+                                    {formatCurrency(p.amount)}
                                 </span>
                                 </>
                                 )}
@@ -382,7 +386,7 @@ export default function AccountingOrdersPage() {
                     )}
 
                     {/* PAYMENT INPUT FOR NON-PAID */}
-                    {o.type === "order" && o.computedStatus !== "paid" && (
+                    {(o.type === "order" || o.type === "directSale") && o.computedStatus !== "paid" && (
                         <div className="flex gap-4 w-full h-full items-center justify-between" onClick={(e) => e.stopPropagation()}>
                         <div className="border h-10 w-28 rounded-xl">
                             <select
@@ -474,9 +478,7 @@ export default function AccountingOrdersPage() {
         </div>
 
         <div className="p-4 font-bold flex justify-end gap-10">
-          <div>Total Sold: ${totals.totalSold.toFixed(2)}</div>
-          <div>COGS: ${totals.totalCogs.toFixed(2)}</div>
-          <div>Profit: ${totals.profit.toFixed(2)}</div>
+          <div>Total Owed: {formatCurrency(totals.totalOwed)}</div>
         </div>
       </div>
 
@@ -570,6 +572,14 @@ export default function AccountingOrdersPage() {
               onClose={() => setSelectedPreorder(null)}
               userRole="admin"
               onEdit={selectedPreorder}
+          />
+      )}
+
+      {/* Direct Sale Details Modal */}
+      {selectedDirectSale && (
+          <DirectSaleDetailsModal
+            directSale={selectedDirectSale}
+            onClose={() => setSelectedDirectSale(null)}
           />
       )}
 

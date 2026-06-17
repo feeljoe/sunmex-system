@@ -37,6 +37,13 @@ export async function PATCH(
 
     await preorder.save();
 
+    if (preorder.paymentStatus === "paid") {
+      await CreditMemo.updateMany(
+        { preorder: preorder._id, status: "received" },
+        { $set: { paymentProcessed: true } }
+      );
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (err: any) {

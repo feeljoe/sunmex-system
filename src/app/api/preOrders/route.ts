@@ -27,8 +27,52 @@ export async function GET(req: Request) {
     
     const session = await getServerSession(authOptions);
 
+    const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+    const andConditions: any[] = [];
+    const generalSearch: any[] = [];
+    let parsedStatus = "";
+
+    tokens.forEach(token => {
+      const [rawKey, ...rest] = token.split(":");
+
+      if(rest.length) {
+        const key = rawKey.toLowerCase();
+        const value = rest.join(":").replace(/"/g, "");
+
+        switch(key) {
+          case "status":
+            parsedStatus = value.toLowerCase();
+            andConditions.push({status: parsedStatus});
+            break;
+          case "payment":
+            andConditions.push({paymentStatus: value});
+            break;
+          case "number":
+            andConditions.push({number: {$regex: value, $options: "i"}});
+            break;
+          case "total":
+            andConditions.push({total: Number(value)});
+            break;
+          case "subtotal":
+            andConditions.push({subtotal: Number(value)});
+            break;
+        }
+      } else {
+        const clean = token.replace(/"/g, "");
+        generalSearch.push(
+          {number: { $regex: clean, $options: "i"}},
+          {status: {$regex: clean, $options: "i"}},
+          {paymentStatus: {$regex: clean, $options: "i"}}
+        );
+      }
+    });
+
+    let datefield = "createdAt";
+    if (parsedStatus === "ready") datefield = "assembledAt";
+    else if (parsedStatus === "delivered") datefield = "deliveredAt";
+
     const matchQuery: any= {};
-    const baseFilters: any = {};
+
     if(fromDate && toDate){
       
       const [fy, fm, fd] = fromDate.split("-").map(Number);
@@ -36,7 +80,7 @@ export async function GET(req: Request) {
       const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
       const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
       
-      baseFilters.createdAt = {
+      matchQuery[datefield] = {
         $gte: start,
         $lte: end,
       };
@@ -50,7 +94,7 @@ export async function GET(req: Request) {
         },
       ];
     }else {
-      Object.assign(matchQuery, baseFilters);
+      Object.assign(matchQuery);
       if (vendorId) {
         matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
       }
@@ -61,59 +105,24 @@ export async function GET(req: Request) {
     
     if(routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
     
+    if (andConditions.length > 0) {
+      matchQuery.$and = andConditions;
+    }
+    if (generalSearch.length > 0) {
+      if (matchQuery.$and) {
+        matchQuery.$and.push({$or: generalSearch});
+      } else {
+        matchQuery.$or = generalSearch;
+      }
+    }
+
+
     const pipeline: any[] = [];
 
-// 1️⃣ BASE MATCH FIRST
+// Apply the unified match stage
 pipeline.push({ $match: matchQuery });
 
-
-// 2️⃣ LIGHT SEARCH FIRST (only fields in preorder itself)
-if (search) {
-  const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
-
-  const andConditions: any[] = [];
-  const generalSearch: any[] = [];
-
-  tokens.forEach(token => {
-    const [rawKey, ...rest] = token.split(":");
-
-    if (rest.length) {
-      const key = rawKey.toLowerCase();
-      const value = rest.join(":").replace(/"/g, "");
-
-      switch (key) {
-        case "status":
-          andConditions.push({ status: value });
-          break;
-
-        case "payment":
-          andConditions.push({ paymentStatus: value });
-          break;
-
-        case "number":
-          andConditions.push({ number: { $regex: value, $options: "i" } });
-          break;
-      }
-    } else {
-      const clean = token.replace(/"/g, "");
-
-      generalSearch.push(
-        { number: { $regex: clean, $options: "i" } },
-        { status: { $regex: clean, $options: "i" } },
-        { paymentStatus: { $regex: clean, $options: "i" } }
-      );
-    }
-  });
-
-  const finalMatch: any = {};
-  if (andConditions.length) finalMatch.$and = andConditions;
-  if (generalSearch.length) finalMatch.$or = generalSearch;
-
-  pipeline.push({ $match: finalMatch });
-}
-
-
-// 3️⃣ COMPUTE SORT NUMBER
+// COMPUTE SORT NUMBER
 pipeline.push({
   $addFields: {
     sortNumber: {
@@ -132,8 +141,7 @@ pipeline.push({
   }
 });
 
-
-// 4️⃣ SORT + PAGINATION BEFORE LOOKUPS
+// SORT + PAGINATION BEFORE LOOKUPS
 pipeline.push({ $sort: { sortNumber: -1 } });
 
 const countPipeline = [...pipeline];
@@ -142,7 +150,7 @@ pipeline.push({ $skip: (page - 1) * limit });
 pipeline.push({ $limit: limit });
 
 
-// 5️⃣ HEAVY LOOKUPS LAST (CRITICAL)
+// HEAVY LOOKUPS LAST
 pipeline.push(
   {
     $lookup: {

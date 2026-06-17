@@ -128,8 +128,11 @@ export default function EditProductModal({
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="flex flex-col">
-                <label className="font-bold p-2">
-                  Brand (current: {product.brand.name})
+                <label className="font-bold px-2">
+                  Brand
+                </label>
+                <label className="font-bold px-2 mb-4">
+                  (current: {product.brand.name})
                 </label>
                 <AsyncSearchSelect
                   value={form.brand}
@@ -140,7 +143,25 @@ export default function EditProductModal({
                 />
               </div>
               <div className="flex flex-col">
-                <label className="p-2 font-bold">SKU (current: {product.sku})</label>
+                <label className="font-bold px-2">
+                  Category 
+                </label>
+                <label className="font-bold px-2 mb-4">
+                (current: {product.productType?.name})
+                </label>
+                <AsyncSearchSelect
+                  value={form.productType}
+                  displayValue={form.productType?.name}
+                  endpoint="/api/types"
+                  placeholder="Search category..."
+                  onChange={(id) => setForm({ ...form, productType: id })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="flex flex-col">
+                <label className="px-2 font-bold">SKU</label>
+                <label className="px-2 font-bold mb-4">(current: {product.sku})</label>
               <input
                 value={form.sku || ""}
                 onChange={e => setForm({ ...form, sku: e.target.value })}
@@ -149,7 +170,8 @@ export default function EditProductModal({
               />
               </div>
               <div className="flex flex-col">
-                <label className="p-2 font-bold">Vendor SKU (current: {product.vendorSku})</label>
+                <label className="px-2 font-bold">Vendor SKU</label>
+                <label className="px-2 font-bold mb-4">(current: {product.vendorSku})</label>
               <input
                 value={form.vendorSku || ""}
                 onChange={e => setForm({ ...form, vendorSku: e.target.value })}
@@ -158,7 +180,8 @@ export default function EditProductModal({
               />
               </div>
               <div className="flex flex-col">
-                <label className="p-2 font-bold"> UPC (current: {product.upc})</label>
+                <label className="px-2 font-bold">UPC</label>
+                <label className="px-2 font-bold mb-4">(current: {product.upc})</label>
               <input
                 value={form.upc || ""}
                 onChange={e => setForm({ ...form, upc: e.target.value })}
@@ -166,6 +189,8 @@ export default function EditProductModal({
                 className="p-2 rounded-xl bg-white shadow-xl"
               />
               </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="flex flex-col">
                 <label className="font-bold p-2"> Cost</label>
                 <input
@@ -213,7 +238,7 @@ export default function EditProductModal({
                 >
                   <option value="">Select unit</option>
                   {UNIT_OPTIONS.map(u => (
-                    <option key={u} value={u}>{u}</option>
+                    <option key={u} value={u}>{u?.toUpperCase()}</option>
                   ))}
                 </select>
               </div>

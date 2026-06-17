@@ -99,7 +99,8 @@ export async function GET(
         path: "paymentTerm",
       },
     })
-    .populate("routeAssigned");
+    .populate("routeAssigned")
+    .populate("createdBy");
 
     if(!creditMemo) {
       return NextResponse.json({ error: "Credit Memo Not Found"}, {status: 404});

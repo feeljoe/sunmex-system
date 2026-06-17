@@ -92,6 +92,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       // 3. Update the Credit Memo details
       memo.status = "received";
       memo.directSale = directSaleId;
+      memo.pickedQuantity = memo.quantity ?? 0;
+      memo.returnedQuantity = memo.quantity ?? 0;
       memo.routeAssigned = routeAssignedId;
       memo.returnedAt = new Date();
       memo.total = total;

@@ -5,6 +5,8 @@ import { SearchBar } from "../ui/SearchBar";
 import { useState, useEffect } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
 import { DateRangePicker } from "../ui/DateRangePicker";
+import DirectSaleDetailsModal from "../modals/DirectSaleDetailsModal";
+import { DateTime } from "luxon";
 
 export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId: string }) {
   // Status Colors (Matching your Preorders Table)
@@ -16,10 +18,11 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(isAdmin ? () => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"): "");
+  const [toDate, setToDate] = useState(isAdmin ? () => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"): "");
   const [creatorInput, setCreatorInput] = useState("");
   const [vendors, setVendors] = useState<any[]>([]);
+  const [selectedDirectSale, setSelectedDirectSale] = useState<any>(null);
 
   // Fetch list of users for the filter dropdown (Admin only)
   useEffect(() => {
@@ -99,7 +102,7 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
           </thead>
           <tbody>
             {items.map((it: any) => (
-              <tr key={it._id} className="border-b hover:bg-gray-50 transition-colors">
+              <tr key={it._id} className="border-b hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedDirectSale(it)}>
                 <td className="p-3 font-mono font-bold text-blue-600">{it.number}</td>
                 <td className="p-3 capitalize">{it.client?.clientName?.toLowerCase()}</td>
                 <td className="p-3 font-semibold text-green-700">{formatCurrency(it.total)}</td>
@@ -120,7 +123,7 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
         </table>
       </div>
 
-      {/* PAGINATION (Matching Preorders style) */}
+      {/* PAGINATION */}
       <div className="flex justify-between items-center mt-4">
         <span className="text-sm">Showing {items.length} of {total}</span>
         <div className="flex gap-2 items-center">
@@ -129,7 +132,6 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
             onClick={() => setPage(p => p - 1)}
             className="p-1 bg-(--quarteary) text-white rounded-lg disabled:opacity-50"
           >
-            {/* Left Arrow SVG */}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
           <span className="text-sm font-medium">Page {page} of {totalPages}</span>
@@ -138,11 +140,16 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
             onClick={() => setPage(p => p + 1)}
             className="p-1 bg-(--quarteary) text-white rounded-lg disabled:opacity-50"
           >
-            {/* Right Arrow SVG */}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
           </button>
         </div>
       </div>
+      {selectedDirectSale &&
+        <DirectSaleDetailsModal
+          directSale={selectedDirectSale}
+          onClose={() => setSelectedDirectSale(null)}
+        />
+      }
     </div>
   );
 }
