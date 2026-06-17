@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       status,
     } = body;
 
-    if (!clientId || !products?.length || !signature) {
+    if (!clientId || !products?.length) {
       throw new Error("Missing required fields");
     }
 
