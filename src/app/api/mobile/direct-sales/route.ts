@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import CreditMemo from "@/models/CreditMemo";
 import { DateTime } from "luxon";
+import Product from "@/models/Product";
 
 // Extract user from JWT (Mobile) OR Session (Web)
 async function getUser(req: Request) {
@@ -155,7 +156,22 @@ export async function POST(req: NextRequest) {
     );
     const nextNumber = `DS-${route.code}-${1000 + counter.seq}`;
 
-    // 3. Pre-validate and Calculate
+
+
+    const targetStatus = status || (signature ? "delivered" : "pending");
+
+    let costMap: Record<string, number> = {};
+    if(targetStatus === "delivered") {
+      const productIds = products.map((p: any) => p.productId);
+      const productDocs = await Product.find({ _id: { $in: productIds }}).select("cost").session(session);
+
+      costMap = productDocs.reduce((acc, curr) => {
+        acc[curr._id.toString()] = curr.cost || 0;
+        return acc;
+      }, {} as Record<string,number>);
+    }
+
+    let cogs = 0;
     let total = 0;
     const failedItems: any[] = [];
 
@@ -176,16 +192,17 @@ export async function POST(req: NextRequest) {
       // Deduct inventory inside memory
       item.quantity -= p.quantity;
       total += p.quantity * p.unitPrice;
-    }
 
+      if (targetStatus === "delivered") {
+        cogs += p.quantity * (costMap[p.productId.toString()] || 0);
+      }
+    }
     if (failedItems.length > 0) {
       throw { type: "INVENTORY_ERROR", details: failedItems };
     }
 
     // 4. Save the deducted inventory to the DB
     await route.save({ session });
-
-    const targetStatus = status || (signature ? "delivered" : "pending");
 
     // 5. Create the Direct Sale Document
     const [sale] = await DirectSale.create(
@@ -195,13 +212,14 @@ export async function POST(req: NextRequest) {
           route: route._id,
           createdBy: user.userId,
           client: clientId,
-          status: targetStatus, // based on your schema
+          status: targetStatus,
           products: products.map((p: any) => ({
             product: p.productId,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
           })),
           total,
+          cogs: targetStatus === "delivered" ? cogs : 0,
           paymentStatus: paymentStatus || "pending",
           payments: payments || [],
           signature: signature || null,

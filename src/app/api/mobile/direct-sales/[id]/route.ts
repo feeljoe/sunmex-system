@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import CreditMemo from "@/models/CreditMemo";
+import Product from "@/models/Product";
 
 // Extract user from JWT (Mobile) OR Session (Web)
 async function getUser(req: Request) {
@@ -131,6 +132,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           unitPrice: p.unitPrice,
         }));
         existingSale.total = newTotal;
+
+        existingSale.cogs = 0;
       }
   
       // --- SCENARIO 2: SIMPLE UPDATES (Payments & Signatures) ---
@@ -143,6 +146,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (status === "delivered" && !existingSale.deliveredAt){
           existingSale.deliveredAt = new Date();
         }
+      }
+
+      // --- SCENARIO 3: COGS CALCULATION ---
+      // If cogs is 0, or reset above, and the order is now delivered, calculate it.
+
+      if((existingSale.cogs === 0 || !existingSale.cogs) && existingSale.status === "delivered") {
+        const productIds = existingSale.products.map((p: any) => p.product.toString());
+        const productDocs = await Product.find({ _id: { $in: productIds } }).select("cost").session(session);
+        
+        const costMap = productDocs.reduce((acc, curr) => {
+          acc[curr._id.toString()] = curr.cost || 0;
+          return acc;
+        }, {} as Record<string, number>);
+
+        let calculatedCogs = 0;
+        for (const item of existingSale.products) {
+          calculatedCogs += item.quantity * (costMap[item.product.toString()] || 0);
+        }
+
+        existingSale.cogs = calculatedCogs;
       }
   
       // Save the Direct Sale document

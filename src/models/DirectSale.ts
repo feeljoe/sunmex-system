@@ -52,11 +52,9 @@ const DirectSaleSchema = new Schema(
         },
         signature: {
             type: String,
-            required: true,
         },
         deliveredAt: {
             type: Date,
-            required: true,
         },
         updatedAt: {type: Date},
         updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
