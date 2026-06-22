@@ -70,17 +70,17 @@ export async function GET(req: NextRequest) {
     }
     if(dateFilter === "today"){
       const phoenixNow = DateTime.now().setZone("America/Phoenix");
-      const startOfDay = phoenixNow
-        .startOf("day")
+      const startOfWeek = phoenixNow
+        .startOf("week")
         .toUTC()
         .toJSDate();
 
-      const endOfDay = phoenixNow
-        .endOf("day")
+      const endofWeek = phoenixNow
+        .endOf("week")
         .toUTC()
         .toJSDate();
       
-      query.createdAt = {$gte: startOfDay, $lte: endOfDay};
+      query.createdAt = {$gte: startOfWeek, $lte: endofWeek};
     }
 
     // 1. Fetch the Sales

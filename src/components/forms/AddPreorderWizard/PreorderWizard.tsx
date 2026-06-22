@@ -42,7 +42,7 @@ export default function PreorderWizard({
           quantity: p.quantity,
           pickedQuantity: p.pickedQuantity ?? 0,
           deliveredQuantity: p.deliveredQuantity ?? 0,
-          maxQty: p.productInventory?.currentInventory,
+          maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
         }))
       );
     
@@ -73,7 +73,7 @@ export default function PreorderWizard({
       quantity: p.quantity,
       pickedQuantity: p.pickedQuantity ?? 0,
       deliveredQuantity: p.deliveredQuantity ?? 0,
-      maxQty: p.productInventory?.currentInventory, 
+      maxQty: Math.round(Number(p.productInventory?.currentInventory ||0)) + Math.round(Number(p.quantity || 0)), 
     })) || []
   );
   
@@ -93,7 +93,7 @@ export default function PreorderWizard({
   const pricedProducts = useMemo(() => {
     return applyPricingLists(products, selectedClient, pricingLists).map(p => ({
       ...p,
-      effectiveUnitPrice: Number(p.effectiveUnitPrice) || p.unitPrice ||0, // fallback to 0
+      effectiveUnitPrice: Number(p.effectiveUnitPrice) ?? p.unitPrice ?? 0, // fallback to 0
     }));
   }, [products, selectedClient, pricingLists]);
   const total = useMemo(() => {
@@ -189,7 +189,7 @@ export default function PreorderWizard({
 
   return (
     <>
-    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-hidden">
+    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-[75vh] overflow-hidden">
       {step === 1 && (
         <StepSelectClient
           userRole={userRole}
@@ -205,6 +205,8 @@ export default function PreorderWizard({
           setProducts={setProducts}
           preorderStatus={preorderStatus}
           invalidProducts={invalidProducts}
+          pricingLists={pricingLists}
+          selectedClient={selectedClient}
         />
       )}
 

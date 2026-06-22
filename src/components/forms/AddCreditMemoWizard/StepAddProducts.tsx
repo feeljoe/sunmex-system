@@ -167,7 +167,7 @@ export default function StepAddProducts({
           inputMode="numeric"
           min={0}
           value={p.quantity}
-          onChange={(e) => updateQty(p.productId, Number(e.target.value))}
+          onChange={(e) => updateQty(p.productId, Math.round(Number(e.target.value) || 0))}
           onKeyDown={(e) => {
             if(e.key === "Enter"){
               e.preventDefault();

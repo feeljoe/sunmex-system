@@ -185,9 +185,10 @@ export async function POST(req: Request) {
 
     // 2️⃣ Update inventory
     for (const item of items) {
+      const safeQty = Math.round(Number(item.receivedQuantity));
       await ProductInventory.findOneAndUpdate(
         { product: item.product },
-        { $inc: { currentInventory: item.receivedQuantity } },
+        { $inc: { currentInventory: safeQty } },
         { upsert: true, session }
       );
     }

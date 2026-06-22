@@ -71,6 +71,12 @@ export async function PATCH(
       throw new Error("Preorder not found");
     }
 
+    const getIdsString = (val: any) => {
+      if(!val) return;
+      if(typeof val === "object" && val._id) return val._id.toString();
+      return val.toString();
+    };
+
     // -----------------------------
     // OLD MAPS
     // -----------------------------
@@ -80,9 +86,10 @@ export async function PATCH(
     const oldDeliveredMap = new Map<string, number>();
 
     preorder.products.forEach((p: any) => {
-      oldQtyMap.set(String(p.productInventory), p.quantity);
-      oldPickedMap.set(String(p.productInventory), p.pickedQuantity ?? 0);
-      oldDeliveredMap.set(String(p.productInventory), p.deliveredQuantity ?? 0);
+      const idStr = getIdsString(p.productInventory);
+      oldQtyMap.set(idStr, p.quantity);
+      oldPickedMap.set(idStr, p.pickedQuantity ?? 0);
+      oldDeliveredMap.set(idStr, p.deliveredQuantity ?? 0);
     });
 
     // -----------------------------
@@ -94,9 +101,10 @@ export async function PATCH(
     const newDeliveredMap = new Map<string, number>();
 
     products.forEach((p: any) => {
-      newQtyMap.set(String(p.productInventory), p.quantity);
-      newPickedMap.set(String(p.productInventory), p.pickedQuantity ?? 0);
-      newDeliveredMap.set(String(p.productInventory), p.deliveredQuantity ?? 0);
+      const idStr = getIdsString(p.productInventory);
+      newQtyMap.set(idStr, p.quantity);
+      newPickedMap.set(idStr, p.pickedQuantity ?? 0);
+      newDeliveredMap.set(idStr, p.deliveredQuantity ?? 0);
     });
 
     // -----------------------------
@@ -169,24 +177,29 @@ export async function PATCH(
           available: inventory.currentInventory,
         });
       }
-      if(pickedDiff > 0 && inventory.preSavedInventory < pickedDiff) {
+
+      const projectedPreSaved = inventory.preSavedInventory + qtyDiff;
+
+      if(pickedDiff > 0 && projectedPreSaved < pickedDiff) {
         failedItems.push({
           inventoryId,
           name: inventory.product?.name,
           type: "picked",
           message: "Not enough reserved inventory to pick",
           requested: pickedDiff,
-          available: inventory.preSavedInventory,
+          available: projectedPreSaved,
         });
       }
-      if(deliveredDiff > 0 && inventory.onRouteInventory < deliveredDiff){
+
+      const projectedOnRoute = inventory.onRouteInventory + pickedDiff;
+      if(deliveredDiff > 0 && projectedOnRoute < deliveredDiff){
         failedItems.push({
           inventoryId,
           name: inventory.product?.name,
           type: "delivered",
           message: "Not enough on-route inventory to deliver",
           requested: deliveredDiff,
-          available: inventory.onRouteInventory,
+          available: projectedOnRoute,
         });
       }
     }

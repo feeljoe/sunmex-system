@@ -27,13 +27,26 @@ async function updateRoutesFromExcel(excelFilePath: string) {
     const sheetName = workbook.SheetNames[0];
     const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
+    const upcQuantityMap = new Map<string, number>();
+
     // Extract all UPCs from the Excel rows (assuming the column is named "UPC")
     const upcList = rawData
-      .map((row: any) => row["UPC"] ? String(row["UPC"]).trim() : null)
-      .filter((upc) => upc !== null);
+      .map((row: any) => {
+        const upc = row["UPC"] ? String(row["UPC"]).trim() : null;
+      
+      const rawQty = row["Quantity"] ?? row["quantity"];
+      const qty = Number(rawQty) || 0;
+      
+      if (upc && qty > 0) {
+        upcQuantityMap.set(upc, qty);
+        return upc;
+      }
+      return null;
+    })
+      .filter((upc) => upc !== null) as string[];
 
     if (upcList.length === 0) {
-      console.log("No UPCs found in the Excel file. Please check the column name.");
+      console.log("No valid UPCs with a quantity > 0 found in the Excel file. Please check the column data.");
       return;
     }
 
@@ -49,11 +62,11 @@ async function updateRoutesFromExcel(excelFilePath: string) {
     console.log(`Found ${products.length} products matching the provided UPCs.`);
 
     // 4. Fetch the target Routes (301 and 302)
-    const targetRouteCodes = ["301", "302"];
+    const targetRouteCodes = ["301"];
     const routes = await Route.find({ code: { $in: targetRouteCodes } });
 
     if (routes.length === 0) {
-      console.log("Routes 301 and 302 were not found in the database.");
+      console.log("Route 301 was not found in the database.");
       return;
     }
 
@@ -63,15 +76,17 @@ async function updateRoutesFromExcel(excelFilePath: string) {
 
       for (const product of products) {
         // Check if the product is already in this route's inventory to prevent duplicates
+        const excelQty = upcQuantityMap.get(product.upc) || 0;
+
         const existingItemIndex = route.inventory.findIndex(
           (item: any) => item.product.toString() === product._id.toString()
         );
 
         if (existingItemIndex === -1) {
-          // Product is not in inventory, so we push it with a quantity of 30
+          // Product is not in inventory, so we push it with the excel quantity
           route.inventory.push({
             product: product._id,
-            quantity: 30,
+            quantity: excelQty,
           });
           addedCount++;
         } else {

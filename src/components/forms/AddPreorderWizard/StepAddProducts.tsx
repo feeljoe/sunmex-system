@@ -3,19 +3,23 @@
 
 import { useList } from "@/utils/useList";
 import { useMemo, useRef, useState, useEffect } from "react";
-
+import { applyPricingLists } from "@/utils/applyPricingLists";
 export default function StepAddProducts({
   userRole,
   products,
   setProducts,
   preorderStatus,
   invalidProducts,
+  pricingLists,
+  selectedClient,
 }: {
   userRole: string;
   products: any[];
   setProducts: React.Dispatch<React.SetStateAction<any[]>>;
   preorderStatus: string;
   invalidProducts: string[];
+  pricingLists: any[];
+  selectedClient: any;
 }) {
   const inventoryInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRefs = useRef<HTMLInputElement[]>([]);
@@ -75,6 +79,17 @@ export default function StepAddProducts({
 
  // Add single product
   const addProduct = (inv: any) => {
+    // A. Create a minimal object to run through your pricing engine
+    const rawProduct = {
+      productId: inv.product._id,
+      brandId: inv.product.brand?._id,
+      unitPrice: inv.product.unitPrice,
+    };
+
+    // B. Calculate the exact discounted price for this client
+    const applied = applyPricingLists([rawProduct], selectedClient, pricingLists)[0];
+    const finalPrice = applied.effectiveUnitPrice ?? inv.product.unitPrice ?? 0;
+
     setProducts((prev) => [
       {
         inventoryId: inv._id,
@@ -82,7 +97,7 @@ export default function StepAddProducts({
         brandId: inv.product.brand?._id,
         brand: inv.product.brand?.name,
         name: inv.product.name,
-        unitPrice: inv.product.unitPrice,
+        unitPrice: finalPrice,
         weight: inv.product.weight,
         unit: inv.product.unit,
         caseSize: inv.product.caseSize,
@@ -114,14 +129,26 @@ export default function StepAddProducts({
 
     setProducts((prev) => {
       const filtered = sorted
-      .filter(inv => !prev.some(p => p.inventoryId === inv._id))
-      .map(inv => ({
+      .filter(inv => !prev.some(p => p.inventoryId === inv._id));
+
+      // A. Create a batch of minimal objects for the pricing engine
+      const rawBatch = filtered.map(inv => ({
+        productId: inv.product._id,
+        brandId: inv.product.brand?._id,
+        unitPrice: inv.product.unitPrice,
+      }));
+
+      // B. Run the whole batch through the pricing engine
+      const pricedBatch = applyPricingLists(rawBatch, selectedClient, pricingLists);
+
+
+      const finalMapped = filtered.map((inv, index) => ({
         inventoryId: inv._id,
         productId: inv.product._id,
         brandId: inv.product.brand?._id,
         brand: inv.product.brand?.name,
         name: inv.product.name,
-        unitPrice: inv.product.unitPrice,
+        unitPrice: pricedBatch[index].effectiveUnitPrice ?? inv.product.unitPrice ?? 0,
         weight: inv.product.weight,
         unit: inv.product.unit,
         caseSize: inv.product.caseSize,
@@ -131,7 +158,7 @@ export default function StepAddProducts({
         deliveredQuantity: 0,
         maxQty: inv.currentInventory,
       }));
-      return [...filtered, ...prev];
+      return [...finalMapped, ...prev];
     });
     setInventorySearch("");
   };
@@ -354,7 +381,7 @@ export default function StepAddProducts({
                 max={Math.round(p.maxQty)}
                 value={p.quantity || ""}
                 onChange={(e) =>
-                  updateQty(p.inventoryId, Number(e.target.value))
+                  updateQty(p.inventoryId, Math.round(Number(e.target.value) || 0))
                 }
                 className="bg-gray-200 w-20 text-center px-4 py-2 shadow-xl rounded-xl"
               />
@@ -372,7 +399,7 @@ export default function StepAddProducts({
                           ? {
                               ...prod,
                               pickedQuantity: Math.min(
-                                Math.max(0, Number(e.target.value)),
+                                Math.max(0, Math.round(Number(e.target.value) || 0)),
                                 prod.quantity
                               ),
                             }
@@ -397,7 +424,7 @@ export default function StepAddProducts({
                           ? {
                               ...prod,
                               deliveredQuantity: Math.min(
-                                Math.max(0, Number(e.target.value)),
+                                Math.max(0, Math.round(Number(e.target.value) || 0)),
                                 prod.quantity
                               ),
                             }

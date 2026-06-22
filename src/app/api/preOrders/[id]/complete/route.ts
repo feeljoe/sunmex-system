@@ -58,8 +58,8 @@ export async function PATCH(
         throw new Error("Inventory record not found");
       }
 
-      const orderedQty = Number(line.quantity);
-      const pickedQty = Number(update.pickedQuantity);
+      const orderedQty = Math.round(Number(line.quantity));
+      const pickedQty = Math.round(Number(update.pickedQuantity));
 
       if (inventory.preSavedInventory < orderedQty) {
         throw new Error("Insufficient presaved inventory");

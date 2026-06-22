@@ -277,7 +277,7 @@ export async function POST(req: Request) {
     // PREP PRODUCTS
     const productsToSave = body.products.map((p: any) => ({
       productInventory: p.productInventory,
-      quantity: p.quantity,
+      quantity: Math.round(Number(p.quantity)),
       actualCost: p.effectiveUnitPrice ?? p.unitPrice ?? 0,
     }));
 

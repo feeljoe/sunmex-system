@@ -188,7 +188,7 @@ export default function ReceiveRouteReturnsModal({
                       value={verifiedQuantities[key] ?? ""}
                       onChange={(e) => setVerifiedQuantities(prev => ({
                         ...prev,
-                        [key]: Number(e.target.value)
+                        [key]: Math.round(Number(e.target.value) || 0)
                       }))}
                       className={`w-24 h-10 text-center border rounded-lg focus:ring-2 outline-hidden ${isMissing ? 'border-red-500 bg-red-50' : ''}`}
                     />

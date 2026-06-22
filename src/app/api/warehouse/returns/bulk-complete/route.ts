@@ -27,8 +27,8 @@ export async function PATCH(req: Request) {
 
     // 2. Process each aggregated product group
     for (const agg of aggregatedProducts) {
-      const pickedQty = Number(agg.totalPicked) || 0;
-      const verifiedQty = Number(agg.verifiedQuantity) || 0;
+      const pickedQty = Math.round(Number(agg.totalPicked) || 0);
+      const verifiedQty = Math.round(Number(agg.verifiedQuantity) || 0);
       let shortage = Math.max(pickedQty - verifiedQty, 0); // Calculate how many are missing
 
       // --- INVENTORY UPDATE ---

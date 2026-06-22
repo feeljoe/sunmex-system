@@ -59,13 +59,13 @@ export async function GET(req: Request) {
     const skip = (page - 1) * limit;
 
     const phoenixNow = DateTime.now().setZone("America/Phoenix");
-    const startOfDay = phoenixNow
-      .startOf("day")
+    const startOfWeek = phoenixNow
+      .startOf("week")
       .toUTC()
       .toJSDate();
 
-    const endOfDay = phoenixNow
-      .endOf("day")
+    const endOfWeek = phoenixNow
+      .endOf("week")
       .toUTC()
       .toJSDate();
 
@@ -75,8 +75,8 @@ export async function GET(req: Request) {
       $or: [
         {status: "pending"},
         {createdAt: {
-          $gte: startOfDay,
-          $lte: endOfDay
+          $gte: startOfWeek,
+          $lte: endOfWeek
         }
         },
       ]

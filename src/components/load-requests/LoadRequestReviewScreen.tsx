@@ -211,7 +211,7 @@ export default function LoadRequestReviewScreen({
                                                 value={currentApprovedCases}
                                                 onChange={(e) => {
                                                     // Multiply cases by caseSize to store as units
-                                                    const caseValue = e.target.value === "" ? "" : Number(e.target.value) * caseSize;
+                                                    const caseValue = e.target.value === "" ? "" : Math.round(Number(e.target.value) * caseSize);
                                                     updateApprovedQty(item.product._id, caseValue as number);
                                                 }}
                                                 className="w-24 border border-blue-200 text-center rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-hidden"
@@ -231,7 +231,7 @@ export default function LoadRequestReviewScreen({
                                                 value={item.approvedQuantity}
                                                 onChange={(e) => {
                                                     // Store exact units
-                                                    const unitValue = e.target.value === "" ? "" : Number(e.target.value);
+                                                    const unitValue = e.target.value === "" ? "" : Math.round(Number(e.target.value));
                                                     updateApprovedQty(item.product._id, unitValue as number);
                                                 }}
                                                 className="w-24 border text-center rounded-lg p-2 focus:ring-2 focus:ring-gray-400 outline-hidden"

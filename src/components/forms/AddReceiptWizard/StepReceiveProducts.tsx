@@ -50,7 +50,7 @@ export default function StepReceiveProducts({ form, setForm, onNext, onBack }: a
                     type="number"
                     value={it.receivedQuantity}
                     onChange={e =>
-                      updateItem(idx, "receivedQuantity", Number(e.target.value))
+                      updateItem(idx, "receivedQuantity", Math.round(Number(e.target.value) || 0))
                     }
                     className="w-20 text-center whitespace-nowrap"
                   />

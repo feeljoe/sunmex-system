@@ -40,8 +40,8 @@ export async function PATCH(
       const inventory = await ProductInventory.findById(inventoryId).session(session);
       if (!inventory) throw new Error("Inventory not found");
   
-      const deliveredQty = Number(item.deliveredQuantity || 0);
-      const originalQty = Number(item.quantity);
+      const deliveredQty = Math.round(Number(item.deliveredQuantity || 0));
+      const originalQty = Math.round(Number(item.quantity));
       if(deliveredQty < 0 || deliveredQty > originalQty){
         throw new Error("Invalid delivered quantity");
       }
