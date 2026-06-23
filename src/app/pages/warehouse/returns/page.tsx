@@ -5,15 +5,20 @@ import { useEffect, useState, useMemo } from "react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import ReceiveRouteReturnsModal from "@/components/modals/ReceiveRouteReturnsModal";
+import ViewRouteReturnsModal from "@/components/modals/ViewRouteReturnsModal";
 
 export default function WarehouseReturnsTable({ user }: any) {
+    const [viewMode, setViewMode] = useState<"pending" | "completed">("pending");
     const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>("");
     const [selectedRouteToReceive, setSelectedRouteToReceive] = useState<any | null>(null);
+    const [selectedRouteToView, setSelectedRouteToView] = useState<any | null>(null);
     const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
+
+    const [isSwitchingView, setIsSwitchingView] = useState(false);
 
     // Only fetch pending items for this view
     const { items: returns, reload } = useList("/api/warehouse/returns", {
-        status: "pending", 
+        status: viewMode, 
     });
     
     const { items: routes } = useList("/api/routes", { type: "driver" });
@@ -23,6 +28,7 @@ export default function WarehouseReturnsTable({ user }: any) {
         const map = new Map<string, any>();
 
         returns.forEach((r: any) => {
+            const routeCode = r.routeAssigned?.code || "ZZZ";
             const routeId = r.routeAssigned?._id || "unassigned";
             const routeName = r.routeAssigned ? `${r.routeAssigned.code} | ${r.routeAssigned.user?.firstName} ${r.routeAssigned.user?.lastName}` : "Unassigned Route";
 
@@ -39,6 +45,7 @@ export default function WarehouseReturnsTable({ user }: any) {
                 map.set(routeId, {
                     routeId,
                     routeName,
+                    routeCode,
                     creditMemos: [],
                     preorders: [],
                     totalExpectedUI: 0,
@@ -53,24 +60,46 @@ export default function WarehouseReturnsTable({ user }: any) {
 
                 group.creditMemos.push({ ...r, products: validProducts });
 
-                group.totalExpectedUI += validProducts.reduce((sum: number, p: any) => sum + p.pickedQuantity, 0);
+                group.totalExpectedUI += Math.round(validProducts.reduce((sum: number, p: any) => sum + p.pickedQuantity, 0));
             }else if (r.type === "preorder") {
-                group.preorders.push(r);
                 const uiItems = r.products.filter((p: any) => {
                     const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
-                    return diff > 0 && p.deviationReason !== "missing";
+                    return diff > 0 && !!p.deviationReason;
                 });
-                group.totalExpectedUI += uiItems.reduce((sum: number, p: any) => sum + (p.pickedQuantity - (p.deliveredQuantity || 0)), 0);
+                if (uiItems.length === 0) return;
+
+                group.preorders.push({...r, products: uiItems });
+                group.totalExpectedUI += Math.round(uiItems.reduce((sum: number, p: any) => sum + (p.pickedQuantity - (p.deliveredQuantity || 0)), 0));
             }
         });
 
-        return Array.from(map.values()).filter(group => group.totalExpectedUI > 0 || group.preorders.length > 0);
+        return Array.from(map.values())
+            .filter(group => group.totalExpectedUI > 0 || group.preorders.length > 0)
+            .sort((a, b) => {
+                const codeA = a.routeCode.toLowerCase();
+                const codeB = b.routeCode.toLowerCase();
+                if(codeA < codeB) return -1;
+                if(codeA > codeB) return 1;
+                return 0;
+            });
     }, [returns, selectedRouteFilter]);
+
+    useEffect(() => {
+        setIsSwitchingView(false);
+    }, [returns]);
 
     useEffect(() => {
         setTimeout(() => { setSubmitStatus(null); }, 3000);
     }, [reload]);
 
+    const handleViewMode = (value: "pending" | "completed")=> {
+        if(viewMode === value) return;
+
+        setIsSwitchingView(true);
+        setSubmitStatus("loading");
+        setViewMode(value);
+        reload();
+    };
     return (
         <div className="p-4 h-full">
             <h1 className="text-3xl font-bold text-center mb-6 dark:text-white">Warehouse Returns (By Driver)</h1>
@@ -93,6 +122,18 @@ export default function WarehouseReturnsTable({ user }: any) {
                                 ))}
                             </select>
                         </div>
+                        <div className="flex gap-2 p-1 bg-gray-200 rounded-xl">
+                                <button
+                                    onClick={() => { handleViewMode("pending");}}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "pending" ? "bg-white shadow-md text-blue-600": "text-gray-500 hover:bg-gray-300"}`}>
+                                        Pending
+                                </button>
+                                <button
+                                    onClick={() => { handleViewMode("completed");}}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "completed" ? "bg-white shadow-md text-green-600": "text-gray-500 hover:bg-gray-300"}`}>
+                                        Completed
+                                </button>
+                        </div>
                     </div>
 
                     <RefreshButton onRefresh={() => { reload(); setSubmitStatus("loading"); }}/>
@@ -109,32 +150,48 @@ export default function WarehouseReturnsTable({ user }: any) {
                             </tr>
                         </thead>
                         <tbody>
-                            {groupedRoutes.length === 0 && (
+                            {isSwitchingView ? (
+                                <tr>
+                                    <td colSpan={4} className="p-8 text-center text-gray-500 font-bold text-lg animate-pulse">
+                                        Loading {viewMode} returns...
+                                    </td>
+                                </tr>
+                            ): groupedRoutes.length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="p-8 text-center text-gray-500 font-semibold text-lg">No pending returns found.</td>
                                 </tr>
+                            ): (
+                                groupedRoutes.map((routeGroup: any) => (
+                                    <tr key={routeGroup.routeId} className="border-b hover:bg-gray-50">
+                                        <td className="p-4 font-bold text-lg capitalize">{routeGroup.routeName}</td>
+                                        <td className="p-4">
+                                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full">
+                                                {routeGroup.creditMemos.length + routeGroup.preorders.length} Docs
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-gray-600 font-semibold">
+                                            {routeGroup.totalExpectedUI} Items
+                                        </td>
+                                        <td className="p-4 text-right">
+                                        {viewMode === "pending" ? (
+                                                <button
+                                                    className="px-6 py-3 text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-500 shadow-md cursor-pointer"
+                                                    onClick={() => {setSelectedRouteToReceive(routeGroup);} }
+                                                >
+                                                    Receive All
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="px-6 py-3 text-sm font-bold rounded-xl bg-green-600 text-white hover:bg-green-500 shadow-md cursor-pointer"
+                                                    onClick={() => {setSelectedRouteToView(routeGroup);}}
+                                                >
+                                                    View Summary
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
                             )}
-                            {groupedRoutes.map((routeGroup: any) => (
-                                <tr key={routeGroup.routeId} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-bold text-lg capitalize">{routeGroup.routeName}</td>
-                                    <td className="p-4">
-                                        <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full">
-                                            {routeGroup.creditMemos.length + routeGroup.preorders.length} Docs
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-gray-600 font-semibold">
-                                        {routeGroup.totalExpectedUI} Items
-                                    </td>
-                                    <td className="p-4 text-right">
-                                        <button
-                                            className="px-6 py-3 text-sm font-bold rounded-xl transition-all duration-300 cursor-pointer bg-blue-600 text-white hover:bg-blue-500 shadow-md"
-                                            onClick={() => setSelectedRouteToReceive(routeGroup)}
-                                        >
-                                            Receive All
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
                         </tbody>
                     </table>
                 </div>
@@ -149,6 +206,13 @@ export default function WarehouseReturnsTable({ user }: any) {
                         setSelectedRouteToReceive(null);
                         reload();
                     }}
+                />
+            )}
+
+            {selectedRouteToView && (
+                <ViewRouteReturnsModal
+                    routeData={selectedRouteToView}
+                    onClose={() => setSelectedRouteToView(null)}
                 />
             )}
 

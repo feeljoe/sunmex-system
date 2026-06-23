@@ -71,6 +71,12 @@ export async function PATCH(req: Request) {
         preorder.updatedBy = session?.user.id;
         preorder.updatedAt = new Date();
 
+        if (deliveryDate !== undefined && deliveryDate !== null && deliveryDate !== "") {
+          const selectedDelivery = DateTime.fromISO(deliveryDate, {zone: "America/Phoenix"});
+
+          preorder.deliveryDate = selectedDelivery.startOf("day").toUTC().toJSDate();
+        }
+
         await preorder.save();
         assignedPreorders++;
 

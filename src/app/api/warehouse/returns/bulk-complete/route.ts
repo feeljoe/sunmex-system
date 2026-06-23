@@ -16,7 +16,7 @@ export async function PATCH(req: Request) {
     const {
       creditMemoIds = [], // Array of all CM _ids for this route
       preorderIds = [], // Array of all Preorder _ids for this route
-      aggregatedProducts, // Array of { productId, returnReason, totalPicked, verifiedQuantity }
+      aggregatedProducts, // Array of { productId, returnReason, totalPicked, verifiedQuantity }, now includes originalReason, newReason, sourceType
       warehouseUser,
       driverSignature,
       warehouseSignature,
@@ -27,6 +27,7 @@ export async function PATCH(req: Request) {
 
     // 2. Process each aggregated product group
     for (const agg of aggregatedProducts) {
+      if (agg.sourceType === "preorder") continue;
       const pickedQty = Math.round(Number(agg.totalPicked) || 0);
       const verifiedQty = Math.round(Number(agg.verifiedQuantity) || 0);
       let shortage = Math.max(pickedQty - verifiedQty, 0); // Calculate how many are missing
@@ -37,10 +38,10 @@ export async function PATCH(req: Request) {
       };
 
       // Only add the VERIFIED amount back to current inventory if it's a good return
-      if (agg.returnReason === "good return" || agg.returnReason === "returned") {
+      if (agg.newReason === "good return" || agg.newReason === "returned") {
         invUpdate.$inc.currentInventory = verifiedQty;
-      } else if (agg.returnReason === "credit memo") {
-        invUpdate.$inc.inactiveInventory = -pickedQty; // Clear from inactive if tracking that
+      } else if (agg.newReason === "credit memo") {
+        invUpdate.$inc.onRouteInventory = -pickedQty; // Clear from inactive if tracking that
       }
 
       await ProductInventory.updateOne(
@@ -53,7 +54,7 @@ export async function PATCH(req: Request) {
       for (const cm of creditMemos) {
         // Find the matching product line in this specific Credit Memo
         const cmProductLine = cm.products.find(
-          (p: any) => p.product.toString() === agg.productId && p.returnReason === agg.returnReason
+          (p: any) => p.product.toString() === agg.productId && p.returnReason === agg.originalReason
         );
 
         if (cmProductLine) {
@@ -65,7 +66,7 @@ export async function PATCH(req: Request) {
 
           // Update the line item
           cmProductLine.warehouseVerifiedQuantity = finalVerifiedForThisCM;
-
+          cmProductLine.returnReason = agg.newReason; // Update reason!
           // Reduce the remaining shortage for the next loop
           shortage -= amountToDeduct;
         }
@@ -74,16 +75,32 @@ export async function PATCH(req: Request) {
 
     const preorders = await PreOrder.find({ _id: { $in: preorderIds } }).session(session);
     
-    for (const po of preorders){
+    for (const po of preorders) {
         for (const p of po.products) {
             const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
-
-            if (diff > 0 && p.deviationReason === "missing") {
-                await ProductInventory.updateOne(
-                    { _id: p.productInventory },
-                    { $inc: { onRouteInventory: -diff, currentInventory: diff } },
-                    { session }
+            
+            if (diff > 0 && p.deviationReason) {
+                // Find the warehouse instructions for this specific item
+                const agg = aggregatedProducts.find((a: any) => 
+                    a.sourceType === "preorder" && 
+                    a.productId === p.productInventory?.toString() && 
+                    a.originalReason === p.deviationReason
                 );
+                
+                if (agg) {
+                    p.deviationReason = agg.newReason; // Override the reason if warehouse changed it!
+                    
+                    // Clear from the truck's virtual inventory
+                    const poInvUpdate: any = { $inc: { onRouteInventory: -diff } };
+                    
+                    // If returned (came back on truck) OR missing (never left warehouse), 
+                    // put it back into current warehouse stock based on the verified count.
+                    if (agg.newReason === "returned" || agg.newReason === "missing") {
+                        poInvUpdate.$inc.currentInventory = agg.verifiedQuantity;
+                    }
+                    
+                    await ProductInventory.updateOne({ _id: p.productInventory }, poInvUpdate, { session });
+                }
             }
         }
         po.warehouseReturnProcessed = true;

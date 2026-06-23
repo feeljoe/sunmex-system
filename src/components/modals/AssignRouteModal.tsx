@@ -101,7 +101,6 @@ export default function AssignRouteModal({
             }
           </h2>
           {/* DELIVERY DATE PICKER */}
-          {(creditMemoId || (creditMemoIds && creditMemoIds.length > 0)) && (
           <div className="mb-5 flex flex-col gap-2">
             <label className="text-sm lg:text-lg">Delivery Date (Optional)</label>
             <input
@@ -111,7 +110,6 @@ export default function AssignRouteModal({
               onChange={(e) => setDeliveryDate(e.target.value)}
             />
           </div>
-          )}
       {/* ROUTE SELECT */}
       <div className="mb-5 flex flex-col gap-2">
       <label className="text-sm lg:text-lg">Select Route to assign</label>

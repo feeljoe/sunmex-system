@@ -594,7 +594,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
           preorderIds={selectedIds.length > 0 ? selectedIds : undefined}
           clientName={selectedClient}
           preorderId={selectedPreorder2?._id}
-          currentRouteId={selectedPreorder2?.route?._id}
+          currentRouteId={selectedPreorder2?.routeAssigned?._id ?? selectedPreorder2?.routeAssigned}
           onClose={() => {
             setAssignRouteModalOpen(false);
             setSelectedIds([]);

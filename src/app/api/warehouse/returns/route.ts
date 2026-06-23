@@ -3,6 +3,7 @@ import CreditMemo from "@/models/CreditMemo";
 import PreOrder from "@/models/PreOrder";
 import { populate } from "dotenv";
 import { NextResponse } from "next/server";
+import { DateTime } from "luxon";
 
 export async function GET(req: Request) {
   try {
@@ -12,14 +13,26 @@ export async function GET(req: Request) {
     const status = searchParams.get("status");
     const route = searchParams.get("route");
 
+    const phoenixNow = DateTime.now().setZone("America/Phoenix");
+    const startOfDay = phoenixNow
+      .startOf("day")
+      .toUTC()
+      .toJSDate();
+    const endOfDay = phoenixNow
+      .endOf("day")
+      .toUTC()
+      .toJSDate();
+
     const cmQuery: any = {
-      status: "received" // Only show CMs the driver has already processed
+      status: "received", // Only show CMs the driver has already processed
+      directSale: null // Ignore CMs that have a direct sale ID attached to them
     };
 
     if (status === "pending") {
       cmQuery.warehouseStatus = "pending";
     } else if (status === "completed") {
       cmQuery.warehouseStatus = "completed";
+      cmQuery.warehouseReceivedAt = { $gte: startOfDay, $lte: endOfDay };
     }
 
     if (route) {
@@ -40,11 +53,16 @@ export async function GET(req: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
-      const formattedCMs = creditMemos.map((cm: any) => ({ ...cm, type: "creditMemo" }));
+      const formattedCMs = creditMemos
+        .filter((cm: any) => cm.routeAssigned?.type !== "vendor")
+        .map((cm: any) => ({ ...cm, type: "creditMemo" }));
 
       const poQuery: any = { status: "delivered" };
       if(status === "pending") poQuery.warehouseReturnProcessed = { $ne: true };
-      else if (status === "completed") poQuery.warehouseReturnProcessed = true;
+      else if (status === "completed") {
+        poQuery.warehouseReturnProcessed = true;
+        poQuery.deliveredAt = { $gte: startOfDay, $lte: endOfDay };
+      }
       if(route) poQuery.routeAssigned = route;
 
       const preorders = await PreOrder.find(poQuery)
@@ -56,7 +74,10 @@ export async function GET(req: Request) {
         .lean();
 
         const formattedPreorders = preorders
-            .filter((po: any) => po.products.some((p: any) => (p.pickedQuantity || 0) > (p.deliveredQuantity || 0)))
+            .filter((po: any) => 
+              po.routeAssigned?.type !== "vendor" &&
+              po.products.some((p: any) => (p.pickedQuantity || 0) > (p.deliveredQuantity || 0))
+            )
             .map((po: any) => ({ ...po, type: "preorder" }));
 
     // useList expects an object with 'items'

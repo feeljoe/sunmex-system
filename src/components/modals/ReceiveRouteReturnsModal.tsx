@@ -16,6 +16,7 @@ export default function ReceiveRouteReturnsModal({
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [reasonOverrides, setReasonOverrides] = useState<Record<string,string>>({});
 
   // Group all products from all Credit Memos by Product + Reason
   const aggregatedProducts = useMemo(() => {
@@ -31,8 +32,8 @@ export default function ReceiveRouteReturnsModal({
         if (!map.has(key)) {
           map.set(key, {
             productId: p?.product?._id,
-            brandName: p?.product?.brand?.name || "",
-            productName: p?.product?.name || "",
+            brandName: p?.product?.brand?.name || "Unknown Brand",
+            productName: p?.product?.name || "Unknown Product",
             weight: p?.product?.weight || "",
             unit: p?.product?.unit || "",
             returnReason: p?.returnReason,
@@ -40,27 +41,28 @@ export default function ReceiveRouteReturnsModal({
           });
         }
         
-        map.get(key).totalPicked += (p?.pickedQuantity || 0);
+        map.get(key).totalPicked += Math.round((p?.pickedQuantity || 0));
       });
     });
 
     routeData.preorders.forEach((po: any) => {
         po.products.forEach((p: any) => {
-            const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
-            if(diff < 1 || p.deviationReason === "missing") return;
+            if (!p?.deviationReason) return;
+            const diff = Math.round((p.pickedQuantity || 0) - (p.deliveredQuantity || 0));
 
-            const prod = p?.productInventory?.product;
+            const prod = p?.productInventory?.product || p?.product;
+            const deviation = p?.deviationReason;
             const key = `${prod?._id}-${p?.deviationReason}-po`;
 
             if (!map.has(key)) {
                 map.set(key, {
                     sourceType: "preorder",
                     productId: prod?._id,
-                    brandName: prod?.brand?.name || "",
-                    productName: prod?.name || "",
+                    brandName: prod?.brand?.name || "Unknown Brand",
+                    productName: prod?.name || "Unknown Product",
                     weight: prod?.weight || "",
                     unit: prod?.unit || "",
-                    returnReason: p.deviationReason,
+                    returnReason: deviation,
                     totalPicked: 0,
                 });
             }
@@ -75,16 +77,19 @@ export default function ReceiveRouteReturnsModal({
 
         if(a.returnReason === "returned" && b.returnReason !== "returned") return -1;
         if(a.returnReason !== "returned" && b.returnReason === "returned") return 1;
+        if(a.returnReason === "missing" && b.returnReason !== "missing") return -1;
+        if(a.returnReason !== "missing" && b.returnReason === "missing") return 1;
+
         if(a.returnReason === "good return" && b.returnReason !== "good return") return -1;
         if(a.returnReason !== "good return" && b.returnReason === "good return") return 1;
 
-        const brandA = a.brandName.toLowerCase();
-        const brandB = b.brandName.toLowerCase();
+        const brandA = (a.brandName || "").toLowerCase();
+        const brandB = (b.brandName || "").toLowerCase();
         if(brandA < brandB) return -1;
         if(brandA > brandB) return 1;
 
-        const nameA = a.productName.toLowerCase();
-        const nameB = b.productName.toLowerCase();
+        const nameA = (a.productName || "").toLowerCase();
+        const nameB = (b.productName || "").toLowerCase();
         if(nameA < nameB) return -1;
         if(nameA > nameB) return 1;
         
@@ -111,12 +116,17 @@ export default function ReceiveRouteReturnsModal({
     setLoading(true);
     setSubmitStatus("loading");
 
-    const payloadProducts = aggregatedProducts.map((agg) => ({
-      productId: agg.productId,
-      returnReason: agg.returnReason,
-      totalPicked: agg.totalPicked,
-      verifiedQuantity: verifiedQuantities[`${agg.productId}-${agg.returnReason}-${agg.sourceType === "preorder" ? "po" : "cm"}`],
-    }));
+    const payloadProducts = aggregatedProducts.map((agg) => {
+      const key = `${agg.productId}-${agg.returnReason}-${agg.sourceType === "preorder" ? "po" : "cm"}`;
+      return {
+        sourceType: agg.sourceType || "cm",
+        productId: agg.productId,
+        originalReason: agg.returnReason,
+        newReason: reasonOverrides[key] || agg.returnReason,
+        totalPicked: agg.totalPicked,
+        verifiedQuantity: verifiedQuantities[key],
+      }
+    });
 
     const res = await fetch("/api/warehouse/returns/bulk-complete", {
       method: "PATCH",
@@ -154,7 +164,7 @@ export default function ReceiveRouteReturnsModal({
           <div className="flex w-full justify-between items-start">
             <div className="text-center w-full">
             <h2 className="text-2xl font-bold text-center">Receive Returns</h2>
-            <p className="text-gray-500 font-semibold">{routeData.routeName} • {routeData.creditMemos.length} Pending Documents</p>
+            <p className="text-gray-500 font-semibold">{routeData?.routeName} • {routeData?.creditMemos?.length + routeData?.preorders?.length} Pending Documents</p>
             </div>
             <button onClick={onClose} className="text-white bg-red-500 font-bold rounded-xl px-2 hover:bg-red-300 text-2xl cursor-pointer transition-colors">&times;</button>
           </div>
@@ -169,8 +179,28 @@ export default function ReceiveRouteReturnsModal({
               <div key={key} className="p-4 rounded-xl shadow-xl bg-gray-50 flex gap-4 justify-between items-center">
                 <div className="w-full">
                   <div className="font-bold">{agg.brandName} {agg.productName} {agg.weight ? (`${agg.weight}${agg.unit?.toUpperCase()}`) : ""}</div>
-                  <div className={`text-sm font-semibold capitalize ${agg.returnReason === 'good return' || agg.returnReason === 'returned' ? 'text-green-600' : 'text-orange-500'}`}>
-                    {agg.returnReason}
+                  <div className={`mt-1`}>
+                    <select
+                      value={reasonOverrides[key] || agg.returnReason}
+                      onChange={(e) => setReasonOverrides(prev => ({...prev, [key]: e.target.value}))}
+                      className={`text-sm font-bold capitalize outline-hidden border-b-2 bg-transparent cursor-pointer ${
+                        (reasonOverrides[key] || agg.returnReason) === 'good return' || (reasonOverrides[key] || agg.returnReason) === 'returned' 
+                        ? 'text-green-600 border-green-600' : 'text-orange-500 border-orange-500'
+                      }`}
+                    >
+                      {agg.sourceType === "preorder" ? (
+                            <>
+                                <option value="returned">Returned</option>
+                                <option value="damaged">Damaged</option>
+                                <option value="missing">Missing</option>
+                            </>
+                        ) : (
+                            <>
+                                <option value="good return">Good Return</option>
+                                <option value="credit memo">Credit Memo</option>
+                            </>
+                        )}
+                    </select>
                     {agg.sourceType === "preorder" && (
                         <span className="ml-4 bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Preorder Dev.</span>
                     )}
