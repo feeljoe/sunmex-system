@@ -14,93 +14,64 @@ export async function PATCH(req: Request) {
     const directSales = await DirectSale.find({ _id: { $in: dsIds } });
     const cms = await CreditMemo.find({ _id: { $in: cmIds } });
 
-    let remainingAmount = Number(totalAmount) || 0;
+    let remainingCash = Number(totalAmount) || 0;
+    let remainingUnlinkedCredit = cms.reduce((sum, cm) => sum + Math.abs(cm.total), 0);
 
-    // Distribute payment across selected orders
-    for (const order of orders) {
-       // Get any linked credit memos for this specific order
-       const orderCMs = await CreditMemo.find({ preorder: order._id, status: "received" });
-       const creditTotal = orderCMs.reduce((sum, cm) => sum + cm.total, 0);
+    const processDocument = async (doc: any, Model: any, isDirectSale = false) => {
+      const query = isDirectSale ? { directSale: doc._id, status: "received", paymentProcessed: { $ne: true } }: { preorder: doc._id, status: "received", paymentProcessed: {$ne: true} };
+      const linkedCMs = await CreditMemo.find(query);
 
-       // Calculate net for this order with the bulk discount
-       let net = order.total - creditTotal;
+      for (const cm of linkedCMs) {
+        doc.payments.push({ type: "creditMemo", amount: Math.abs(cm.total) });
+        cm.paymentProcessed = true;
+        await cm.save();
+      }
+    
+       const paidSoFar = doc.payments?.reduce((s: any, p: any) => s + p.amount, 0);
+       let targetNet = doc.total;
+
        if (discountPercent > 0) {
-         net = net - (net * (discountPercent / 100));
+        targetNet = targetNet - (targetNet * (discountPercent / 100));
        }
 
-       const paidSoFar = order.payments?.reduce((s: any, p: any) => s + p.amount, 0) || 0;
-       const currentBalance = Math.max(net - paidSoFar, 0);
+       let currentBalance = Math.max(targetNet - paidSoFar, 0);
+
+       if (currentBalance > 0 && remainingUnlinkedCredit > 0) {
+        const applyCredit = Math.min(currentBalance, remainingUnlinkedCredit);
+        doc.payments.push({ type: "creditMemo", amount: applyCredit });
+        remainingUnlinkedCredit -= applyCredit;
+        currentBalance -= applyCredit;
+       }
 
        // Apply payment if there is balance and we still have check funds
-       if (currentBalance > 0 && remainingAmount > 0) {
-          const paymentAmount = Math.min(currentBalance, remainingAmount);
+       if (currentBalance > 0 && remainingCash > 0) {
+          const applyCash = Math.min(currentBalance, remainingCash);
           
-          order.payments.push({
+          doc.payments.push({
              type: method,
-             amount: paymentAmount,
+             amount: applyCash,
              checkNumber: method === "check" ? checkNumber : undefined
           });
 
-          remainingAmount -= paymentAmount;
+          remainingCash -= applyCash;
+          currentBalance -= applyCash;
+        }
           
-          const newTotalPaid = paidSoFar + paymentAmount;
-          // Mark paid if the new total covers the net (accounting for minor float differences)
-          order.paymentStatus = newTotalPaid >= (net - 0.01) ? "paid" : "pending";
+          const finalPaidSoFar = doc.payments.reduce((s: any, p: any) => s + p.amount, 0);
+          doc.paymentStatus = finalPaidSoFar >= (targetNet - 0.01) ? "paid" : "pending";
           
-          await order.save();
-
-          if (order.paymentStatus === "paid"){
-            await CreditMemo.updateMany({ preorder: order._id }, { $set: { paymentProcessed: true } });
-          }
-       }
-    }
-
-    // Distribute payment across selected orders
-    for (const directSale of directSales) {
-      // Get any linked credit memos for this specific directSale
-      const directSaleCMs = await CreditMemo.find({ directSale: directSale._id, status: "received" });
-      const creditTotal = directSaleCMs.reduce((sum, cm) => sum + cm.total, 0);
-
-      // Calculate net for this order with the bulk discount
-      let net = directSale.total - creditTotal;
-      if (discountPercent > 0) {
-        net = net - (net * (discountPercent / 100));
-      }
-
-      const paidSoFar = directSale.payments?.reduce((s: any, p: any) => s + p.amount, 0) || 0;
-      const currentBalance = Math.max(net - paidSoFar, 0);
-
-      // Apply payment if there is balance and we still have check funds
-      if (currentBalance > 0 && remainingAmount > 0) {
-         const paymentAmount = Math.min(currentBalance, remainingAmount);
-         
-         directSale.payments.push({
-            type: method,
-            amount: paymentAmount,
-            checkNumber: method === "check" ? checkNumber : undefined
-         });
-
-         remainingAmount -= paymentAmount;
-         
-         const newTotalPaid = paidSoFar + paymentAmount;
-         // Mark paid if the new total covers the net (accounting for minor float differences)
-         directSale.paymentStatus = newTotalPaid >= (net - 0.01) ? "paid" : "pending";
-         
-         await directSale.save();
-
-         if (directSale.paymentStatus === "paid") {
-          await CreditMemo.updateMany({ directSale: directSale._id }, { $set: { paymentProcessed: true } });
-         }
-      }
-   }
+          await doc.save();
+       };
+       
+       for (const order of orders) await processDocument(order, PreOrder, false);
+       for (const ds of directSales) await processDocument(ds, DirectSale, true);
 
     // Mark unlinked credit memos as completed/processed so they drop off the queue
-    for (const cm of cms) {
-       cm.paymentProcessed = true; 
-       await cm.save();
-    }
-
-    return NextResponse.json({ success: true });
+      for (const cm of cms) {
+        cm.paymentProcessed = true; 
+        await cm.save();
+      }
+      return NextResponse.json({ success: true });
   } catch(err:any) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }

@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
 
     const match: any = {
       status: "delivered",
+      total: { $gte: 0.01 },
     };
 
     if (from || to) {
@@ -408,7 +409,7 @@ export async function GET(req: NextRequest) {
       },
     ]).toArray();
 
-    const creditMatch: any = { status: "received" };
+    const creditMatch: any = { status: "received", total: { $gte: 0.01 } };
 
     if (from || to) {
       creditMatch.returnedAt = {};

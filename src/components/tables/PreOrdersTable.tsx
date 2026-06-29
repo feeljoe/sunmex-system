@@ -147,6 +147,8 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
     }catch(err:any){
       setMessage(err.message);
       setSubmitStatus("error");
+    }finally {
+      reload();
     }
   };
 
@@ -497,7 +499,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               <td className="p-2 whitespace-nowrap" onClick={() => setSelectedPreorder(it)}>{formatTime(it.deliveredAt)}</td>
               </>
               }
-              {it.status !== "cancelled" && it.status !== "delivered" &&
+              {it.status !== "cancelled" && it.paymentStatus !== "paid" &&
               <td className="p-2 whitespace-nowrap">
                 <button className='text-white bg-red-500 px-5 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-red-300 hover:text-(--quarteary) transition-all duration:300' 
                 onClick={(e) => {

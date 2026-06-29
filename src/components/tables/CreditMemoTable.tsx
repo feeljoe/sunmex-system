@@ -460,7 +460,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                   </>
                 )}
 
-                {it.status === "pending" ? (
+                {it.warehouseStatus === "pending" ? (
                   <td className="p-2 whitespace-nowrap">
                     <button
                       className="bg-red-500 text-white px-4 py-2 rounded-xl"

@@ -1,7 +1,6 @@
 import { connectToDatabase } from "@/lib/db";
 import CreditMemo from "@/models/CreditMemo";
 import PreOrder from "@/models/PreOrder";
-import { populate } from "dotenv";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 
@@ -10,7 +9,6 @@ export async function GET(req: Request) {
     await connectToDatabase();
     
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
     const route = searchParams.get("route");
 
     const phoenixNow = DateTime.now().setZone("America/Phoenix");
@@ -25,15 +23,15 @@ export async function GET(req: Request) {
 
     const cmQuery: any = {
       status: "received", // Only show CMs the driver has already processed
-      directSale: null // Ignore CMs that have a direct sale ID attached to them
+      directSale: null, // Ignore CMs that have a direct sale ID attached to them
+      $or: [
+        { warehouseStatus: "pending"},
+        {
+          warehouseStatus: "completed",
+          warehouseReceivedAt: {$gte: startOfDay, $lte: endOfDay }
+        }
+      ]
     };
-
-    if (status === "pending") {
-      cmQuery.warehouseStatus = "pending";
-    } else if (status === "completed") {
-      cmQuery.warehouseStatus = "completed";
-      cmQuery.warehouseReceivedAt = { $gte: startOfDay, $lte: endOfDay };
-    }
 
     if (route) {
       cmQuery.routeAssigned = route;
@@ -55,15 +53,21 @@ export async function GET(req: Request) {
 
       const formattedCMs = creditMemos
         .filter((cm: any) => cm.routeAssigned?.type !== "vendor")
-        .map((cm: any) => ({ ...cm, type: "creditMemo" }));
+        .map((cm: any) => ({ 
+          ...cm, 
+          type: "creditMemo",
+          status: cm.warehouseStatus === "completed" ? "completed" : "pending"
+        }));
 
       const poQuery: any = { status: "delivered" };
-      if(status === "pending") poQuery.warehouseReturnProcessed = { $ne: true };
-      else if (status === "completed") {
-        poQuery.warehouseReturnProcessed = true;
-        poQuery.deliveredAt = { $gte: startOfDay, $lte: endOfDay };
-      }
       if(route) poQuery.routeAssigned = route;
+      poQuery.$or = [
+        { warehouseReturnProcessed: { $ne: true } },
+        {
+          warehouseReturnProcessed: true,
+          deliveredAt: { $gte: startOfDay, $lte: endOfDay }
+        }
+      ];
 
       const preorders = await PreOrder.find(poQuery)
         .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
@@ -74,11 +78,19 @@ export async function GET(req: Request) {
         .lean();
 
         const formattedPreorders = preorders
-            .filter((po: any) => 
-              po.routeAssigned?.type !== "vendor" &&
-              po.products.some((p: any) => (p.pickedQuantity || 0) > (p.deliveredQuantity || 0))
-            )
-            .map((po: any) => ({ ...po, type: "preorder" }));
+            .filter((po: any) => {
+              if (po.routeAssigned?.type === "vendor") return false;
+
+              if(!po.warehouseReturnProcessed) {
+                return po.products.some((p: any) => (p.pickedQuantity || 0) > (p.deliveredQuantity || 0));
+              }
+              return true;
+            })
+            .map((po: any) => ({ 
+              ...po, 
+              type: "preorder",
+              status: po.warehouseReturnProcessed ? "completed": "pending"
+            }));
 
     // useList expects an object with 'items'
     return NextResponse.json({

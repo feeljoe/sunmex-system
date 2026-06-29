@@ -145,6 +145,8 @@ export async function POST(req: Request) {
           products: products.map((p: any) => ({
             product: p.productId,
             quantity: p.quantity,
+            pickedQuantity: status !== "pending" ? p.quantity : 0,
+            returnedQuantity: status !== "pending" ? p.quantity : 0,
             actualCost: p.unitPrice || 0,
             returnReason: p.returnReason || returnReason,
           })),

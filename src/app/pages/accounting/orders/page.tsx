@@ -11,6 +11,7 @@ import SubmitResultModal from "@/components/modals/SubmitResultModal";
 import DirectSaleDetailsModal from "@/components/modals/DirectSaleDetailsModal";
 import { formatCurrency } from "@/utils/format";
 import { SearchBar } from "@/components/ui/SearchBar";
+import DeletePaymentsModal from "@/components/modals/DeletePaymentsModal";
 
 type Order = {
   _id: string;
@@ -52,7 +53,10 @@ export default function AccountingOrdersPage() {
   const [selectedDirectSale, setSelectedDirectSale] = useState<any | null>(null);
   const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
   const [loadingRow, setLoadingRow] = useState<string | null>(null);
-  const [submitStatus, setSubmitStatus] = useState<"loading" | null> (null);
+  const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null> (null);
+  const [message, setMessage] = useState("");
+
+  const [orderToDeletePayments, setOrderToDeletePayments] = useState<Order | null>(null);
 
   const { items: chains } = useList("/api/chains", { limit: 1000 });
   
@@ -352,36 +356,53 @@ export default function AccountingOrdersPage() {
 
                     {/* SHOW PAYMENTS IF PAID */}
                     {(o.type === "order" || o.type === "directSale") && o.computedStatus === "paid" && (
-                        <div className="flex flex-col text-sm text-left">
-                        {o.payments && o.payments.length > 0 ? (
-                            o.payments.map((p, idx) => (
-                            <div key={idx} className="flex justify-center gap-10 font-bold">
-                                {p.type === "cash" && (
-                                <>
-                                    <span className="w-full text-center">Cash</span>
-                                    <span className="w-full text-center">-</span>
-                                    <span className="w-full text-center">{formatCurrency(p.amount)}</span>
-                                </>
-                                )}
-
-                                {p.type === "check" && (
-                                <>
-                                <span className="w-full text-center">
-                                    Check
-                                </span>
-                                <span className="w-full text-center">
-                                   {p.checkNumber ? `#${p.checkNumber}` : ""}
-                                </span>
-                                <span className="w-full text-center">
-                                    {formatCurrency(p.amount)}
-                                </span>
-                                </>
-                                )}
+                        <div className="flex items-start justify-between" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col flex-1 text-sm text-left gap-1">
+                            {o.payments && o.payments.length > 0 ? (
+                                o.payments.map((p, idx) => (
+                                <div key={p._id || idx} className="flex justify-center gap-10 font-bold border-b border-gray-100 last:border-0 pb-1">
+                                    {p.type === "cash" && (
+                                    <>
+                                        <span className="w-full text-center">Cash</span>
+                                        <span className="w-full text-center">-</span>
+                                        <span className="w-full text-center">{formatCurrency(p.amount)}</span>
+                                    </>
+                                    )}
+                                    {p.type === "check" && (
+                                    <>
+                                        <span className="w-full text-center">Check</span>
+                                        <span className="w-full text-center">{p.checkNumber ? `#${p.checkNumber}` : "-"}</span>
+                                        <span className="w-full text-center">{formatCurrency(p.amount)}</span>
+                                    </>
+                                    )}
+                                    {p.type === "creditMemo" && (
+                                      <>
+                                        <span className="w-full text-center text-red-500">Credit</span>
+                                        <span className="w-full text-center text-red-500">-</span>
+                                        <span className="w-full text-center text-red-500">{formatCurrency(p.amount)}</span>
+                                      </>
+                                    )}
+                                </div>
+                                ))
+                            ) : (
+                                <span className="text-gray-400 text-center capitalize">No payments</span>
+                            )}
                             </div>
-                            ))
-                        ) : (
-                            <span className="text-gray-400 text-center capitalize">No payments</span>
-                        )}
+                            
+                            {/* The Delete Trigger */}
+                            {o.payments && o.payments.length > 0 && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOrderToDeletePayments(o);
+                                    }}
+                                    className="ml-4 px-2 py-1 bg-red-300 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors cursor-pointer font-bold text-sm"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -594,12 +615,24 @@ export default function AccountingOrdersPage() {
       {submitStatus && (
         <SubmitResultModal
             status={submitStatus}
-            message={""}
+            message={message}
             onClose={() => {
+                setMessage("");
                 setSubmitStatus(null);
             }}
             collection="Accounting"
         />
+      )}
+      {/* Delete payments modal */}
+      { orderToDeletePayments && (
+          <DeletePaymentsModal
+            order={orderToDeletePayments}
+            onClose={() => setOrderToDeletePayments(null)}
+            onCompleted={() => {
+              setOrderToDeletePayments(null);
+              reload();
+            }}
+          />
       )}
     </div>
   );

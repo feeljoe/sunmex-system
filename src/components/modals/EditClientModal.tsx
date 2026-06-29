@@ -294,7 +294,9 @@ export default function EditClientModal({
           className="bg-white shadow-xl p-2 rounded-xl w-full h-10 lg:h-full"
         >
           <option value="">Select One</option>
-          <option value="AZ">AZ</option>
+          <option value="AZ">AZ (Arizona)</option>
+          <option value="TX">TX (Texas)</option>
+          <option value="NV">NV (Nevada)</option>
         </select>
         </div>
 

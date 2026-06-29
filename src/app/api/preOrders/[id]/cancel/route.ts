@@ -26,7 +26,7 @@ export async function PATCH(
             throw new Error("Preorder not found");
         }
 
-        if(["cancelled", "delivered"].includes(preorder.status)){
+        if(["cancelled"].includes(preorder.status) || ["paid"].includes(preorder.paymentStatus)){
             throw new Error("Preorder cannot be cancelled");
         }
 
@@ -34,7 +34,7 @@ export async function PATCH(
             const inventory = await ProductInventory.findById(item.productInventory).session(session);
             if (!inventory) continue;
 
-            const qty = item.quantity;
+            let qty = item.quantity;
 
             if(preorder.status === "pending" || preorder.status === "assigned") {
                 inventory.preSavedInventory =
@@ -42,8 +42,13 @@ export async function PATCH(
                     inventory.currentInventory += qty;
             }
             if(preorder.status === "ready"){
+                qty = item.pickedQuantity;
                 inventory.onRouteInventory =
                 Math.max(0, inventory.onRouteInventory - qty);
+                inventory.currentInventory += qty;
+            }
+            if(preorder.status === "delivered") {
+                qty = item.deliveredQuantity;
                 inventory.currentInventory += qty;
             }
             await inventory.save({session});

@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { COMPANY_LOGO_BASE64 } from "./companyLogo";
+import { calculateDynamicTotal, calculateDynamicTotalUnits } from "./calculatePreorderDynamicTotal";
+import { formatCurrency } from "./format";
 
 export function generatePreorderPDF(preorder: any) {
   const doc = new jsPDF("p", "pt", "a4");
@@ -109,7 +111,11 @@ export function generatePreorderPDF(preorder: any) {
     startY: cursorY+10,
     theme: "grid",
     head: [[ "Ship To"]],
-    body: [[ preorder.client.billingAddress.addressLine + ", " + preorder.client.billingAddress.city + ", " + preorder.client.billingAddress.state + ", " + preorder.client.billingAddress.country + ", " + preorder.client.billingAddress.zipCode],],
+    body: [[ preorder.client.billingAddress.addressLine + 
+      ", " + preorder.client.billingAddress.city + ", " + 
+      preorder.client.billingAddress.state + ", " + 
+      preorder.client.billingAddress.zipCode
+    ],],
     styles: { fontSize: 8, halign: "center"},
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)
@@ -146,6 +152,36 @@ export function generatePreorderPDF(preorder: any) {
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)
       textColor: 255,           // white text
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    margin: {left: pageWidth - 238},
+    tableWidth: (pageWidth / 2) - 100,
+  });
+
+  cursorY = (doc as any) .lastAutoTable.finalY + 20;
+
+  const isDelivered = preorder.status === "delivered";
+  const amountToShow = isDelivered
+    ? preorder.total
+    : calculateDynamicTotal(preorder);
+  // -------------------
+  // TOTAL (RIGHT SIDE)
+  // -------------------
+  autoTable(doc, {
+    startY: cursorY + 10,
+    theme: "grid",
+    head: [[isDelivered ? "Total" : "Subtotal", "Total Units"]],
+    body: [
+      [
+        `${formatCurrency(amountToShow)}`,
+        `${calculateDynamicTotalUnits(preorder)}`,
+      ],
+    ],
+    styles: { fontSize: 8, halign: "center"},
+    headStyles: {
+      fillColor: [22, 163, 74],
+      textColor: 255,
       fontStyle: 'bold',
       halign: 'center',
     },
@@ -218,11 +254,19 @@ if (preorder.status === "cancelled") {
         prod.upc,
         prod.sku,
         qty,
-        `$${price.toFixed(2)}`,
-        `$${(qty * price).toFixed(2)}`,
+        `${formatCurrency(price)}`,
+        `${formatCurrency(qty * price)}`,
       ];
     }),
     styles: {fontSize: 8},
+    bodyStyles: {
+      halign: "left",
+    },
+    columnStyles: {
+      4: {halign: "right"},
+      5: {halign: "right"},
+      6: {halign: "right"},
+    },
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)
       textColor: 255,           // white text
@@ -248,29 +292,44 @@ if (finalY + blockHeight > pageHeight - 40) {
 // ✅ Use dynamic Y (NOT fixed pageHeight)
 const baseY = Math.max(finalY + 20, pageHeight - 100);
 
-const isDelivered = preorder.status === "delivered";
-const amountToShow = isDelivered
-  ? preorder.total
-  : preorder.subtotal;
-
 // -------------------
 // TOTAL (RIGHT SIDE)
 // -------------------
 autoTable(doc, {
   startY: baseY,
   theme: "grid",
+  head: [[isDelivered ? "Total" : "Subtotal", "Total Units"]],
+  body: [
+    [
+      `${formatCurrency(amountToShow)}`,
+      `${calculateDynamicTotalUnits(preorder)}`,
+    ],
+  ],
+  styles: { fontSize: 8, halign: "center"},
+  headStyles: {
+    fillColor: [22, 163, 74],
+    textColor: 255,
+    fontStyle: 'bold',
+    halign: 'center',
+  },
+  tableWidth: 150,
+  margin: { left: pageWidth - 190 },
+});
+/* autoTable(doc, {
+  startY: baseY,
+  theme: "grid",
   head: [[isDelivered ? "Total" : "Subtotal"]],
-  body: [[`$${amountToShow.toFixed(2)}`]],
+  body: [[`${formatCurrency(amountToShow)}`]],
   styles: { fontSize: 8, halign: "center" },
   headStyles: {
-    fillColor: [0, 102, 204],
+    fillColor: [22, 163, 74],
     textColor: 255,
     fontStyle: "bold",
     halign: "center",
   },
   tableWidth: 150,
   margin: { left: pageWidth - 190 },
-});
+}); */
 
 // -------------------
 // SIGNATURE (LEFT SIDE)

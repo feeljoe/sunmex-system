@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import CounterPreorder from "@/models/CounterPreorder";
+import Client from "@/models/Client";
 
 export async function GET(req: Request) {
   try {
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
     const generalSearch: any[] = [];
     let parsedStatus = "";
 
-    tokens.forEach(token => {
+    for (const token of tokens ) {
       const [rawKey, ...rest] = token.split(":");
 
       if(rest.length) {
@@ -59,17 +60,26 @@ export async function GET(req: Request) {
         }
       } else {
         const clean = token.replace(/"/g, "");
+
+        const matchingClients = await Client.find(
+          { clientName: { $regex: clean, $options: "i" } },
+          "_id"
+        ).lean();
+        const clientIds = matchingClients.map((c: any) => c._id);
+
         generalSearch.push(
           {number: { $regex: clean, $options: "i"}},
+          {client: {$in: clientIds }},
           {status: {$regex: clean, $options: "i"}},
-          {paymentStatus: {$regex: clean, $options: "i"}}
+          {paymentStatus: {$regex: clean, $options: "i"}},
         );
       }
-    });
+    }
 
     let datefield = "createdAt";
     if (parsedStatus === "ready") datefield = "assembledAt";
     else if (parsedStatus === "delivered") datefield = "deliveredAt";
+    else if (parsedStatus === "cancelled") datefield = "cancelledAt";
 
     const matchQuery: any= {};
 

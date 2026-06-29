@@ -14,13 +14,8 @@ export default function WarehouseReturnsTable({ user }: any) {
     const [selectedRouteToView, setSelectedRouteToView] = useState<any | null>(null);
     const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
 
-    const [isSwitchingView, setIsSwitchingView] = useState(false);
-
     // Only fetch pending items for this view
-    const { items: returns, reload } = useList("/api/warehouse/returns", {
-        status: viewMode, 
-    });
-    
+    const { items: returns, reload } = useList("/api/warehouse/returns");
     const { items: routes } = useList("/api/routes", { type: "driver" });
 
     // Group the raw returns by Route
@@ -28,6 +23,8 @@ export default function WarehouseReturnsTable({ user }: any) {
         const map = new Map<string, any>();
 
         returns.forEach((r: any) => {
+            if(r.status !== viewMode) return;
+
             const routeCode = r.routeAssigned?.code || "ZZZ";
             const routeId = r.routeAssigned?._id || "unassigned";
             const routeName = r.routeAssigned ? `${r.routeAssigned.code} | ${r.routeAssigned.user?.firstName} ${r.routeAssigned.user?.lastName}` : "Unassigned Route";
@@ -35,11 +32,21 @@ export default function WarehouseReturnsTable({ user }: any) {
             // If filtering by route, skip others
             if (selectedRouteFilter && routeId !== selectedRouteFilter) return;
 
-            // 1. Filter out any products where pickedQuantity is 0 or undefined
-            const validProducts = r.products.filter((p: any) => (p.pickedQuantity || 0) > 0);
+            let finalProducts = [];
+            let expectedUI = 0;
 
-            // 2. If this credit memo has NO valid products left, skip the entire document!
-            if (validProducts.length === 0) return;
+            if (r.type === "creditMemo") {
+                finalProducts = r.products.filter((p:any) => (p.pickedQuantity || p.quantity || 0) > 0);
+                if (finalProducts.length === 0) return;
+                expectedUI = Math.round(finalProducts.reduce((sum: number, p: any) => sum + (p.pickedQuantity || p.quantity || 0), 0));
+            } else if (r.type === "preorder") {
+                finalProducts = r.products.filter((p: any) => {
+                    const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
+                    return diff > 0 && !!p.deviationReason;
+                });
+                if (finalProducts.length === 0) return;
+                expectedUI = Math.round(finalProducts.reduce((sum: any, p:any) => sum + ((p.pickedQuantity || 0) - (p.deliveredQuantity || 0)), 0));
+            }
 
             if (!map.has(routeId)) {
                 map.set(routeId, {
@@ -53,40 +60,19 @@ export default function WarehouseReturnsTable({ user }: any) {
             }
 
             const group = map.get(routeId);
-            
+            group.totalExpectedUI += expectedUI;
+
             if (r.type === "creditMemo") {
-                const validProducts = r.products.filter((p: any) => (p.pickedQuantity || 0) > 0);
-                if (validProducts.length === 0) return;
-
-                group.creditMemos.push({ ...r, products: validProducts });
-
-                group.totalExpectedUI += Math.round(validProducts.reduce((sum: number, p: any) => sum + p.pickedQuantity, 0));
-            }else if (r.type === "preorder") {
-                const uiItems = r.products.filter((p: any) => {
-                    const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
-                    return diff > 0 && !!p.deviationReason;
-                });
-                if (uiItems.length === 0) return;
-
-                group.preorders.push({...r, products: uiItems });
-                group.totalExpectedUI += Math.round(uiItems.reduce((sum: number, p: any) => sum + (p.pickedQuantity - (p.deliveredQuantity || 0)), 0));
+                group.creditMemos.push({...r, products: finalProducts });
+            } else {
+                group.preorders.push({...r, products: finalProducts });
             }
         });
 
         return Array.from(map.values())
             .filter(group => group.totalExpectedUI > 0 || group.preorders.length > 0)
-            .sort((a, b) => {
-                const codeA = a.routeCode.toLowerCase();
-                const codeB = b.routeCode.toLowerCase();
-                if(codeA < codeB) return -1;
-                if(codeA > codeB) return 1;
-                return 0;
-            });
-    }, [returns, selectedRouteFilter]);
-
-    useEffect(() => {
-        setIsSwitchingView(false);
-    }, [returns]);
+            .sort((a, b) => a.routeCode.toLowerCase().localeCompare(b.routeCode.toLowerCase()));
+    }, [returns, selectedRouteFilter, viewMode]);
 
     useEffect(() => {
         setTimeout(() => { setSubmitStatus(null); }, 3000);
@@ -94,11 +80,7 @@ export default function WarehouseReturnsTable({ user }: any) {
 
     const handleViewMode = (value: "pending" | "completed")=> {
         if(viewMode === value) return;
-
-        setIsSwitchingView(true);
-        setSubmitStatus("loading");
         setViewMode(value);
-        reload();
     };
     return (
         <div className="p-4 h-full">
@@ -150,15 +132,9 @@ export default function WarehouseReturnsTable({ user }: any) {
                             </tr>
                         </thead>
                         <tbody>
-                            {isSwitchingView ? (
+                            {groupedRoutes.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-gray-500 font-bold text-lg animate-pulse">
-                                        Loading {viewMode} returns...
-                                    </td>
-                                </tr>
-                            ): groupedRoutes.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="p-8 text-center text-gray-500 font-semibold text-lg">No pending returns found.</td>
+                                    <td colSpan={4} className="p-8 text-center text-gray-500 font-semibold text-lg">No {viewMode} returns found.</td>
                                 </tr>
                             ): (
                                 groupedRoutes.map((routeGroup: any) => (

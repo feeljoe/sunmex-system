@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { COMPANY_LOGO_BASE64 } from "./companyLogo";
+import { calculateDynamicTotal, calculateDynamicTotalUnitsDirectSale } from "./calculatePreorderDynamicTotal";
+import { formatCurrency } from "./format";
 
 export function generateDirectSalePDF(directSale: any) {
   const doc = new jsPDF("p", "pt", "a4");
@@ -101,7 +103,11 @@ export function generateDirectSalePDF(directSale: any) {
     startY: cursorY+10,
     theme: "grid",
     head: [[ "Ship To"]],
-    body: [[ directSale.client.billingAddress.addressLine + ", " + directSale.client.billingAddress.city + ", " + directSale.client.billingAddress.state + ", " + directSale.client.billingAddress.country + ", " + directSale.client.billingAddress.zipCode],],
+    body: [[ directSale.client.billingAddress.addressLine + 
+      ", " + directSale.client.billingAddress.city + ", " + 
+      directSale.client.billingAddress.state + ", " + 
+      directSale.client.billingAddress.zipCode
+    ],],
     styles: { fontSize: 8, halign: "center"},
     headStyles: {
       fillColor: [0, 102, 204], // RGB color (blue)
@@ -146,16 +152,47 @@ export function generateDirectSalePDF(directSale: any) {
   });
   
   cursorY = (doc as any) .lastAutoTable.finalY + 20;
+  
+    const isDelivered = directSale.status === "delivered";
+    const amountToShow = isDelivered
+      ? directSale.total
+      : calculateDynamicTotal(directSale);
+    // -------------------
+    // TOTAL (RIGHT SIDE)
+    // -------------------
+    autoTable(doc, {
+      startY: cursorY + 10,
+      theme: "grid",
+      head: [[isDelivered ? "Total" : "Subtotal", "Total Units"]],
+      body: [
+        [
+          `${formatCurrency(amountToShow)}`,
+          `${calculateDynamicTotalUnitsDirectSale(directSale)}`,
+        ],
+      ],
+      styles: { fontSize: 8, halign: "center"},
+      headStyles: {
+        fillColor: [22, 163, 74],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      margin: {left: pageWidth - 238},
+      tableWidth: (pageWidth / 2) - 100,
+    });
+
+    cursorY = (doc as any) .lastAutoTable.finalY + 20;
 
   // --- Status title ---
 if (directSale.status === "cancelled") {
   doc.setFontSize(12);
+  doc.setTextColor("red");
   doc.text("CANCELLED ORDER", 40, cursorY + 10);
   if(directSale.status === "cancelled") {
     doc.text(
-      `Cancelled on: ${new Date(directSale.cancelledAt).toLocaleDateString()}`,
+      `Cancelled on: ${new Date(directSale.updatedAt).toLocaleDateString()}`,
       pageWidth - 170,
-      cursorY
+      cursorY + 10
     );
     cursorY += 7;
   }
@@ -205,8 +242,8 @@ if (directSale.status === "cancelled") {
         prod.upc,
         prod.sku,
         qty,
-        `$${price.toFixed(2)}`,
-        `$${(qty * price).toFixed(2)}`,
+        `${formatCurrency(price)}`,
+        `${formatCurrency(qty * price)}`,
       ];
     }),
     styles: {fontSize: 8},
@@ -235,25 +272,28 @@ if (finalY + blockHeight > pageHeight - 40) {
 // ✅ Use dynamic Y (NOT fixed pageHeight)
 const baseY = Math.max(finalY + 20, pageHeight - 100);
 
-const amountToShow = directSale.total;
-
 // -------------------
 // TOTAL (RIGHT SIDE)
 // -------------------
 autoTable(doc, {
   startY: baseY,
   theme: "grid",
-  head: [["Total"]],
-  body: [[`$${amountToShow.toFixed(2)}`]],
-  styles: { fontSize: 8, halign: "center" },
+  head: [[isDelivered ? "Total" : "Subtotal", "Total Units"]],
+  body: [
+    [
+      `${formatCurrency(amountToShow)}`,
+      `${calculateDynamicTotalUnitsDirectSale(directSale)}`,
+    ],
+  ],
+  styles: { fontSize: 8, halign: "center"},
   headStyles: {
-    fillColor: [0, 102, 204],
+    fillColor: [22, 163, 74],
     textColor: 255,
-    fontStyle: "bold",
-    halign: "center",
+    fontStyle: 'bold',
+    halign: 'center',
   },
-  tableWidth: 150,
-  margin: { left: pageWidth - 190 },
+  margin: {left: pageWidth - 238},
+  tableWidth: (pageWidth / 2) - 100,
 });
 
 // -------------------

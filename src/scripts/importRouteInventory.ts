@@ -73,6 +73,7 @@ async function updateRoutesFromExcel(excelFilePath: string) {
     // 5. Update each route's inventory
     for (const route of routes) {
       let addedCount = 0;
+      let updatedCount = 0;
 
       for (const product of products) {
         // Check if the product is already in this route's inventory to prevent duplicates
@@ -90,9 +91,11 @@ async function updateRoutesFromExcel(excelFilePath: string) {
           });
           addedCount++;
         } else {
-          // Optional: If you wanted to ADD 30 to existing inventory instead of skipping, 
-          // you would uncomment the line below:
-          // route.inventory[existingItemIndex].quantity += 30;
+          const newTotal = route.inventory[existingItemIndex].quantity - excelQty;
+          
+          // Prevent the inventory from dropping below 0
+          route.inventory[existingItemIndex].quantity = Math.max(0, newTotal);
+          updatedCount++;
         }
       }
 

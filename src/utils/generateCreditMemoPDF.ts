@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { COMPANY_LOGO_BASE64 } from "./companyLogo";
+import { formatCurrency } from "./format";
+import { calculateDynamicTotalUnitsCreditMemo } from "./calculatePreorderDynamicTotal";
 
 export function generateCreditMemoPDF(creditMemo: any) {
   const doc = new jsPDF("p", "pt", "a4");
@@ -93,8 +95,8 @@ www.sunmexusa.com`,
     theme: "grid",
     head: [["Pick Up From"]],
     body: [[
-      `${creditMemo.client?.billingAddress?.addressLine || ""}, 
-${creditMemo.client?.billingAddress?.city || ""}, ${creditMemo.client?.billingAddress?.state || ""}, ${creditMemo.client?.billingAddress?.country || ""}, ${creditMemo.client?.billingAddress?.zipCode || ""}`
+      `${creditMemo.client?.billingAddress?.addressLine || ""}, ${creditMemo.client?.billingAddress?.city || ""}, 
+      ${creditMemo.client?.billingAddress?.state || ""}, ${creditMemo.client?.billingAddress?.zipCode || ""}`
     ]],
     styles: { fontSize: 8, halign: "center" },
     headStyles: {
@@ -147,6 +149,34 @@ ${creditMemo.client?.billingAddress?.city || ""}, ${creditMemo.client?.billingAd
 
   cursorY = (doc as any).lastAutoTable.finalY + 20;
 
+  const isReceived = creditMemo.status === "received";
+  const amountToShow = isReceived
+    ? creditMemo.total
+    : creditMemo.subtotal;
+
+  autoTable(doc, {
+        startY: cursorY + 10,
+        theme: "grid",
+        head: [[isReceived ? "Total Credit" : "Subtotal Credit", "Total Units"]],
+        body: [
+          [
+            `${formatCurrency(-amountToShow)}`,
+            `${calculateDynamicTotalUnitsCreditMemo(creditMemo)}`,
+          ],
+        ],
+        styles: { fontSize: 8, halign: "center"},
+        headStyles: {
+          fillColor: [22, 163, 74],
+          textColor: 255,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        margin: {left: pageWidth - 238},
+        tableWidth: (pageWidth / 2) - 100,
+      });
+
+  cursorY = (doc as any).lastAutoTable.finalY + 20;
+
   // -------------------
   // STATUS TITLE
   // -------------------
@@ -182,8 +212,8 @@ ${creditMemo.client?.billingAddress?.city || ""}, ${creditMemo.client?.billingAd
         upc,
         sku,
         qty,
-        `-$${(unitPrice).toFixed(2)}`,
-        `-$${((qty * unitPrice)).toFixed(2)}`,
+        `${formatCurrency(-unitPrice)}`,
+        `${formatCurrency(-(qty * unitPrice))}`,
         reason,
       ];
     }),
@@ -217,25 +247,25 @@ ${creditMemo.client?.billingAddress?.city || ""}, ${creditMemo.client?.billingAd
 
   const baseY = Math.max(finalY + 20, pageHeight - 100);
 
-  const isReceived = creditMemo.status === "received";
-  const amountToShow = isReceived
-    ? creditMemo.total
-    : creditMemo.subtotal;
-
   autoTable(doc, {
     startY: baseY,
     theme: "grid",
-    head: [[isReceived ? "Total Credit" : "Subtotal Credit"]],
-    body: [[`-$${(amountToShow).toFixed(2)}`]],
-    styles: { fontSize: 10, halign: "center" },
+    head: [[isReceived ? "Total Credit" : "Subtotal Credit", "Total Units"]],
+    body: [
+      [
+        `${formatCurrency(-amountToShow)}`,
+        `${calculateDynamicTotalUnitsCreditMemo(creditMemo)}`,
+      ],
+    ],
+    styles: { fontSize: 8, halign: "center"},
     headStyles: {
-      fillColor: [0, 102, 204],
+      fillColor: [22, 163, 74],
       textColor: 255,
-      fontStyle: "bold",
-      halign: "center",
+      fontStyle: 'bold',
+      halign: 'center',
     },
-    tableWidth: 150,
-    margin: { left: pageWidth - 190 },
+    margin: {left: pageWidth - 238},
+    tableWidth: (pageWidth / 2) - 100,
   });
 // -------------------
 // SIGNATURE (LEFT SIDE)

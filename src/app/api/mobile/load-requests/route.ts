@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import CounterLoadRequest from "@/models/CounterLoadRequest";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { DateTime } from "luxon";
 
 // Extract user from JWT (Mobile) OR Session (Web)
 async function getUser(req: Request) {
@@ -138,13 +139,29 @@ export async function GET(req: Request) {
     if (!route) {
       return NextResponse.json([]);
     }
-    const loadRequests = await LoadRequest.find({
+
+    const phoenixNow = DateTime.now().setZone("America/Phoenix");
+    const startOfDay = phoenixNow
+      .startOf("day")
+      .toUTC()
+      .toJSDate();
+    const endOfDay = phoenixNow
+      .endOf("day")
+      .toUTC()
+      .toJSDate();
+
+    const matchQuery: any = {
       routeAssigned: route._id,
-      status: {
-        $in: ["prepared", "delivered"],
-      },
-      
-    })
+      $or: [
+        { status: "prepared"},
+        {
+          status: "delivered",
+          updatedAt: {$gte: startOfDay, $lte: endOfDay}
+        }
+      ]
+    };
+
+    const loadRequests = await LoadRequest.find(matchQuery)
       .populate("routeAssigned", "code")
       .populate("route", "code")
       .populate("requestedBy", "firstName lastName")

@@ -52,7 +52,7 @@ const PreorderSchema = new Schema(
       {
         type: {
           type:String,
-          enum: ["cash", "check"],
+          enum: ["cash", "check", "creditMemo"],
           required: "true"
         },
         amount: {type: Number, required: true},
@@ -64,6 +64,7 @@ const PreorderSchema = new Schema(
       enum: ["pending", "paid"],
       default: "pending"
     },
+    paymentDeletedReason: { type: String, default: null},
     quickbooks: {
       synced: { type: Boolean, default: false },
       qbTxnId: { type: String },

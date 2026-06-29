@@ -65,11 +65,12 @@ const DirectSaleSchema = new Schema(
           },
         payments: [
             {
-                type: { type: String, enum: ["cash", "check"] },
+                type: { type: String, enum: ["cash", "check", "creditMemo"] },
                 amount: Number,
                 checkNumber: String
             }
         ],
+        paymentDeletedReason: { type: String, default: null},
         cogs: {type: Number, default: 0},
     },
     {timestamps: true}

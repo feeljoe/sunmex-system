@@ -1,5 +1,6 @@
 "use client";
 
+import { calculateDynamicTotal } from "@/utils/calculatePreorderDynamicTotal";
 import { generatePreorderPDF } from "@/utils/generatePreorderPDF";
 import { useRouter } from "next/navigation";
 export default function PreorderDetailsModal({
@@ -57,6 +58,7 @@ export default function PreorderDetailsModal({
   });
   let totalQty = 0;
   const router = useRouter();
+
   /* =============================
      RENDER
   ==============================*/
@@ -196,17 +198,9 @@ export default function PreorderDetailsModal({
         <div className="flex justify-end text-2xl font-semibold">
           Total Units: {totalQty}
         </div>
-        {(preorder.total ===0 && preorder.subtotal >= 0) &&
         <div className="flex justify-end text-2xl font-semibold">
-          Subtotal: {formatCurrency(preorder.subtotal)}
+          {`${preorder.status !== "delivered" ? "Subtotal:" : "Total:"} ${formatCurrency(calculateDynamicTotal(preorder))}`}
         </div>
-        }
-        {/* TOTAL */}
-        {(preorder.total >= 0 && preorder.status === "delivered") &&
-        <div className="flex justify-end text-2xl font-semibold">
-          Total: {formatCurrency(preorder.total)}
-        </div>
-        }
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
