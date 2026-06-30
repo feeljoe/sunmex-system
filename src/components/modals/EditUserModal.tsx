@@ -11,6 +11,7 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
     phoneNumber: user.phoneNumber || "",
     userRole: user.userRole,
     password: "",
+    salary: user.salary || 0,
   });
 
   const [loading, setLoading] = useState(false);
@@ -116,17 +117,27 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
             value={form.password}
             onChange={e => updateField("password", e.target.value)}
           />
-            </div>
+        </div>
+        <div className="flex flex-col">
+                <label className="font-bold">Salary</label>
+                <input
+            className="bg-white p-2 rounded-xl w-full"
+            type="number"
+            placeholder="Set Salary (leave blank to keep current)"
+            value={form.salary}
+            onChange={e => updateField("salary", e.target.value)}
+          />
+        </div>
 
         <div className="flex justify-between gap-4 pt-4">
           <button
-            className="px-4 py-2 rounded-xl bg-gray-300 text-white cursor-pointer"
+            className="px-4 py-2 rounded-xl font-bold bg-gray-400 text-gray-800 hover:bg-gray-800 hover:text-white cursor-pointer transition-colors duration:500"
             onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="px-4 py-2 rounded-xl bg-blue-500 text-white disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 rounded-xl font-bold bg-blue-400 text-blue-800 hover:bg-blue-800 hover:text-white disabled:opacity-50 cursor-pointer transition-colors duration:500"
             onClick={submit}
             disabled={loading}
           >

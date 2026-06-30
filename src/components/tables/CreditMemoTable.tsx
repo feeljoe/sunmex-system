@@ -450,7 +450,17 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                     <td className="p-2 whitespace-nowrap">{formatDate(it.createdAt)}</td>
                     <td className="p-2 whitespace-nowrap">{formatTime(it.createdAt)}</td>
                     {it.routeAssigned &&
-                      <td className="p-2 whitespace-nowrap capitalize">{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName?.toLowerCase() } {it.routeAssigned?.user?.lastName?.toLowerCase()} </td>
+                      <td className="p-2 whitespace-nowrap capitalize">
+                        {it.status === "received" ? (
+                        <>
+                          {it.routeAssigned?.code} | {it.returnedBy?.firstName?.toLowerCase()} {it.returnedBy?.lastName?.toLowerCase()}
+                        </>
+                      ) : (
+                        <>
+                          {it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName?.toLowerCase()} {it.routeAssigned?.user?.lastName?.toLowerCase()}
+                        </>
+                      )}
+                      </td>
                     }
                     {(it.routeAssigned === undefined) &&
                       <td className="p-2 whitespace-nowrap capitalize"> 001 | {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()} </td>

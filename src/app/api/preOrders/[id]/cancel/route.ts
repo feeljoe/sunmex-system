@@ -34,22 +34,26 @@ export async function PATCH(
             const inventory = await ProductInventory.findById(item.productInventory).session(session);
             if (!inventory) continue;
 
-            let qty = item.quantity;
+            const currentInv = Number(inventory.currentInventory) || 0;
+            const preSavedInv = Number(inventory.preSavedInventory) || 0;
+            const onRouteInv = Number(inventory.onRouteInventory) || 0;
+
+            let qty = Number(item.quantity) || 0;
 
             if(preorder.status === "pending" || preorder.status === "assigned") {
                 inventory.preSavedInventory =
-                    Math.max(0, inventory.preSavedInventory - qty);
-                    inventory.currentInventory += qty;
+                    Math.max(0, preSavedInv - qty);
+                    inventory.currentInventory = currentInv + qty;
             }
             if(preorder.status === "ready"){
-                qty = item.pickedQuantity;
+                qty = Number(item.pickedQuantity) || 0;
                 inventory.onRouteInventory =
-                Math.max(0, inventory.onRouteInventory - qty);
-                inventory.currentInventory += qty;
+                Math.max(0, onRouteInv - qty);
+                inventory.currentInventory = currentInv + qty;
             }
             if(preorder.status === "delivered") {
-                qty = item.deliveredQuantity;
-                inventory.currentInventory += qty;
+                qty = Number(item.deliveredQuantity) || 0;
+                inventory.currentInventory = currentInv + qty;
             }
             await inventory.save({session});
         }

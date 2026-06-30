@@ -23,6 +23,9 @@ export async function PATCH(
     .populate({
       path: "products.productInventory",
       populate: {path: "product"},
+    })
+    .populate({
+      path: "routeAssigned",
     }).session(session);
     if (!preorder) throw new Error("Preorder not found");
 
@@ -86,6 +89,7 @@ export async function PATCH(
 
     preorder.status = "delivered";
     preorder.deliveredAt = new Date();
+    preorder.deliveredBy = preorder.routeAssigned?.user;
     preorder.deliverySignature = signature;
 
     await preorder.save({ session });

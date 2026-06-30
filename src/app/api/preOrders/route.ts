@@ -211,6 +211,7 @@ pipeline.push(
         options: { strictPopulate: false},
       },
       { path: "createdBy", select: "firstName lastName" },
+      { path: "deliveredBy", select: "firstName lastName" },
       {
         path: "assembledBy",
         select: "firstName lastName",

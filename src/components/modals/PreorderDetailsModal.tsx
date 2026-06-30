@@ -18,15 +18,15 @@ export default function PreorderDetailsModal({
      HELPERS
   ------------------------------*/
   const statusColorsPreorder: Record<string, string> = {
-    pending: "bg-gray-300",
-    assigned: "bg-(--tertiary)",
-    ready: "bg-blue-500 text-white",
-    delivered: "bg-green-500 text-white",
-    cancelled: "bg-red-500 text-white",
+    pending: "bg-gray-400 text-gray-800",
+    assigned: "bg-(--tertiary) text-(--quaterary)",
+    ready: "bg-blue-400 text-blue-800",
+    delivered: "bg-green-400 text-green-800",
+    cancelled: "bg-red-400 text-red-800",
   }; 
   const statusColorsPayment: Record<string, string> = {
-    pending: "bg-gray-300",
-    paid: "bg-green-500 text-white",
+    pending: "bg-gray-400 text-gray-800",
+    paid: "bg-green-400 text-green-800",
   }; 
   const formatCurrency = (v?: number) =>
     v != null ? `$${v.toFixed(2)}` : "-";
@@ -73,7 +73,7 @@ export default function PreorderDetailsModal({
           </h2>
           <button
             onClick={onClose}
-            className="px-2 py-2 bg-red-500 text-white rounded-xl hover:bg-red-300 cursor-pointer transition-all duration:300"
+            className="px-2 py-2 bg-red-500 text-white rounded-xl hover:bg-red-300 hover:text-red-800 cursor-pointer transition-all duration:300"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -94,12 +94,12 @@ export default function PreorderDetailsModal({
 
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Status</span>
-            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPreorder[preorder.status]}`}>{preorder.status.toUpperCase()}</span></div>
+            <div className={``}><span className={`p-2 rounded-xl font-bold ${statusColorsPreorder[preorder.status]}`}>{preorder.status.toUpperCase()}</span></div>
           </div>
 
           <div className="flex flex-col gap-2">
             <span className="font-semibold">Type</span>
-            <div><span className={`p-2 rounded-xl text-white ${preorder.type === "noCharge"? "bg-red-600" : "bg-green-600"}`}>{preorder.type === "charge"? "CHARGE" : preorder.type === "noCharge"?"NO CHARGE": "-"}</span></div>
+            <div><span className={`p-2 rounded-xl font-bold ${preorder.type === "noCharge"? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{preorder.type === "charge"? "CHARGE" : preorder.type === "noCharge"?"NO CHARGE": "-"}</span></div>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -112,9 +112,15 @@ export default function PreorderDetailsModal({
 
           <div className="flex flex-col gap-2 mb-4">
             <span className="font-semibold">Payment Status</span>
-            <div className={``}><span className={`p-2 rounded-xl ${statusColorsPayment[preorder.paymentStatus]}`}>{preorder.paymentStatus.toUpperCase()}</span></div>
+            <div className={``}><span className={`p-2 rounded-xl font-bold ${statusColorsPayment[preorder.paymentStatus]}`}>{preorder.paymentStatus.toUpperCase()}</span></div>
           </div>
         </div>
+        {preorder.status === "cancelled" && (
+          <div className="w-full p-2 mt-2 mb-2 bg-red-400 text-red-800 rounded-xl font-bold hover:text-white transition-colors duration:500">
+            <p>Cancel reason:</p>
+            <p className="underline">{preorder.cancelReason}</p>
+          </div>
+        )}
 
         {/* PRODUCTS TABLE */}
         <div className="max-h-[40vh] overflow-y-auto rounded-xl shadow-xl">
@@ -195,31 +201,31 @@ export default function PreorderDetailsModal({
           </table>
         </div>
 
-        <div className="flex justify-end text-2xl font-semibold">
-          Total Units: {totalQty}
+        <div className="flex justify-end text-2xl font-semibold mt-2">
+          {preorder.status === "cancelled" ? `Total Units: N/A` : `Total Units: ${totalQty}`}
         </div>
-        <div className="flex justify-end text-2xl font-semibold">
-          {`${preorder.status !== "delivered" ? "Subtotal:" : "Total:"} ${formatCurrency(calculateDynamicTotal(preorder))}`}
+        <div className="flex justify-end text-2xl font-semibold mt-2 mb-2">
+          {`${preorder.status === "cancelled" ? "Total" : preorder.status !== "delivered" ? "Subtotal:" : "Total:"} ${preorder.status === "cancelled" ? "N/A" : formatCurrency(calculateDynamicTotal(preorder))}`}
         </div>
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4 border-t">
           <button
-          //disabled={preorder.status === "ready" || preorder.status === "delivered"}
+            disabled={preorder.paymentStatus === "paid" || preorder.status === "cancelled"}
             onClick={() => router.push(`/pages/sales/preorders/edit/${preorder._id}`)}
-            className={`bg-yellow-500 text-white px-5 py-3 rounded-xl cursor-pointer ${(preorder.status === "ready" || preorder.status === "delivered") ? "opacity-50": ""}`}>
+            className={`bg-yellow-400 text-yellow-800 font-bold px-5 py-3 rounded-xl ${(preorder.paymentStatus === "paid" || preorder.status === "cancelled") ? "opacity-50": "cursor-pointer hover:text-white hover:bg-yellow-800 transition-colors duration:500"}`}>
               Edit
             </button>
           <button
             onClick={() => generatePreorderPDF(preorder)}
-            className="bg-blue-600 text-white px-5 py-3 rounded-xl cursor-pointer"
+            className="bg-blue-400 text-blue-800 font-bold px-5 py-3 rounded-xl cursor-pointer hover:text-white hover:bg-blue-800 transition-colors duration:500"
           >
             PDF
           </button>
 
           <button
             onClick={onClose}
-            className="bg-gray-300 px-5 py-3 rounded-xl cursor-pointer"
+            className="bg-gray-400 text-gray-800 font-bold px-5 py-3 rounded-xl cursor-pointer hover:text-white hover:bg-gray-800 transition-colors duration:500"
           >
             Close
           </button>

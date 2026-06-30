@@ -232,6 +232,7 @@ export async function GET(req: Request) {
         populate: { path: "user" },
       },
       { path: "createdBy", select: "firstName lastName" },
+      { path: "returnedBy", select: "firstName lastName" },
       { path: "assembledBy", select: "firstName lastName" },
       {
           path: "products.product",

@@ -35,6 +35,7 @@ const PreorderSchema = new Schema(
       index: true,
     },
     deliveredAt: {type: Date},
+    deliveredBy: {type: Schema.Types.ObjectId, ref: "User"},
     deliverySignature: {
       type: String,
     },

@@ -94,6 +94,7 @@ export async function DELETE(
         email: body.email,
         phoneNumber: body.phoneNumber,
         userRole: body.userRole,
+        salary: body.salary,
       };
 
       if(body.password && body.password.trim() !== ""){

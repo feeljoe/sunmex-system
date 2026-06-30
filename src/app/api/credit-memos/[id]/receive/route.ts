@@ -15,7 +15,11 @@ export async function PATCH(
     await connectToDatabase();
     const body = await req.json();
 
-    const creditMemo = await CreditMemo.findById(id).session(session);
+    const creditMemo = await CreditMemo.findById(id)
+      .populate({
+        path: "routeAssigned",
+      })
+      .session(session);
     if (!creditMemo) {
         await session.abortTransaction();
       return NextResponse.json({ error: "Credit memo not found" }, { status: 404 });
@@ -64,6 +68,7 @@ export async function PATCH(
     creditMemo.returnSignature = body.signature;
     creditMemo.returnedAt = new Date();
     creditMemo.status = "received";
+    creditMemo.returnedBy = creditMemo.routeAssigned?.user;
 
     await creditMemo.save({ session });
     await session.commitTransaction();

@@ -31,6 +31,7 @@ const CreditMemoSchema = new Schema(
     returnSignature: {
       type: String,
     },
+    returnedBy: {type: Schema.Types.ObjectId, ref: "User"},
     receivedBy: {type: Schema.Types.ObjectId, ref: "User"},
     driverSignature: {type: String},
     warehouseSignature: {type: String},

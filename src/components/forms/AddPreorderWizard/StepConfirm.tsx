@@ -1,6 +1,8 @@
 // StepConfirm.tsx
 "use client";
 
+import { formatCurrency } from "@/utils/format";
+
 export default function StepConfirm({
   client,
   products,
@@ -17,9 +19,9 @@ products.map((p:any) => {
   totalQty += p.quantity;
 });
   return (
-    <div className="space-y-4 w-full flex flex-col">
+    <div className="space-y-4 w-full h-full flex flex-col">
       <h2 className="text-2xl font-semibold text-center">Confirm Preorder</h2>
-      <div className="flex flex-col bg-white rounded-xl shadow-xl p-2 text-center h-100">
+      <div className="flex flex-col bg-white rounded-xl shadow-xl p-2 text-center h-full">
       <p className="text-center text-lg"><b>Client:</b> {client.clientName}</p> <span className="text-gray-500 text-sm">({client?.billingAddress?.addressLine}, {client?.billingAddress?.city}, {client?.billingAddress?.country}, {client?.billingAddress?.zipCode})</span>
       <div className="grid grid-cols-2 p-2 border-b text-left">
         <div>
@@ -56,8 +58,8 @@ products.map((p:any) => {
               </div>
               <div className="grid grid-cols-3 w-full">
               <span className="text-sm text-center">{Math.round(p.quantity)}</span>
-              <span className="text-sm text-center">${p.effectiveUnitPrice.toFixed(2)}</span>
-              <span className="text-sm text-right">${(p.quantity * p.effectiveUnitPrice).toFixed(2)}</span>
+              <span className="text-sm text-center">{formatCurrency(p.effectiveUnitPrice)}</span>
+              <span className="text-sm text-right">{formatCurrency(p.quantity * p.effectiveUnitPrice)}</span>
               </div>
               </li>
           ))}
@@ -66,7 +68,7 @@ products.map((p:any) => {
       </div>
       </div>
       <p className="font-bold text-right text-xl">Total Units: {totalQty}</p>
-      <p className="font-bold text-right text-xl">Total: ${type==="noCharge" ? 0.00 : total.toFixed(2)}</p>
+      <p className="font-bold text-right text-xl">Total: {type==="noCharge" ? formatCurrency(0) : formatCurrency(total)}</p>
     </div>
   );
 }
