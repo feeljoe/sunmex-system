@@ -21,7 +21,7 @@ products.map((p:any) => {
   return (
     <div className="space-y-4 w-full h-full flex flex-col">
       <h2 className="text-2xl font-semibold text-center">Confirm Preorder</h2>
-      <div className="flex flex-col bg-white rounded-xl shadow-xl p-2 text-center h-full">
+      <div className="flex flex-col bg-white rounded-xl shadow-xl p-2 text-center h-full overflow-auto">
       <p className="text-center text-lg"><b>Client:</b> {client.clientName}</p> <span className="text-gray-500 text-sm">({client?.billingAddress?.addressLine}, {client?.billingAddress?.city}, {client?.billingAddress?.country}, {client?.billingAddress?.zipCode})</span>
       <div className="grid grid-cols-2 p-2 border-b text-left">
         <div>

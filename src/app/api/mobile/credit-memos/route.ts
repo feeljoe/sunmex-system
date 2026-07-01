@@ -141,7 +141,7 @@ export async function POST(req: Request) {
           returnSignature: signature || undefined,
           returnedAt: signature ? new Date() : undefined,
           receivedBy: signature ? user.userId : undefined,
-          
+          returnedBy: user.userId,
           products: products.map((p: any) => ({
             product: p.productId,
             quantity: p.quantity,
