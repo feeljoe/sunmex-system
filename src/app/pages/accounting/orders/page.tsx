@@ -943,9 +943,49 @@ export default function AccountingOrdersPage() {
           <DeletePaymentsModal
             order={orderToDeletePayments}
             onClose={() => setOrderToDeletePayments(null)}
-            onCompleted={() => {
+            onError={(errorMessage: string) => {
               setOrderToDeletePayments(null);
-              reload(); // <--- Since reload() triggers useList, it will pull the fresh DB state using appliedQuery
+              setMessage(errorMessage);
+              setSubmitStatus("error");
+            }}
+            onCompleted={(deletedPaymentIds?: string[], deletedAmount?: number) => {
+              if (!deletedPaymentIds || deletedPaymentIds.length === 0 || deletedAmount === undefined) {
+                setOrderToDeletePayments(null);
+                reload();
+                return;
+             }
+              setLocalOrders(prev => prev.map(o => {
+                if (o._id === orderToDeletePayments._id) {
+                  const newPaid = Math.max((o.paid || 0) - deletedAmount, 0);
+                  const newBalance = (o.balance || 0) + deletedAmount;
+
+                  let newStatus = o.computedStatus;
+                  if (newBalance > 0.01) {
+                    if (o.client?.dueDays === 0) {
+                      newStatus = "unpaid";
+                    } else if (o.client?.dueDays > 0) {
+                      const dueDateMillis = new Date(o.deliveredAt).getTime() + (o.client.dueDays * 86400000);
+                      newStatus = DateTime.now().toMillis() > dueDateMillis ? "overdue" : "pending";
+                    } else {
+                      newStatus = "pending";
+                    }
+                  }
+
+                  const newPayments = o.payments?.filter((p: { _id: string; }) => !deletedPaymentIds.includes(p._id)) || [];
+
+                  return {
+                    ...o,
+                    paid: newPaid,
+                    balance: newBalance,
+                    computedStatus: newStatus as any,
+                    payments: newPayments
+                  };
+                }
+                return o;
+              }));
+              setOrderToDeletePayments(null);
+              setMessage("Payment(s) successfully deleted.");
+              setSubmitStatus("success");
             }}
           />
       )}

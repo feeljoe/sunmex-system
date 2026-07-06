@@ -14,12 +14,12 @@ import { formatCurrency } from "@/utils/format";
 
 export function GeneralReportsTable(){
     const statusColors: Record<string, string> = {
-        pending: "bg-gray-300",
-        assigned: "bg-(--tertiary)",
-        ready: "bg-blue-500 text-white",
-        delivered: "bg-green-500 text-white",
-        received: "bg-green-500 text-white",
-        cancelled: "bg-red-500 text-white",
+        pending: "bg-gray-400 text-gray-800",
+        assigned: "bg-(--tertiary) text-(--quarteary)",
+        ready: "bg-blue-400 text-blue-800",
+        delivered: "bg-green-400 text-green-800",
+        received: "bg-green-400 text-green-800",
+        cancelled: "bg-red-400 text-red-800",
       };
     const [page, setPage] = useState(1);
     const [limit] = useState(100);
@@ -259,7 +259,7 @@ export function GeneralReportsTable(){
                         setTimeout(() => setSubmitStatus(null), 2000);
                     }} 
                 />
-            <button
+                <button
                     onClick={() => {
                         setIsExportModalOpen(true);
                         setExportStep(1); // Ensure we start on step 1

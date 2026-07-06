@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatCurrency } from "@/utils/format";
 
-export default function DeletePaymentsModal({ order, onClose, onCompleted }: any) {
+export default function DeletePaymentsModal({ order, onClose, onCompleted, onError }: any) {
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [confirmMode, setConfirmMode] = useState(false);
     const [reason, setReason] = useState("");
@@ -20,13 +20,15 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted }: any
         if (!reason.trim()) return;
         setIsSubmitting(true);
 
+        const deletedIds = Array.from(selectedPayments);
+
         const res = await fetch("/api/accounting/payments/delete", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 orderId: order._id,
                 orderType: order.type,
-                paymentIdsToRemove: Array.from(selectedPayments),
+                paymentIdsToRemove: deletedIds,
                 reason: reason
             })
         });
@@ -34,9 +36,15 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted }: any
         setIsSubmitting(false);
 
         if (res.ok) {
-            onCompleted();
+            const totalDeletedAmount = order.payments
+                .filter((p: any) => deletedIds.includes(p._id))
+                .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+            onCompleted(deletedIds, totalDeletedAmount);
         } else {
-            alert("Failed to delete payment(s).");
+            const errorData = await res.json().catch(() => ({}));
+            const errorMessage = errorData.error || "Failed to delete payment(s).";
+
+            onError(errorMessage);
         }
     };
 
