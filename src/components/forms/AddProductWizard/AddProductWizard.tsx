@@ -182,7 +182,7 @@ export default function AddProductWizard({ onSuccess }: { onSuccess?: () => void
         <ConfirmModal
           open={showConfirm}
           title="Product Info Review"
-          sections={productConfirmConfig({brandMap})}
+          sections={productConfirmConfig()}
           data={form}
           onBack={() => setShowConfirm(false)}
           onConfirm={() => {
