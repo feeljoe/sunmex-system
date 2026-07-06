@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     const created = await Chain.create(body);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Invalid data' }, { status: 400 });
+    console.error("FATAL API ERROR:", err.stack || err); 
+    
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

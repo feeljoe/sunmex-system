@@ -1,3 +1,4 @@
+import { states } from "@/lib/states";
 export function Step2AddressContactInfo({ form, setForm }: any) {
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>){
             const { name, value } = e.target;
@@ -13,9 +14,9 @@ export function Step2AddressContactInfo({ form, setForm }: any) {
             <input name='city' value={form.city} onChange={handleChange} placeholder='City' className='bg-white p-3 rounded shadow-xl h-15 text-gray-500'/>
             <select name='state' value={form.state} onChange={handleChange} className='p-3 rounded w-full h-15 cursor-pointer bg-white text-gray-500' required>
                 <option value='1' className='text-gray-300'>Select State</option>
-                <option value="AZ" className="text-gray-300">AZ (Arizona)</option>
-                <option value="TX" className="text-gray-300">TX (Texas)</option>
-                <option value="NV" className="text-gray-300">NV (Nevada)</option>
+                {states.map((state) => (
+                  <option key={state.value} value={state.value} className="text-gray-300">{state.value} ({state.name})</option>
+                ))}
             </select>
             <select name='country' value={form.country} onChange={handleChange} className='p-3 rounded w-full h-15 cursor-pointer bg-white text-gray-500' required>
                 <option value='1' className='text-gray-300'>Select Country</option>

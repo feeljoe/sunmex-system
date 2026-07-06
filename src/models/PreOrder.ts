@@ -53,7 +53,7 @@ const PreorderSchema = new Schema(
       {
         type: {
           type:String,
-          enum: ["cash", "check", "creditMemo"],
+          enum: ["cash", "check", "creditMemo", "discount"],
           required: "true"
         },
         amount: {type: Number, required: true},

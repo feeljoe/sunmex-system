@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/db';
 import Client from '@/models/Client';
 import PaymentTerm from "@/models/PaymentTerm";
 import Chain from '@/models/Chain';
+import mongoose from 'mongoose';
 export async function GET(req: Request) {
   try{
     await connectToDatabase();
@@ -10,8 +11,20 @@ export async function GET(req: Request) {
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
+    const chain = searchParams.get("chain");
+    const paymentTerm = searchParams.get("paymentTerm");
 
     const query: any= {};
+    // Check if chain exists AND is a valid ObjectId, then cast it
+        if (chain && /^[0-9a-fA-F]{24}$/.test(chain)) {
+          query.chain = new mongoose.Types.ObjectId(chain);
+        }
+    
+        // Check if paymentTerm exists, cast it, and assign it to "productType"
+        if (paymentTerm && /^[0-9a-fA-F]{24}$/.test(paymentTerm)) {
+          query.paymentTerm = new mongoose.Types.ObjectId(paymentTerm);
+        }
+    
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
     if(search){
       const chains = await Chain.find({

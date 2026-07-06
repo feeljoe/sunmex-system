@@ -23,6 +23,7 @@ export default function ReceiveRouteReturnsModal({
     const map = new Map<string, any>();
 
     routeData.creditMemos.forEach((cm: any) => {
+      const docNumber = cm.number || "unknown CRM";
       cm.products.forEach((p: any) => {
         // SAFEGUARD: Skip if pickedQuantity is 0
         if ((p.pickedQuantity || 0) === 0) return;
@@ -38,14 +39,17 @@ export default function ReceiveRouteReturnsModal({
             unit: p?.product?.unit || "",
             returnReason: p?.returnReason,
             totalPicked: 0,
+            sourceDocs: new Set<string>(),
           });
         }
         
         map.get(key).totalPicked += Math.round((p?.pickedQuantity || 0));
+        map.get(key).sourceDocs.add(docNumber);
       });
     });
 
     routeData.preorders.forEach((po: any) => {
+      const docNumber = po.number || "Unknown INV";
         po.products.forEach((p: any) => {
             if (!p?.deviationReason) return;
             const diff = Math.round((p.pickedQuantity || 0) - (p.deliveredQuantity || 0));
@@ -64,14 +68,19 @@ export default function ReceiveRouteReturnsModal({
                     unit: prod?.unit || "",
                     returnReason: deviation,
                     totalPicked: 0,
+                    sourceDocs: new Set<string>(),
                 });
             }
             map.get(key).totalPicked += diff;
+            map.get(key).sourceDocs.add(docNumber);
         });
     });
 
 
-    return Array.from(map.values()).sort((a,b) => {
+    return Array.from(map.values()).map(item => ({
+      ...item,
+      sourceDocs: Array.from(item.sourceDocs).join(", ")
+    })).sort((a,b) => {
         if(a.sourceType === "preorder" && b.sourceType !== "preorder") return -1;
         if(a.sourceType !== "preorder" && b.sourceType === "preorder") return 1;
 
@@ -179,6 +188,9 @@ export default function ReceiveRouteReturnsModal({
               <div key={key} className="p-4 rounded-xl shadow-xl bg-gray-50 flex gap-4 justify-between items-center">
                 <div className="w-full">
                   <div className="font-bold">{agg.brandName} {agg.productName} {agg.weight ? (`${agg.weight}${agg.unit?.toUpperCase()}`) : ""}</div>
+                  <div className="text-xs font-bold text-blue-600 tracking-wide mt-0.5">
+                    Docs: {agg.sourceDocs}
+                  </div>
                   <div className={`mt-1`}>
                     <select
                       value={reasonOverrides[key] || agg.returnReason}

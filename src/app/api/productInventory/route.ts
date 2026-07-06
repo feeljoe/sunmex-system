@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
     // Type filter
     if(type && mongoose.Types.ObjectId.isValid(type)) {
-      matchStage["product.productType"] = new mongoose.Types.ObjectId(type);
+      matchStage["product.productType._id"] = new mongoose.Types.ObjectId(type);
     }
 
     // Available only filter

@@ -117,7 +117,7 @@ export default function AddPricingListWizard({ onSuccess }: { onSuccess?: () => 
 
     return (
       <>
-        <div className="w-full h-full bg-(--tertiary) p-5 rounded-xl shadow overflow-hidden">
+        <div className="w-[90vw] h-[80vh] bg-(--secondary) p-5 rounded-xl shadow">
           <ProgressBar step={step} steps={steps}/>
           <div className="flex flex-col gap-4 pt-5">
             <AnimatedStep>

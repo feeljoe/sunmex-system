@@ -10,12 +10,14 @@ import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import AssignRouteModal from "../modals/AssignRouteModal";
 import { DateTime } from "luxon";
+import Link from "next/link";
+import { formatCurrency } from "@/utils/format";
 
 export function CreditMemosTable({ userRole, userId }: { userRole: string; userId: string }) {
   const statusColors: Record<string, string> = {
-    pending: "bg-gray-300",
-    received: "bg-green-500 text-white",
-    cancelled: "bg-red-500 text-white",
+    pending: "bg-gray-400 text-gray-800",
+    received: "bg-green-400 text-green-800",
+    cancelled: "bg-red-400 text-red-800",
   };
 
   const [page, setPage] = useState(1);
@@ -88,17 +90,11 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
     routeId: routeInput,
   });
 
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);},3000);
-  }, [reload]);
-
   const [selected, setSelected] = useState<any | null>(null);
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [submitStatus, setSubmitStatus] =
     useState<"loading" | "success" | "error" | null>(null);
   const [message, setMessage] = useState("");
-
-  const formatCurrency = (v?: number) => (v != null ? `$${v.toFixed(2)}` : "-");
   const formatDate = (v?: string) => (v ? new Date(v).toLocaleDateString() : "-");
   const formatTime = (v?: string) =>
     v
@@ -137,16 +133,6 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
     }
   };
 
-  const applyFilters = () => {
-    setPage(1);
-    setAppliedFilters({
-      fromDate,
-      toDate,
-      vendorId: vendorInput,
-      routeId: routeInput,
-    });
-  }
-
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const toggleFilters = (key: string, value: string) => {
@@ -179,12 +165,33 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
     { label: "Subtotal", key: "subtotal", value: "" },
   ];
 
+  const handleSetPage = (value:string) => {
+    setSubmitStatus("loading");
+    if(value === "back") {
+      setPage((p) => Math.max(1, p - 1));
+    } else {
+      setPage(p => p + 1);
+    }
+  };
+  
+
   return (
-    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[85vh] ${userRole === "admin" ? "w-[90vw]" : "w-[97vw]"}`}>
+    <div className={`h-[75vh] font-mono ${userRole === "admin" ? "w-[90vw]" : "w-[95vw]"}`}>
+    <div className="flex items-center justify-end py-2">
+    <Link href="/pages/sales/creditmemo/add-creditmemo">
+    <button className="flex gap-4 p-3 mb-1 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
+                Make Credit Memo
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-7">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                </svg>
+            </button>
+            </Link>
+    </div>
+    <div className='flex flex-col w-full h-full bg-(--secondary) shadow-xl rounded-xl p-5'>
       {userRole === "admin" && (
         <>
         <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
-        <div className="flex w-full items-center justify-center gap-5 mb-5">
+        <div className="flex w-full items-center gap-5 mb-5">
       {/* VENDOR */}
       <select
         value={vendorInput}
@@ -210,7 +217,8 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
       </>
       )}
       <div className="flex justify-between mb-4 gap-5">
-      <DateRangePicker
+      {userRole === "admin" && (
+        <DateRangePicker
             fromDate={fromDate}
             toDate={toDate}
             onChange={(from, to) => {
@@ -218,8 +226,13 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
               setToDate(to);
             }}
           />
+          )}
         <SearchBar placeholder="Search credit memos..." onSearch={setSearch} debounce />
-        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}} />
+        <RefreshButton onRefresh={() => {
+          setSubmitStatus("loading");
+          reload();
+          setTimeout(() => setSubmitStatus(null), 3000);
+          }} />
       </div>
       {userRole === "admin" && (
       <div className="flex flex-wrap gap-2 mb-3">
@@ -253,7 +266,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                       }
                     }}
                     className={`
-                      px-3 py-1 rounded-xl shadow-xl transition-all duration:300
+                      px-2 py-1 rounded-xl shadow-xl transition-all duration:300
                       ${isActive ? "bg-(--tertiary) text-white": "bg-white hover:bg-gray-100"}
                     `}
                     >
@@ -287,7 +300,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                           setActiveInput(null);
                           setTempValue("");
                         }}
-                      className="px-3 px-1 rounded-xl bg-blue-500 text-white cursor-pointer"
+                      className="px-2 py-1 rounded-xl bg-blue-500 text-white cursor-pointer"
                       >
                         OK
                       </button>
@@ -296,7 +309,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                           setActiveInput(null);
                           setTempValue("");
                         }}
-                        className="px-3 py-1 rounded-xl bg-gray-300 text-black cursor-pointer"
+                        className="px-2 py-1 rounded-xl bg-gray-300 text-black cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -311,7 +324,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
               key={f.label}
               onClick={() => toggleFilters(f.key, f.value)}
               className={`
-                px-3 py-1 rounded-xl shadow-xl transition-all duration-200
+                px-2 py-1 rounded-xl shadow-xl transition-all duration-200
 
                 ${isActive
                   ? "bg-(--tertiary) text-white"
@@ -325,9 +338,9 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
       </div>
       )}
 
-      <div className="flex-1 overflow-auto">
-        <table className="text-left lg:text-lg">
-          <thead>
+      <div className="flex-1 overflow-auto bg-white rounded-xl shadow-xl">
+        <table className="text-left text-sm">
+          <thead className="bg-(--tertiary) sticky top-0">
             <tr className="border-b">
             {userRole === "admin" && (
               <>
@@ -382,11 +395,11 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="bg-white">
             {items.map((it: any) => (
               <tr
                 key={it._id}
-                className={`border-b hover:bg-gray-50 cursor-pointer text-sm font-bold ${it.status==="cancelled"? "text-red-500": ""}`}
+                className={`border-b hover:bg-gray-50 cursor-pointer whitespace-nowrap font-bold ${it.status==="cancelled"? "text-red-500": ""}`}
                 onClick={() => setSelected(it)}
               >
                 {userRole === "admin" && it.status === "pending" && (
@@ -411,7 +424,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
 
                     <td className="p-2 text-center">
                       <button
-                        className="bg-blue-500 text-white px-3 py-3 rounded-xl cursor-pointer hover:bg-blue-300 transition-all duration:300"
+                        className="bg-blue-400 text-blue-800 hover:text-white p-2 rounded-xl cursor-pointer hover:bg-blue-800 transition-all duration:300"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedCreditMemo(it);
@@ -419,7 +432,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                           setAssignRouteModalOpen(true);
                         }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 1 13.5 5.625v1.5c0 .621.504 1.125 1.125 1.125h1.5a3.375 3.375 0 0 1 3.375 3.375M9 15l2.25 2.25L15 12" />
                       </svg>
                       </button>
@@ -432,25 +445,25 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                     <td className="p-2 text-center">-</td>
                   </>
                 )}
-                <td className="p-2 whitespace-nowrap">{it.number}</td>
-                <td className="p-2 whitespace-nowrap capitalize">{it.client?.clientName?.toLowerCase()}</td>
-                <td className="p-2 whitespace-nowrap">{formatCurrency(it.subtotal)}</td>
-                <td className="p-2 whitespace-nowrap">{formatCurrency(it.total)}</td>
-                <td className="p-2 whitespace-nowrap">
-                  <div className={`px-2 py-2 rounded-xl text-center whitespace-nowrap ${statusColors[it.status]}`}>
+                <td className="p-2">{it.number}</td>
+                <td className="p-2 capitalize">{it.client?.clientName?.toLowerCase()}</td>
+                <td className="p-2">{formatCurrency(it.subtotal)}</td>
+                <td className="p-2">{formatCurrency(it.total)}</td>
+                <td className="p-2">
+                  <div className={`p-1 rounded-xl text-center ${statusColors[it.status]}`}>
                     {it.status.toUpperCase()}
                   </div>
                 </td>
 
                 {userRole === "admin" && (
                   <>
-                    <td className="p-2 whitespace-nowrap capitalize">
+                    <td className="p-2 capitalize">
                       {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()}
                     </td>
-                    <td className="p-2 whitespace-nowrap">{formatDate(it.createdAt)}</td>
-                    <td className="p-2 whitespace-nowrap">{formatTime(it.createdAt)}</td>
+                    <td className="p-2">{formatDate(it.createdAt)}</td>
+                    <td className="p-2">{formatTime(it.createdAt)}</td>
                     {it.routeAssigned &&
-                      <td className="p-2 whitespace-nowrap capitalize">
+                      <td className="p-2 capitalize">
                         {it.status === "received" ? (
                         <>
                           {it.routeAssigned?.code} | {it.returnedBy?.firstName?.toLowerCase()} {it.returnedBy?.lastName?.toLowerCase()}
@@ -463,23 +476,23 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                       </td>
                     }
                     {(it.routeAssigned === undefined) &&
-                      <td className="p-2 whitespace-nowrap capitalize"> 001 | {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()} </td>
+                      <td className="p-2 capitalize"> 001 | {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()} </td>
                     }
-                    <td className="p-2 whitespace-nowrap">{formatDate(it.returnedAt)}</td>
-                    <td className="p-2 whitespace-nowrap">{formatTime(it.returnedAt)}</td>
+                    <td className="p-2">{formatDate(it.returnedAt)}</td>
+                    <td className="p-2">{formatTime(it.returnedAt)}</td>
                   </>
                 )}
 
                 {it.warehouseStatus === "pending" ? (
-                  <td className="p-2 whitespace-nowrap">
+                  <td className="p-2">
                     <button
-                      className="bg-red-500 text-white px-4 py-2 rounded-xl"
+                      className="bg-red-400 text-red-800 hover:text-white hover:bg-red-800 p-2 rounded-xl cursor-pointer transition-colors duration:300"
                       onClick={(e) => {
                         e.stopPropagation();
                         setCancelTarget(it);
                       }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
                       </svg>
                     </button>
@@ -487,16 +500,17 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                 ) : (
                   <td className="p-2 text-center whitespace-nowrap">-</td>
                 )}
-
-                {userRole === "admin" && (
-                  <>
-                    <td className="p-2 whitespace-nowrap">{formatDate(it.cancelledAt)}</td>
-                    <td className="p-2 whitespace-nowrap">{formatTime(it.cancelledAt)}</td>
-                    <td className="p-2 whitespace-nowrap capitalize">
-                      {it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}
-                    </td>
-                  </>
-                )}
+                  {userRole === "admin" && it.canceledAt ? (
+                    <>
+                    <td className="p-2 text-center">{formatDate(it.cancelledAt)}</td>
+                    <td className="p-2 text-center">{formatTime(it.cancelledAt)}</td>
+                      <td className="p-2 capitalize">
+                        {it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}
+                      </td>
+                      </>
+                    ) : (
+                      <td colSpan={3} className="p-2 text-center">-</td>
+                    )}
               </tr>
             ))}
           </tbody>
@@ -516,35 +530,40 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
           </button>
         )}
         </div>
-      <div className="flex justify-end items-center gap-4 mt-4">
-        
-            <span className='mt-1'>
-              Showing {items.length} of {total}
-            </span>
-            <button
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-              </svg>
-            </button>
-    
-            <span className="px-1 py-1 text-sm lg:text-lg">
-              Page {page} of {totalPages || 1}
-            </span>
-    
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-          </div>
+        <div className="flex font-mono font-bold items-center gap-4 mt-2">
+        <span>
+          Showing {items.length} of {total} Preorders
+        </span>
+        <button
+          disabled={page === 1}
+          onClick={() => {
+            handleSetPage("back");
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </button>
+
+        <span className="px-3 py-1">
+          Page {page} of {totalPages || 1}
+        </span>
+
+        <button
+          disabled={page >= totalPages}
+          onClick={() => {
+            handleSetPage("forward")
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </button>
+      </div>
         </div>
 
       {selected && (
@@ -590,6 +609,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
           }}
         />
       )}
+    </div>
     </div>
   );
 }

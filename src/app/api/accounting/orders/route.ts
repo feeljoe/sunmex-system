@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const to = searchParams.get("to");
     const statusFilter = searchParams.get("status");
     const chainId = searchParams.get("chain");
+    const clientId = searchParams.get("client");
     const vendorId = searchParams.get("vendor");
     const search = searchParams.get("search");
 
@@ -52,6 +53,10 @@ export async function GET(req: NextRequest) {
 
       { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "client" }},
       { $unwind: "$client" },
+
+      ...(clientId && clientId !== "all"
+        ? [{ $match: { "client._id": new mongoose.Types.ObjectId(clientId) }}]
+        : []),
 
       { $lookup: { from: "chains", localField: "client.chain", foreignField: "_id", as: "chain" }},
       { $unwind: { path: "$chain", preserveNullAndEmptyArrays: true }},
@@ -93,59 +98,6 @@ export async function GET(req: NextRequest) {
           localField: "productInventories.product",
           foreignField: "_id",
           as: "productsData",
-        },
-      },
-      // COGS
-      {
-        $addFields: {
-          cogs: {
-            $sum: {
-              $map: {
-                input: "$products",
-                as: "p",
-                in: {
-                  $multiply: [
-                    "$$p.quantity",
-                    {
-                      $let: {
-                        vars: {
-                          inv: {
-                            $first: {
-                              $filter: {
-                                input: "$productInventories",
-                                as: "pi",
-                                cond: {
-                                  $eq: ["$$pi._id", "$$p.productInventory"],
-                                },
-                              },
-                            },
-                          },
-                        },
-                        in: {
-                          $let: {
-                            vars: {
-                              prod: {
-                                $first: {
-                                  $filter: {
-                                    input: "$productsData",
-                                    as: "pd",
-                                    cond: {
-                                      $eq: ["$$pd._id", "$$inv.product"],
-                                    },
-                                  },
-                                },
-                              },
-                            },
-                            in: { $ifNull: ["$$prod.unitCost", 0] },
-                          },
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          },
         },
       },
 
@@ -242,13 +194,13 @@ export async function GET(req: NextRequest) {
         $project: {
           number: 1,
           deliveredAt: 1,
+          vendorId: "$createdBy",
           total: 1,
           credits: "$creditTotal",
           paid: "$paidTotal",
           balance: 1,
           computedStatus: 1,
           payments: 1,
-          cogs: 1, // ✅ included
           isDSD: 1,
           source: { $literal: "preorder"},
           client: {
@@ -272,6 +224,10 @@ export async function GET(req: NextRequest) {
 
       { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "client" }},
       { $unwind: "$client" },
+
+      ...(clientId && clientId !== "all"
+        ? [{ $match: { "client._id": new mongoose.Types.ObjectId(clientId) }}]
+        : []),
 
       { $lookup: { from: "chains", localField: "client.chain", foreignField: "_id", as: "chain" }},
       { $unwind: { path: "$chain", preserveNullAndEmptyArrays: true }},
@@ -305,40 +261,6 @@ export async function GET(req: NextRequest) {
           localField: "products.product",
           foreignField: "_id",
           as: "productsData",
-        },
-      },
-      // COGS Calculation (Simpler for Direct Sales)
-      {
-        $addFields: {
-          cogs: {
-            $sum: {
-              $map: {
-                input: "$products",
-                as: "p",
-                in: {
-                  $multiply: [
-                    "$$p.quantity",
-                    {
-                      $let: {
-                        vars: {
-                          prod: {
-                            $first: {
-                              $filter: {
-                                input: "$productsData",
-                                as: "pd",
-                                cond: { $eq: ["$$pd._id", "$$p.product"] },
-                              },
-                            },
-                          },
-                        },
-                        in: { $ifNull: ["$$prod.unitCost", 0] },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          },
         },
       },
 
@@ -389,13 +311,13 @@ export async function GET(req: NextRequest) {
         $project: {
           number: 1,
           deliveredAt: 1,
+          vendorId: "$createdBy",
           total: 1,
           credits: "$creditTotal",
           paid: "$paidTotal",
           balance: 1,
           computedStatus: 1,
           payments: 1,
-          cogs: 1,
           isDSD: 1,
           source: { $literal: "directSale" }, // <-- Added to help frontend routing
           client: {
@@ -448,6 +370,10 @@ export async function GET(req: NextRequest) {
       },
       { $unwind: "$client" },
 
+      ...(clientId && clientId !== "all"
+        ? [{ $match: { "client._id": new mongoose.Types.ObjectId(clientId) }}]
+        : []),
+
       {
         $lookup: {
           from: "chains",
@@ -491,12 +417,14 @@ export async function GET(req: NextRequest) {
         $project: {
           number: 1,
           returnedAt: 1,
+          vendorId: "$vendor",
           total: 1,
           paymentProcessed: 1,
           client: {
             clientName: "$client.clientName",
             chain: "$client.chain",
             paymentTerm: "$paymentTerm.name",
+            dueDays: "$paymentTerm.dueDays",
           },
         },
       },
@@ -513,6 +441,8 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (err: any) {
+    console.error("FATAL API ERROR:", err.stack || err); 
+    
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

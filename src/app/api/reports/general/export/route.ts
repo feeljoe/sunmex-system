@@ -280,10 +280,11 @@ export async function GET(req: NextRequest) {
     "Delivered Qty": r.deliveredQty || 0,
     Cost: r.cost || 0,
     Price: r.price || 0,
+    "Cost Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.cost || 0) : 0,
     "Sale Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.price || 0) : 0,
     "Credit Total": r.deliveredQty < 0 ? (r.deliveredQty || 0) * (r.price || 0): 0,
-    Margin: r.price > 0 ? ((r.price || 0) - (r.cost || 0))/r.price : "Margin could not be calculated",
-    Profit: ((r.deliveredQty || 0) * (r.price || 0)) * (r.price > 0 ? ((r.price || 0) - (r.cost || 0))/r.price : 0),
+    Margin: ((r.deliveredQty || 0) * (r.price || 0)) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0,
+    Profit: ((r.deliveredQty || 0) * (r.price || 0)) * (((r.deliveredQty || 0) * (r.price || 0)) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0),
     Charge: r.charge || 0,
     "No Charge": r.noCharge || 0,
     "Credit Memo": r.creditMemo || 0,
@@ -291,20 +292,33 @@ export async function GET(req: NextRequest) {
   }));
   console.log("Rows length: ", rows.length);
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "General Report");
+  // 1. Extract headers dynamically from the first row
+  if (rows.length === 0) {
+    return new NextResponse("No data found for this date range.", { status: 404 });
+  }
+  const headers = Object.keys(rows[0]);
 
-  const buffer = XLSX.write(wb, {
-    type: "buffer",
-    bookType: "xlsx",
-  });
-  
-  return new NextResponse(buffer, {
+  // 2. Build the CSV string manually (super fast, very low memory)
+  const csvRows = [];
+  csvRows.push(headers.map(h => `"${h}"`).join(",")); // Header row
+
+  for (const row of rows) {
+    const values = headers.map(header => {
+      const val = row[header as keyof typeof row];
+      // Escape quotes and wrap in quotes to handle commas inside text
+      const cleanVal = String(val ?? "").replace(/"/g, '""');
+      return `"${cleanVal}"`;
+    });
+    csvRows.push(values.join(","));
+  }
+
+  const csvString = csvRows.join("\n");
+
+  // 3. Return the CSV file directly
+  return new NextResponse(csvString, {
     headers: {
-      "Content-Disposition": 'attachment; filename="general-report.xlsx"',
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="general-report.csv"',
+      "Content-Type": "text/csv; charset=utf-8",
     },
   });
 }

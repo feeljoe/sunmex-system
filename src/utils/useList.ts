@@ -19,6 +19,13 @@ export function useList<T = any>(
 
 
   const fetchData = async () => {
+    if (!baseUrl) {
+      setItems([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const params = new URLSearchParams();
     

@@ -10,6 +10,7 @@ import CreditMemoDetailsModal from "../modals/CreditMemoDetailsModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import DirectSaleDetailsModal from "../modals/DirectSaleDetailsModal";
 import { DateTime } from "luxon";
+import { formatCurrency } from "@/utils/format";
 
 export function GeneralReportsTable(){
     const statusColors: Record<string, string> = {
@@ -37,11 +38,21 @@ export function GeneralReportsTable(){
     const [selectedCreditMemo, setSelectedCreditMemo] = useState<any | null>(null);
     const [selectedDirectSale, setSelectedDirectSale] = useState<any | null>(null);
     const [loadingRow, setLoadingRow] = useState<string | null>(null);
-    const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
+    const [submitStatus, setSubmitStatus] = useState<"loading"| "success" | "error" | null>(null);
+    const [message, setMessage] = useState("");
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportType, setExportType] = useState<"general" | "bankDeposits" | "">("");
     const [exportStep, setExportStep] = useState<1 | 2>(1);
+
+    const handleSetPage = (value:string) => {
+        setSubmitStatus("loading");
+        if(value === "back") {
+          setPage((p) => Math.max(1, p - 1));
+        } else {
+          setPage(p => p + 1);
+        }
+      };
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -76,11 +87,12 @@ export function GeneralReportsTable(){
     });
 
     useEffect(() => {
-        setTimeout(() => {setSubmitStatus(null);},3000);
-      }, [reload]);
+        setPage(1);
+    }, [typeFilter, statusFilter, vendorId, driverId, warehouseId]);
 
     const handleExport = async () => {
         try {
+          setSubmitStatus("loading");
           const params = new URLSearchParams({
             page: "1",
             limit: "1000000000", // export ALL filtered data
@@ -99,7 +111,9 @@ export function GeneralReportsTable(){
             : `/api/reports/bankDeposits/export?${params.toString()}`;
           const res = await fetch(endpoint);
           if (!res.ok) throw new Error("Export failed");
-      
+          
+          setSubmitStatus("success");
+          setMessage("Export completed!");
           const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
       
@@ -112,16 +126,16 @@ export function GeneralReportsTable(){
           };
           
           const prefix = exportType === "general" ? "general-report" : "bank-deposits-report";
-          let fileName = `${prefix}.xlsx`;
+          let fileName = `${prefix}.csv`;
           
           if (fromDate && toDate) {
             if (fromDate === toDate) {
-              fileName = `${prefix}-${formatDateForFile(fromDate)}.xlsx`;
+              fileName = `${prefix}-${formatDateForFile(fromDate)}.csv`;
             } else {
-              fileName = `${prefix}-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.xlsx`;
+              fileName = `${prefix}-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.csv`;
             }
           } else if (fromDate) {
-            fileName = `${prefix}-from-${formatDateForFile(fromDate)}.xlsx`;
+            fileName = `${prefix}-from-${formatDateForFile(fromDate)}.csv`;
           }
           
           a.download = fileName;
@@ -132,7 +146,8 @@ export function GeneralReportsTable(){
           window.URL.revokeObjectURL(url);
         } catch (err) {
           console.error(err);
-          alert("Export failed");
+          setSubmitStatus("error");
+          setMessage(`Export failed: ${err}`);
         }
       };
 
@@ -169,8 +184,6 @@ export function GeneralReportsTable(){
         }
     }
     const totalPages = Math.max(1, Math.ceil(total/limit));
-    const formatCurrency = (v?: number) => 
-        v !== null ? `$${v?.toFixed(2)}` : "-";
     const formatDate = (v?: string) =>
         v ? new Date(v).toLocaleDateString(): "-";
     const formatTime = (v?:string) =>
@@ -181,36 +194,9 @@ export function GeneralReportsTable(){
             })
             : "-";
     return (
-        <div className="bg-(--secondary) rounded-lg shadow-xl p-6 flex flex-col h-[75vh] w-[90vw]">
-            <div className="w-full flex justify-end mb-5">
-            <button
-                    onClick={() => {
-                        setIsExportModalOpen(true);
-                        setExportStep(1); // Ensure we start on step 1
-                    }}
-                    className="px-2 py-2 bg-green-600 text-white rounded-xl shadow-xl cursor-pointer hover:bg-green-300 transition-all duration:300"
-                    >
-                    Export Report
-                </button>
-            </div>
-            <div className="flex justify-between mb-4 gap-5">
-                <DateRangePicker
-                    fromDate={fromDate}
-                    toDate={toDate}
-                    onChange={(from, to) => {
-                    setFromDate(from);
-                    setToDate(to);
-                    }}
-                />
-                <SearchBar
-                    placeholder="Search Reports..."
-                    onSearch={setSearch}
-                    debounce
-                />
-                <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}} />
-            </div>
-            <p className="border-b text-center text-xl font-bold mb-4">Filters</p>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+        <div className="bg-(--secondary) rounded-lg shadow-xl p-5 flex flex-col h-[75vh] w-[90vw]">
+            <p className="border-b text-center text-xl font-bold mb-5 font-mono">Filters</p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-5 mb-5 font-mono">
                 <select onChange={(e) => setTypeFilter(e.target.value)} className="p-2 rounded-xl bg-white h-8 cursor-pointer">
                     <option value="">All Types</option>
                     <option value="preorder">Preorders</option>
@@ -220,9 +206,6 @@ export function GeneralReportsTable(){
 
                 <select onChange={(e) => setStatusFilter(e.target.value)} className="p-2 rounded-xl bg-white h-8 cursor-pointer">
                     <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="assigned">Assigned</option>
-                    <option value="ready">Ready</option>
                     <option value="delivered">Delivered</option>
                     <option value="received">Received</option>
                     <option value="cancelled">Cancelled</option>
@@ -256,10 +239,42 @@ export function GeneralReportsTable(){
                 </select>
 
                 </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex justify-between mb-5 gap-5">
+                <DateRangePicker
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    onChange={(from, to) => {
+                    setFromDate(from);
+                    setToDate(to);
+                    }}
+                />
+                <SearchBar
+                    placeholder="Search Reports..."
+                    onSearch={setSearch}
+                    debounce
+                />
+                <RefreshButton onRefresh={() => {
+                        setSubmitStatus("loading");
+                        reload();
+                        setTimeout(() => setSubmitStatus(null), 2000);
+                    }} 
+                />
+            <button
+                    onClick={() => {
+                        setIsExportModalOpen(true);
+                        setExportStep(1); // Ensure we start on step 1
+                    }}
+                    className="px-2 py-2 bg-green-400 text-green-800 hover:text-white rounded-xl shadow-xl cursor-pointer hover:bg-green-800 transition-all duration:300"
+                    >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+                    </svg>
+                </button>
+            </div>
+            <div className="flex-1 overflow-auto rounded-xl shadow-xl">
                 <table className="w-full text-left text-sm lg:text-md">
-                    <thead className="">
-                        <tr className="sticky border-b whitespace-nowrap text-center">
+                    <thead className="sticky top-0 bg-(--tertiary)">
+                        <tr className="border-b font-mono whitespace-nowrap">
                             <th className="p-2">Type</th>
                             <th className="p-2">Number #</th>
                             <th className="p-2">Client</th>
@@ -279,7 +294,7 @@ export function GeneralReportsTable(){
                             <th className="p-2">Cancelled By</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="bg-white font-mono font-bold">
                         {items.map((it: any) => (
                             <tr key={it._id} onClick={() => handleRowClick(it)} className="border-b hover:bg-gray-100 cursor-pointer whitespace-nowrap">
                                 <td className="p-2 capitalize">
@@ -289,20 +304,20 @@ export function GeneralReportsTable(){
                                 <td className="p-2">{it.number}</td>
                                 <td className="p-2 capitalize">{it.clientName?.toLowerCase()}</td>
                                 <td className="p-2 text-right">{(it.type === "preorder" || it.type ==="creditMemo") ? formatCurrency(it.subtotal): formatCurrency(it.total)}</td>
-                                <td className="p-2 text-right">{formatCurrency(it.total)}</td>
+                                <td className={`p-2 text-right ${((it.subtotal - it.total) < 0.01 && (it.type === "preorder")) || (it.type ==="directSale") ? "text-green-600" : "text-red-600"}`}>{formatCurrency(it.total)}</td>
                                 <td className="p-2 text-center">
                                     <div className={`px-2 py-2 rounded-xl text-center
                                         ${statusColors[it.status]}`}>
                                             {it.status?.toUpperCase()}
                                     </div>
                                 </td>
-                                <td className="p-2 text-center">{it.createdBy}</td>
+                                <td className="p-2">{it.createdBy}</td>
                                 <td className="p-2 text-center">{formatDate(it.createdAt)}</td>
                                 <td className="p-2 text-center">{formatTime(it.createdAt)}</td>
-                                <td className="p-2 text-center">{it.assembledBy}</td>
+                                <td className="p-2">{it.assembledBy}</td>
                                 <td className="p-2 text-center">{formatDate(it.assembledAt)}</td>
                                 <td className="p-2 text-center">{formatTime(it.assembledAt)}</td>
-                                {it.handledCode && (<td className="p-2 text-center">{it.handledCode} | {it.handledBy}</td>)}
+                                {it.handledCode && (<td className="p-2">{it.handledCode} | {it.handledBy}</td>)}
                                 {!it.handledCode && (<td className="p-2 text-center">-</td>)}
                                 <td className="p-2 text-center">{formatDate(it.completedAt)}</td>
                                 <td className="p-2 text-center">{formatTime(it.completedAt)}</td>
@@ -313,25 +328,42 @@ export function GeneralReportsTable(){
                     </tbody>
                 </table>
             </div>
-            <div className="flex justify-end items-center gap-4 mt-4">
-                <span>Showing {items.length} of {total}</span>
-                <button
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="px-2 py-1 bg-(--quarteary) text-white rounded-xl cursor-pointer"
-                >
-                    Prev  
-                </button>
-                <span>
-                    Page {page} of {totalPages}
-                </span>
-                <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="px-2 py-1 bg-(--quarteary) text-white rounded-xl cursor-pointer"
-                >
-                    Next
-                </button>
+            <div className="flex justify-between items-center mt-4">
+            <div className="flex w-full justify-end font-mono font-bold items-center gap-4">
+        <span>
+          Showing {items.length} of {total} products
+        </span>
+        <button
+          disabled={page === 1}
+          onClick={() => {
+            handleSetPage("back");
+            setTimeout(() => {setSubmitStatus(null);}, 1000);
+            }}
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </button>
+
+        <span className="px-3 py-1">
+          Page {page} of {totalPages || 1}
+        </span>
+
+        <button
+          disabled={page >= totalPages}
+          onClick={() => {
+            handleSetPage("forward");
+            setTimeout(() => {setSubmitStatus(null);}, 1000);
+          }
+        }
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </button>
+      </div>
             </div>
             {/* Export Selection Modal */}
             {isExportModalOpen && (
@@ -447,8 +479,11 @@ export function GeneralReportsTable(){
             {submitStatus && (
                 <SubmitResultModal
                     status={submitStatus}
-                    message={""}
-                    onClose={() => setSubmitStatus(null)}
+                    message={message}
+                    onClose={() => {
+                        setSubmitStatus(null);
+                        setIsExportModalOpen(false);
+                    }}
                     collection="General Reports"
                 />
             )}

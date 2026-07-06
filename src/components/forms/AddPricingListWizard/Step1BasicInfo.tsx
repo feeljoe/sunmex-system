@@ -44,7 +44,11 @@ export function Step1BasicInfo({ form, setForm }: any) {
               {
                 _id: product._id,
                 name: product.name,
+                brand: product.brand?.name,
                 sku: product.sku,
+                weight: product.weight,
+                uom: product.unit,
+                caseSize: product.caseSize,
               },
             ],
           };
@@ -83,8 +87,16 @@ export function Step1BasicInfo({ form, setForm }: any) {
     return (
       <div className="mb-10">
         <div className='grid grid-cols gap-3 pt-5'>
-            <input name="name" value={form.name} onChange={handleChange} className="peer bg-white p-3 rounded-xl shadow-xl text-gray-700 h-15" placeholder="Pricing List Name" required={true}/>
-            <label className="flex items-center justify-center w-full h-15 text-xl mt-5 gap-5">Applies to Brands?
+          <label className="text-xl">Pricing List Name</label>
+            <input 
+              name="name" 
+              value={form.name} 
+              onChange={handleChange} 
+              className="peer bg-white p-3 rounded-xl shadow-xl text-gray-700 h-10" 
+              placeholder="Pricing List Name" 
+              required={true}
+            />
+            <label className="flex items-center justify-center w-full h-10 text-xl mt-5 gap-5">Applies to Brands?
                 <input type="checkbox" checked={isBrand} onChange={toggleAppliesTo} className="w-8 h-8"/>
             </label>
             {!isBrand && (
@@ -94,7 +106,7 @@ export function Step1BasicInfo({ form, setForm }: any) {
                             placeholder="Search Product"
                             value={productSearch}
                             onChange={(e) => setProductSearch(e.target.value)}
-                            className="bg-white p-3 rounded w-full h-15 text-xl"
+                            className="bg-white p-3 rounded-xl w-full h-10 text-xl"
                         />
                         {productSearch && (
                             <div className="flex flex-col w-full bg-white rounded shadow-xl max-h-60 overflow-auto z-10">
@@ -111,7 +123,7 @@ export function Step1BasicInfo({ form, setForm }: any) {
                                     }}
                                     className={`p-2 hover:bg-gray-100 cursor-pointer ${alreadyAdded ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-100"}`}
                                 >
-                                    <div className="font-medium">{product.name}</div>
+                                    <div className="font-medium">{product.brand?.name} {product.name} {`${product.weight? product.weight: ""}${product.unit? product.unit?.toUpperCase(): ""} ${product.caseSize? `(${product.caseSize} Units Per Case)`: ""}`}</div>
                                     <div className="text-sm text-gray-500">{product.sku}</div>
                                 </div>
                             );
@@ -119,17 +131,22 @@ export function Step1BasicInfo({ form, setForm }: any) {
                     </div>
                     )}
                     </div>
-                    <ul className="space-y-2">
+                    <ul className="flex justify-between gap-4">
                         {form.products.map((p: any) => {
                             return (
-                            <li key={p._id} className="flex justify-between items-center h-15 bg-gray-100 p-2 rounded-lg">
-                                {p.name}
-                                <button onClick={() => removeItem(p._id, "product")} className="flex items-center justify-center bg-red-500 text-white px-2 py-2 rounded-xl">
+                              <>
+                                <li key={p._id} className="flex w-full justify-between items-center h-10 bg-gray-100 p-2 rounded-lg">
+                                    {p.brand} {p.name} {p.weight? p.weight: ""}{p.uom? p.uom?.toUpperCase(): ""} ({p.caseSize? p.caseSize + " Units Per Case": ""})
+                                </li>
+                                <li key={`${p._id}+1`} className="flex w-60 justify-between items-center h-10 bg-gray-100 p-2 rounded-lg">
+                                  Price
+                                </li>
+                                <button onClick={() => removeItem(p._id, "product")} className="h-10 bg-red-500 p-2 text-white rounded-xl">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                     </svg>
                                 </button>
-                            </li>
+                              </>
                             );
                         })}
                     </ul>

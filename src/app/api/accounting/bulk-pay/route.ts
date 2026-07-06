@@ -26,15 +26,15 @@ export async function PATCH(req: Request) {
         cm.paymentProcessed = true;
         await cm.save();
       }
+
+      if (discountPercent > 0) {
+        const discountAmount = doc.total * (discountPercent/100);
+        doc.payments.push({type: "discount", amount: discountAmount});
+      }
     
        const paidSoFar = doc.payments?.reduce((s: any, p: any) => s + p.amount, 0);
-       let targetNet = doc.total;
 
-       if (discountPercent > 0) {
-        targetNet = targetNet - (targetNet * (discountPercent / 100));
-       }
-
-       let currentBalance = Math.max(targetNet - paidSoFar, 0);
+       let currentBalance = Math.max(doc.total - paidSoFar, 0);
 
        if (currentBalance > 0 && remainingUnlinkedCredit > 0) {
         const applyCredit = Math.min(currentBalance, remainingUnlinkedCredit);
@@ -58,7 +58,7 @@ export async function PATCH(req: Request) {
         }
           
           const finalPaidSoFar = doc.payments.reduce((s: any, p: any) => s + p.amount, 0);
-          doc.paymentStatus = finalPaidSoFar >= (targetNet - 0.01) ? "paid" : "pending";
+          doc.paymentStatus = finalPaidSoFar >= (doc.total - 0.01) ? "paid" : "pending";
           
           await doc.save();
        };

@@ -10,6 +10,7 @@ export function WarehouseLoadRequestsTable({ user }: any) {
   const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
   const [selectedStatus, setSelectedStatus] =
     useState<"all" | "pending" | "completed">("pending");
+    const [viewMode, setViewMode] = useState<"pending" | "completed">("pending");
 
   const [selectedRoute, setSelectedRoute] =
     useState<string>("");
@@ -41,25 +42,24 @@ export function WarehouseLoadRequestsTable({ user }: any) {
     v ? new Date(v).toLocaleDateString() : "-";
 
   const statusColors: Record<string, string> = {
-    assigned: "bg-purple-500",
-    prepared: "bg-green-600",
+    assigned: "bg-purple-400 text-purple-800",
+    prepared: "bg-green-400 text-green-800",
   };
 
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);}, 3000);
-  }, [reload]);
+  const handleViewMode = (value: "pending" | "completed") => {
+    if(viewMode === value) return;
+    setViewMode(value);
+};
 
   return (
     <>
-      <div className="bg-(--secondary) rounded-xl shadow-xl p-6 space-y-4 flex flex-col h-[75vh] w-[90vw]">
+      <div className="bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col h-[80vh] w-[90vw]">
 
         {/* HEADER */}
-        <div className="flex items-center justify-between">
-
-          <div className="flex gap-6 items-center">
+        <div className="flex items-center justify-between mb-4">
 
             {/* ROUTE FILTER */}
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center h-10">
               <label className="font-semibold">
                 Route:
               </label>
@@ -69,12 +69,12 @@ export function WarehouseLoadRequestsTable({ user }: any) {
                 onChange={(e) =>
                   setSelectedRoute(e.target.value)
                 }
-                className="rounded-xl bg-white shadow-xl px-3 py-2"
+                className="rounded-xl font-mono bg-white shadow-xl p-2 h-10"
               >
                 <option value="">All routes</option>
                 {routes.map((r: any) => (
-                  <option key={r._id} value={r._id}>
-                    {r.code} {r.user.firstName}{" "}
+                  <option key={r._id} value={r._id} className="font-mono">
+                    {r.code} | {r.user.firstName}{" "}
                     {r.user.lastName}
                   </option>
                 ))}
@@ -82,54 +82,57 @@ export function WarehouseLoadRequestsTable({ user }: any) {
             </div>
 
             {/* STATUS FILTER */}
-            <div className="flex gap-2 items-center">
-              <label className="font-semibold">
-                View:
-              </label>
+            <div className="flex gap-2 p-1 bg-gray-200 rounded-xl">
+                                <button
+                                    onClick={() => { 
+                                            setSubmitStatus("loading");
+                                            setSelectedStatus("pending");
+                                            handleViewMode("pending");
+                                            setTimeout(() => setSubmitStatus(null), 1000);
+                                    }}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "pending" ? "bg-white shadow-md text-blue-800": "text-gray-500 hover:bg-gray-400"}`}>
+                                        Pending
+                                </button>
+                                <button
+                                    onClick={() => { 
+                                        setSubmitStatus("loading");
+                                        setSelectedStatus("completed");
+                                        handleViewMode("completed");
+                                        setTimeout(() => setSubmitStatus(null), 1000);
+                                    }}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "completed" ? "bg-white shadow-md text-green-800": "text-gray-500 hover:bg-gray-400"}`}>
+                                        Completed
+                                </button>
+                        </div>
 
-              {["pending", "completed"].map((view) => (
-                <button
-                  key={view}
-                  onClick={() =>
-                    setSelectedStatus(view as any)
-                  }
-                  className={`px-3 py-1 rounded-xl capitalize ${
-                    selectedStatus === view
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-200"
-                  }`}
-                >
-                  {view}
-                </button>
-              ))}
-            </div>
-
-          </div>
-
-          <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}} />
+          <RefreshButton onRefresh={() => {
+            setSubmitStatus("loading");
+            reload();
+            setTimeout(() => setSubmitStatus(null), 3000);
+            }} />
         </div>
 
         {/* TABLE */}
-        <div className="overflow-y-auto">
+        <div className="overflow-auto h-full w-full bg-white shadow-xl rounded-xl">
           <table className="w-full text-left">
-            <thead>
+            <thead className="bg-(--tertiary) sticky top-0">
               <tr className="border-b">
                 <th className="p-2">Vendor</th>
                 <th className="p-2">Route</th>
-                <th className="p-2">Items</th>
-                <th className="p-2">Status</th>
-                <th className="p-2">Date</th>
-                <th className="p-2"></th>
+                <th className="p-2 text-right">Items</th>
+                <th className="p-2 text-center">Status</th>
+                <th className="p-2 text-center">Date</th>
+                <th className="p-2 text-center">Action</th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="bg-white">
               {loadRequests.map((lr: any) => (
                 <tr
                   key={lr._id}
-                  className={`border-b hover:bg-gray-50 ${
+                  className={`border-b hover:bg-gray-100 ${
                     lr.status === "prepared"
-                      ? "bg-green-50"
+                      ? "bg-green-100"
                       : ""
                   }`}
                 >
@@ -141,7 +144,7 @@ export function WarehouseLoadRequestsTable({ user }: any) {
                     {lr.routeAssigned?.code} | {lr.routeAssigned?.user?.firstName} {lr.routeAssigned?.user?.lastName}
                   </td>
 
-                  <td className="p-2">
+                  <td className="p-2 text-right">
                     {lr.products.reduce(
                       (sum: number, p: any) =>
                         sum + p.approvedQuantity,
@@ -149,17 +152,17 @@ export function WarehouseLoadRequestsTable({ user }: any) {
                     )}
                   </td>
 
-                  <td className="p-2">
+                  <td className="p-2 text-center">
                     <div
-                        className={`px-2 py-2 rounded-xl text-center text-sm text-white font-bold ${
-                        statusColors[lr.status] || "bg-gray-500"
+                        className={`p-1 rounded-xl text-center font-bold ${
+                        statusColors[lr.status] || "bg-gray-400"
                         }`}
                     >
                         {lr.status?.toUpperCase()}
                     </div>
                 </td>
 
-                  <td className="p-2">
+                  <td className="p-2 text-center">
                     {formatDate(lr.createdAt)}
                   </td>
 
@@ -168,10 +171,10 @@ export function WarehouseLoadRequestsTable({ user }: any) {
                       onClick={() =>
                         setSelectedLoadRequest(lr)
                       }
-                      className={`px-5 py-3 rounded-xl transition-all duration-300 ${
+                      className={`p-2 rounded-xl transition-all duration:300 ${
                         lr.status === "assigned"
-                          ? "bg-blue-500 text-white hover:bg-blue-300"
-                          : "bg-yellow-500 text-white hover:bg-yellow-300"
+                          ? "bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800"
+                          : "bg-yellow-400 text-yellow-800 hover:text-white hover:bg-yellow-800"
                       }`}
                     >
                       {lr.status === "assigned"

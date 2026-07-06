@@ -12,8 +12,20 @@ export async function GET(req: Request) {
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
+    const brand = searchParams.get("brand");
+    const type = searchParams.get("type");
 
     let matchStage: any= {};
+
+    // Check if brand exists AND is a valid ObjectId, then cast it
+    if (brand && /^[0-9a-fA-F]{24}$/.test(brand)) {
+      matchStage.brand = new mongoose.Types.ObjectId(brand);
+    }
+
+    // Check if type exists, cast it, and assign it to "productType"
+    if (type && /^[0-9a-fA-F]{24}$/.test(type)) {
+      matchStage.productType = new mongoose.Types.ObjectId(type);
+    }
 
     if(search){
       const brands = await Brand.find({

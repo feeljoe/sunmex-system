@@ -143,7 +143,7 @@ export function DateRangePicker({ fromDate, toDate, onChange }: Props) {
   function renderCalendar(days: Date[], monthDate: Date) {
 
     return (
-      <div className="w-60">
+      <div className="w-60 font-mono">
 
         <div className="grid grid-cols-7 text-center text-xs mb-1">
           {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
@@ -182,11 +182,11 @@ export function DateRangePicker({ fromDate, toDate, onChange }: Props) {
   }
 
   return (
-    <div ref={containerRef} className="relative whitespace-nowrap">
+    <div ref={containerRef} className="whitespace-nowrap">
 
       <button
         onClick={() => setOpen(o => !o)}
-        className="rounded-xl shadow-xl bg-white px-3 py-2 text-sm flex gap-2 cursor-pointer hover:bg-(--tertiary) transtition-all duration:300"
+        className="h-full items-center rounded-xl shadow-xl font-bold font-mono bg-white px-2 py-2 gap-2 text-sm flex cursor-pointer hover:bg-blue-800 hover:text-white transtition-all duration:300"
       >
         {fromDate && toDate 
           ? `${formatDisplayDate(fromDate)} → ${formatDisplayDate(toDate)}` 
@@ -196,18 +196,6 @@ export function DateRangePicker({ fromDate, toDate, onChange }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 2.994v2.25m10.5-2.25v2.25m-14.252 13.5V7.491a2.25 2.25 0 0 1 2.25-2.25h13.5a2.25 2.25 0 0 1 2.25 2.25v11.251m-18 0a2.25 2.25 0 0 0 2.25 2.25h13.5a2.25 2.25 0 0 0 2.25-2.25m-18 0v-7.5a2.25 2.25 0 0 1 2.25-2.25h13.5a2.25 2.25 0 0 1 2.25 2.25v7.5m-6.75-6h2.25m-9 2.25h4.5m.002-2.25h.005v.006H12v-.006Zm-.001 4.5h.006v.006h-.006v-.005Zm-2.25.001h.005v.006H9.75v-.006Zm-2.25 0h.005v.005h-.006v-.005Zm6.75-2.247h.005v.005h-.005v-.005Zm0 2.247h.006v.006h-.006v-.006Zm2.25-2.248h.006V15H16.5v-.005Z" />
             </svg>
         }
-
-        {(fromDate || toDate) && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange("", "");
-            }}
-            className="text-red-500 cursor-pointer"
-          >
-            ✕
-          </span>
-        )}
       </button>
 
       <AnimatePresence>
@@ -216,23 +204,23 @@ export function DateRangePicker({ fromDate, toDate, onChange }: Props) {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="absolute z-[9999] bg-white shadow-xl rounded-xl p-4 mt-2"
+            className="absolute z-[9999] bg-(--tertiary) border border-(--tertiary) shadow-xl rounded-xl px-3 py-1 mt-1"
           >
 
-            <div className="flex flex-col gap-4 items-center">
+            <div className="flex flex-col gap-4 items-center font-mono w-130">
 
               {/* PRESETS */}
-              <div className="flex gap-4 text-sm font-bold">
-                <button onClick={() => applyPreset("today")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">Today</button>
-                <button onClick={() => applyPreset("yesterday")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">Yesterday</button>
-                <button onClick={() => applyPreset("last7")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">Last 7 days</button>
-                <button onClick={() => applyPreset("last30")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">Last 30 days</button>
-                <button onClick={() => applyPreset("ytd")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">Year to date</button>
-                <button onClick={() => applyPreset("thisMonth")} className="bg-(--secondary) px-3 py-1 whitespace-nowrap rounded-xl shadow-xl cursor-pointer">This month</button>
+              <div className="flex flex-wrap justify-center gap-4 text-sm text-blue-800 font-bold">
+                <button onClick={() => applyPreset("today")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">Today</button>
+                <button onClick={() => applyPreset("yesterday")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">Yesterday</button>
+                <button onClick={() => applyPreset("last7")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">Last 7 days</button>
+                <button onClick={() => applyPreset("last30")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">Last 30 days</button>
+                <button onClick={() => applyPreset("ytd")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">Year to date</button>
+                <button onClick={() => applyPreset("thisMonth")} className="bg-blue-400 border border-blue-500 px-2 py-1 whitespace-nowrap hover:bg-blue-800 hover:text-white transition-colors duration:500 rounded-xl shadow-xl cursor-pointer">This month</button>
               </div>
 
               {/* DUAL CALENDAR */}
-              <div className="flex gap-6 border p-3 rounded-xl">
+              <div className="flex gap-4 bg-white p-2 rounded-xl mb-3 shadow-xl">
 
                 <div>
                   <div className="flex justify-between mb-2">

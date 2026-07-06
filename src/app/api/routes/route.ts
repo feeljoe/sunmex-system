@@ -38,7 +38,9 @@ export async function GET(req: Request) {
       limit
     });
   }catch(err: any){
-    return NextResponse.json({ error: String(err.message) }, {status: 500 });
+    console.error(" FATAL API ERROR:", err.stack || err); 
+    
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 

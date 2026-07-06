@@ -74,32 +74,28 @@ export default function WarehouseReturnsTable({ user }: any) {
             .sort((a, b) => a.routeCode.toLowerCase().localeCompare(b.routeCode.toLowerCase()));
     }, [returns, selectedRouteFilter, viewMode]);
 
-    useEffect(() => {
-        setTimeout(() => { setSubmitStatus(null); }, 3000);
-    }, [reload]);
-
     const handleViewMode = (value: "pending" | "completed")=> {
         if(viewMode === value) return;
         setViewMode(value);
     };
     return (
-        <div className="p-4 h-full">
+        <div className="p-4 h-full font-mono">
             <h1 className="text-3xl font-bold text-center mb-6 dark:text-white">Warehouse Returns (By Driver)</h1>
 
             <div className="bg-(--secondary) rounded-xl shadow-xl p-6 space-y-4 flex flex-col h-[75vh] w-[90vw]">
                 <div className="flex items-center justify-between">
                     <div className="flex gap-6 items-center">
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-2 items-center h-10">
                             <label className="font-semibold">Filter Driver:</label>
                             <select 
                                 value={selectedRouteFilter}
                                 onChange={(e) => setSelectedRouteFilter(e.target.value)}
-                                className="rounded-xl bg-white shadow-xl px-3 py-2 outline-hidden"
+                                className="rounded-xl h-10 bg-white shadow-xl p-2 outline-hidden"
                             >
                                 <option value="">All Pending Drivers</option>
                                 {routes.map((r: any) => (
                                     <option key={r._id} value={r._id}>
-                                        {r.code} {r.user?.firstName} {r.user?.lastName}
+                                        {r.code} | {r.user?.firstName} {r.user?.lastName}
                                     </option>
                                 ))}
                             </select>
@@ -107,23 +103,27 @@ export default function WarehouseReturnsTable({ user }: any) {
                         <div className="flex gap-2 p-1 bg-gray-200 rounded-xl">
                                 <button
                                     onClick={() => { handleViewMode("pending");}}
-                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "pending" ? "bg-white shadow-md text-blue-600": "text-gray-500 hover:bg-gray-300"}`}>
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "pending" ? "bg-white shadow-md text-blue-800": "text-gray-500 hover:bg-gray-400"}`}>
                                         Pending
                                 </button>
                                 <button
                                     onClick={() => { handleViewMode("completed");}}
-                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "completed" ? "bg-white shadow-md text-green-600": "text-gray-500 hover:bg-gray-300"}`}>
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "completed" ? "bg-white shadow-md text-green-800": "text-gray-500 hover:bg-gray-400"}`}>
                                         Completed
                                 </button>
                         </div>
                     </div>
 
-                    <RefreshButton onRefresh={() => { reload(); setSubmitStatus("loading"); }}/>
+                    <RefreshButton onRefresh={() => {
+                        setSubmitStatus("loading"); 
+                        reload();
+                        setTimeout(() => setSubmitStatus(null), 3000);
+                        }}/>
                 </div>
 
-                <div className="overflow-y-auto bg-white rounded-xl shadow-sm flex-1">
-                    <table className="w-full text-left">
-                        <thead className="sticky top-0 bg-gray-100 z-10">
+                <div className="overflow-auto bg-white rounded-xl shadow-xl flex-1">
+                    <table className="w-full text-left text-sm">
+                        <thead className="sticky top-0 bg-(--tertiary) z-10">
                             <tr className="border-b">
                                 <th className="p-4">Driver / Route</th>
                                 <th className="p-4">Pending CM Documents</th>
@@ -138,27 +138,27 @@ export default function WarehouseReturnsTable({ user }: any) {
                                 </tr>
                             ): (
                                 groupedRoutes.map((routeGroup: any) => (
-                                    <tr key={routeGroup.routeId} className="border-b hover:bg-gray-50">
-                                        <td className="p-4 font-bold text-lg capitalize">{routeGroup.routeName}</td>
-                                        <td className="p-4">
-                                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full">
+                                    <tr key={routeGroup.routeId} className="border-b hover:bg-gray-100">
+                                        <td className="p-2 font-bold text-lg capitalize">{routeGroup.routeName}</td>
+                                        <td className="p-2">
+                                            <span className="bg-blue-400 text-blue-800 font-bold p-2 rounded-full">
                                                 {routeGroup.creditMemos.length + routeGroup.preorders.length} Docs
                                             </span>
                                         </td>
-                                        <td className="p-4 text-gray-600 font-semibold">
+                                        <td className="p-2 text-gray-700 font-semibold">
                                             {routeGroup.totalExpectedUI} Items
                                         </td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-2 text-right">
                                         {viewMode === "pending" ? (
                                                 <button
-                                                    className="px-6 py-3 text-sm font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-500 shadow-md cursor-pointer"
+                                                    className="p-2 text-sm font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 shadow-md cursor-pointer transition-colors duration:300"
                                                     onClick={() => {setSelectedRouteToReceive(routeGroup);} }
                                                 >
                                                     Receive All
                                                 </button>
                                             ) : (
                                                 <button
-                                                    className="px-6 py-3 text-sm font-bold rounded-xl bg-green-600 text-white hover:bg-green-500 shadow-md cursor-pointer"
+                                                    className="p-2 text-sm font-bold rounded-xl bg-green-400 text-green-800 hover:text-white hover:bg-green-800 shadow-md cursor-pointer transition-colors duration:300"
                                                     onClick={() => {setSelectedRouteToView(routeGroup);}}
                                                 >
                                                     View Summary

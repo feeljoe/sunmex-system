@@ -315,21 +315,6 @@ autoTable(doc, {
   tableWidth: 150,
   margin: { left: pageWidth - 190 },
 });
-/* autoTable(doc, {
-  startY: baseY,
-  theme: "grid",
-  head: [[isDelivered ? "Total" : "Subtotal"]],
-  body: [[`${formatCurrency(amountToShow)}`]],
-  styles: { fontSize: 8, halign: "center" },
-  headStyles: {
-    fillColor: [22, 163, 74],
-    textColor: 255,
-    fontStyle: "bold",
-    halign: "center",
-  },
-  tableWidth: 150,
-  margin: { left: pageWidth - 190 },
-}); */
 
 // -------------------
 // SIGNATURE (LEFT SIDE)

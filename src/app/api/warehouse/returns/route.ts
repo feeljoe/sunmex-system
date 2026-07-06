@@ -24,8 +24,12 @@ export async function GET(req: Request) {
     const cmQuery: any = {
       status: "received", // Only show CMs the driver has already processed
       directSale: null, // Ignore CMs that have a direct sale ID attached to them
+      routeAssigned: {$exists: true, $ne: null},
       $or: [
-        { warehouseStatus: "pending"},
+        { 
+          warehouseStatus: "pending",
+          returnedAt: {$gte: startOfDay, $lte: endOfDay }
+        },
         {
           warehouseStatus: "completed",
           warehouseReceivedAt: {$gte: startOfDay, $lte: endOfDay }
@@ -59,13 +63,16 @@ export async function GET(req: Request) {
           status: cm.warehouseStatus === "completed" ? "completed" : "pending"
         }));
 
-      const poQuery: any = { status: "delivered" };
+      const poQuery: any = { 
+        status: "delivered",
+        routeAssigned: {$exists: true, $ne: null},
+        deliveredAt: { $gte: startOfDay, $lte: endOfDay }
+      };
       if(route) poQuery.routeAssigned = route;
       poQuery.$or = [
         { warehouseReturnProcessed: { $ne: true } },
         {
           warehouseReturnProcessed: true,
-          deliveredAt: { $gte: startOfDay, $lte: endOfDay }
         }
       ];
 

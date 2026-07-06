@@ -14,6 +14,7 @@ export function WarehousePreordersTable(user: any) {
 
     const [selectedRoute, setSelectedRoute] = useState<string>("");
     const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
+    const [viewMode, setViewMode] = useState<"pending" | "completed">("pending");
     const [statusView, setStatusView] = useState<"all" | "pending" | "completed">("pending");
     const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
 
@@ -29,106 +30,114 @@ export function WarehousePreordersTable(user: any) {
         return true;
     });
 
+    const handleViewMode = (value: "pending" | "completed")=> {
+        if(viewMode === value) return;
+        setViewMode(value);
+    };
+
     const formatDate = (v?: string) =>
         v? new Date(v).toLocaleDateString(): "-";
 
 
     const statusColors: Record<string, string> = {
-        assigned: "bg-purple-500",
-        ready: "bg-green-600",
+        assigned: "bg-purple-400 text-purple-800",
+        ready: "bg-green-400 text-green-800",
       };
-
-    useEffect(() => {
-        setTimeout(() => {setSubmitStatus(null);}, 3000);
-    }, [reload]);
 
     return (
         <>
-            <div className="bg-(--secondary) rounded-xl shadow-xl p-6 space-y-4 flex flex-col h-[75vh] w-[90vw]">
-                <div className="flex items-center justify-between">
-                    <div className="flex gap-6 items-center">
-                        
+            <div className="bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col h-[80vh] w-[90vw]">
+                <div className="flex items-center justify-between mb-2">
                         {/* Route filter */}
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-4 items-center h-10">
                         <label className="font-semibold">Route:</label>
                         <select 
-                            value={selectedRoute}
-                            onChange={(e) => setSelectedRoute(e.target.value)}
-                            className="rounded-xl bg-white shadow-xl px-3 py-2"
-                        >
-                            <option value="">All routes</option>
-                            {routes.map((r: any) => (
-                            <option key={r._id} value={r._id}>
-                                {r.code} {r.user.firstName} {r.user.lastName}
-                            </option>
-                            ))}
-                        </select>
+                                value={selectedRoute}
+                                onChange={(e) => setSelectedRoute(e.target.value)}
+                                className="rounded-xl h-10 bg-white shadow-xl p-2 outline-hidden"
+                            >
+                                <option value="">All Routes</option>
+                                {routes.map((r: any) => (
+                                    <option key={r._id} value={r._id}>
+                                        {r.code} | {r.user?.firstName} {r.user?.lastName}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Status toggle */}
                         <div className="flex gap-2 items-center">
-                        <label className="font-semibold">View:</label>
-
-                        {["all", "pending", "completed"].map((view) => (
-                            <button
-                            key={view}
-                            onClick={() => setStatusView(view as any)}
-                            className={`px-3 py-1 rounded-xl capitalize ${
-                                statusView === view
-                                ? "bg-blue-500 text-white"
-                                : "bg-gray-200"
-                            }`}
-                            >
-                            {view}
-                            </button>
-                        ))}
+                        <div className="flex gap-2 p-1 bg-gray-200 rounded-xl">
+                                <button
+                                    onClick={() => { 
+                                            setSubmitStatus("loading");
+                                            setStatusView("pending");
+                                            handleViewMode("pending");
+                                            setTimeout(() => setSubmitStatus(null), 1000);
+                                    }}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "pending" ? "bg-white shadow-md text-blue-800": "text-gray-500 hover:bg-gray-400"}`}>
+                                        Pending
+                                </button>
+                                <button
+                                    onClick={() => { 
+                                        setSubmitStatus("loading");
+                                        setStatusView("completed");
+                                        handleViewMode("completed");
+                                        setTimeout(() => setSubmitStatus(null), 1000);
+                                    }}
+                                    className={`px-4 py-1 font-bold rounded-lg transition-all ${viewMode === "completed" ? "bg-white shadow-md text-green-800": "text-gray-500 hover:bg-gray-400"}`}>
+                                        Completed
+                                </button>
+                        </div>
                         </div>
 
-                    </div>
-
-                    <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+                    <RefreshButton onRefresh={() => {
+                        setSubmitStatus("loading");
+                        reload();
+                        setTimeout(() => setSubmitStatus(null), 3000);
+                        }}/>
                 </div>
-                <div className="overflow-y-auto">
-                <table className="w-full text-left">
-                        <thead className="sticky">
+                <div className="overflow-y-auto rounded-xl shadow-xl bg-white">
+                <table className="w-full text-left text-sm">
+                        <thead className="bg-(--tertiary) sticky top-0">
                             <tr className="border-b">
                                 <th className="p-2">Client</th>
                                 <th className="p-2">Route</th>
-                                <th className="p-2">Items</th>
-                                <th className="p-2">Status</th>
-                                <th className="p-2">Date</th>
-                                <th className="p-2"></th>
+                                <th className="p-2 text-center">Items</th>
+                                <th className="p-2 text-center">Status</th>
+                                <th className="p-2 text-center">Date</th>
+                                <th className="p-2 text-center">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="bg-white">
                             {filteredPreorders.map((p: any) => (
-                                <tr key={p._id} className={`border-b hover:bg-gray-50 ${
-                                    p.status === "ready" ? "bg-green-50" : ""
+                                <tr key={p._id} className={`border-b hover:bg-gray-100 ${
+                                    p.status === "ready" ? "bg-green-100" : ""
                                   }`}>
-                                    <td className="p-2 whitespace-nowrap capitalize">{p.client?.clientName.toLowerCase()}</td>
-                                    <td className="p-2 whitespace-nowrap">{p.routeAssigned?.code}</td>
-                                    <td className="p-2 whitespace-nowrap">
+                                    <td className="p-2 capitalize">{p.client?.clientName.toLowerCase()}</td>
+                                    <td className="p-2 text-center">{p.routeAssigned?.code}</td>
+                                    <td className="p-2 text-center">
                                         {p.products.reduce(
                                             (sum: number, pr: any) => sum + pr.quantity,
                                             0
                                         )}
                                     </td>
-                                    <td className="p-2">
+                                    <td className="p-1 text-center">
                                         <div
-                                            className={`px-2 py-2 rounded-xl text-center text-sm text-white font-bold ${
-                                            statusColors[p.status] || "bg-gray-500"
+                                            className={`p-1 rounded-xl text-center font-bold ${
+                                            statusColors[p.status] || "bg-gray-400"
                                             }`}
                                         >
                                             {p.status?.toUpperCase()}
                                         </div>
                                     </td>
-                                    <td className="p-2 whitespace-nowrap">{formatDate(p.createdAt)}</td>
-                                    <td className="p-2 whitespace-nowrap">
+                                    <td className="p-2 text-center">{formatDate(p.createdAt)}</td>
+                                    <td className="p-2 text-center">
                                         <button
-                                            className={`px-5 py-3 rounded-xl transition-all duration:300 cursor-pointer ${
+                                            className={`p-2 rounded-xl transition-all duration:300 cursor-pointer ${
                                                 p.status === "assigned"
-                                                ? "bg-blue-500 text-white hover:bg-blue-300"
-                                                : "bg-yellow-500 text-white hover:bg-gray-300"
+                                                ? "bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800"
+                                                : "bg-yellow-400 text-yellow-800 hover:text-white hover:bg-gray-800"
                                             }`}
                                             onClick={() => setSelectedPreorder(p)}
                                             >

@@ -56,6 +56,12 @@ const DirectSaleSchema = new Schema(
         deliveredAt: {
             type: Date,
         },
+        cancelledAt:{
+            type: Date,
+        },
+        cancelledBy: {
+            type: Schema.Types.ObjectId, ref: "User",
+        },
         updatedAt: {type: Date},
         updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
         paymentStatus: {
@@ -65,7 +71,7 @@ const DirectSaleSchema = new Schema(
           },
         payments: [
             {
-                type: { type: String, enum: ["cash", "check", "creditMemo"] },
+                type: { type: String, enum: ["cash", "check", "creditMemo", "discount"] },
                 amount: Number,
                 checkNumber: String
             }

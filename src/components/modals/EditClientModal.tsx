@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SubmitResultModal from "./SubmitResultModal";
+import { states } from "@/lib/states";
 
 interface Props {
   open: boolean;
@@ -108,14 +109,14 @@ export default function EditClientModal({
     
     if(!res.ok){
       const error = await res.json();
-      setMessage(error?.error || "Could not submit preorder");
+      setSubmitStatus("error");
+      setMessage(error?.error || "Could not update client");
       return;
     }
     setSubmitStatus("success");
-      setMessage("Client Updated");
+    setMessage("Client Updated");
     setTimeout(() => {
       onSaved();
-      onClose();
     }, 1500);
   };
 
@@ -294,9 +295,10 @@ export default function EditClientModal({
           className="bg-white shadow-xl p-2 rounded-xl w-full h-10 lg:h-full"
         >
           <option value="">Select One</option>
-          <option value="AZ">AZ (Arizona)</option>
-          <option value="TX">TX (Texas)</option>
-          <option value="NV">NV (Nevada)</option>
+          <option value='1' className='text-gray-300'>Select State</option>
+          {states.map((state) => (
+            <option key={state.value} value={state.value} className="text-gray-300">{state.value} ({state.name})</option>
+          ))}
         </select>
         </div>
 
@@ -369,6 +371,7 @@ export default function EditClientModal({
                   onClose={() => {
                       setSubmitStatus(null);
                       setMessage("");
+                      onClose();
                   }}
                   collection="Client"
               />

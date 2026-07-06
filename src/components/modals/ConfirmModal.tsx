@@ -41,10 +41,10 @@ export function ConfirmModal({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-10 space-y-6 w-full">
-          {sections.map((section: { title: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; fields: any[]; }, i: Key | null | undefined) => (
+          {sections.map((section: { title: string; fields: any[]; }, i: Key | null | undefined) => (
             <div key={i}>
-              <h3 className="font-semibold text-lg mb-3">
-                {section.title}
+              <h3 className="font-semibold text-lg mb-3 capitalize">
+                {section.title?.toLowerCase()}
               </h3>
 
               <div className="space-y-2">
@@ -59,10 +59,10 @@ export function ConfirmModal({
                       key={j}
                       className="flex justify-between text-sm border-b py-1"
                     >
-                      <span className="text-gray-500">
-                        {field.label}
+                      <span className="text-gray-500 capitalize">
+                        {field.label?.toLowerCase()}
                       </span>
-                      <span className="font-medium text-gray-800">
+                      <span className="font-medium text-gray-800 capitalize">
                         {value}
                       </span>
                     </div>
@@ -74,7 +74,7 @@ export function ConfirmModal({
         </div>
 
         {/* Sticky Footer */}
-        <div className="sticky bg-white p-5 flex justify-end gap-3">
+        <div className="w-full p-5 flex justify-between">
           <button
             onClick={onBack}
             className="px-4 py-2 rounded bg-gray-200"

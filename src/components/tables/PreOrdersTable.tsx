@@ -12,6 +12,7 @@ import { DateRangePicker } from "../ui/DateRangePicker";
 import PreorderWizard from "../forms/AddPreorderWizard/PreorderWizard";
 import { DateTime } from "luxon";
 import { formatCurrency } from "@/utils/format";
+import Link from "next/link";
 
 export function PreordersTable({ userRole, userId }:{ userRole: string, userId: string}) {
   const statusColors: Record<string, string> = {
@@ -84,10 +85,6 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
     routeId: routeInput,
     warehouseUserId: warehouseInput,
   });
-
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);},3000);
-  }, [reload]);
 
   const [assignRouteModalOpen, setAssignRouteModalOpen] = useState(false);
   const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
@@ -180,43 +177,38 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
     { label: "Total", key: "total", value: "" },
     { label: "Subtotal", key: "subtotal", value: "" },
   ];
+
+  const handleSetPage = (value:string) => {
+    setSubmitStatus("loading");
+    if(value === "back") {
+      setPage((p) => Math.max(1, p - 1));
+    } else {
+      setPage(p => p + 1);
+    }
+  };
   
   return (
-    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[80vh] ${userRole === "admin" ? "w-[88vw]" : "w-[97vw]"}`}>
+    <div className={`h-[75vh] ${userRole === "admin" ? "w-[90vw]" : "w-[95vw]"}`}>
+    <div className="flex items-center justify-end py-2">
+    <Link href="/pages/sales/preorders/add-preorder">
+            <button className="flex gap-4 p-3 mb-1 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
+                Make Pre Order
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                </svg>
+            </button>
+            </Link>
+    </div>
+    <div className='flex flex-col w-full h-full bg-(--secondary) shadow-xl rounded-xl p-5'>
       {userRole ==="admin" &&
       <>
-      <div className="flex justify-end gap-5 mb-4">
-        <button
-          onClick={async () => {
-            setSubmitStatus("loading");
-            const res = await fetch("/api/preOrders/for-routes");
-            if(!res.ok){
-              setMessage("Failed to export");
-              setSubmitStatus("error");
-              return;
-            }
-            setMessage("Export complete");
-            setSubmitStatus("success");
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "preorders-for-routes.xlsx";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          }}
-          className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-xl hover:bg-green-300 cursor-pointer transition-all duration:300">
-            Export for Routes
-          </button>
-      </div>
       <p className="border-b border-(--quarteary) text-center text-xl font-bold mb-4">Filters</p>
-      <div className="flex justify-between gap-4 mb-5 flex-wrap">
+      <div className="flex justify-between mb-5 flex-wrap h-10">
       {/* VENDOR */}
       <select
         value={vendorInput}
         onChange={(e) => setVendorInput(e.target.value)}
-        className="p-2 rounded-xl bg-white h-10 w-40 lg:w-60 cursor-pointer"
+        className="p-2 rounded-xl bg-white cursor-pointer"
       >
         <option value="">All Vendors</option>
         {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
@@ -226,7 +218,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={routeInput}
         onChange={(e) => setRouteInput(e.target.value)}
-        className="p-2 rounded-xl bg-white h-10 w-40 lg:w-60 cursor-pointer"
+        className="p-2 rounded-xl bg-white cursor-pointer"
       >
         <option value="">All Routes</option>
         {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
@@ -236,7 +228,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       <select
         value={warehouseInput}
         onChange={(e) => setWarehouseInput(e.target.value)}
-        className="p-2 rounded-xl h-10 w-40 lg:w-60 bg-white cursor-pointer"
+        className="p-2 rounded-xl bg-white cursor-pointer"
       >
         <option value="">All Warehouse</option>
         {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
@@ -245,6 +237,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       </>
       }
       <div className="flex justify-between mb-4 gap-5">
+        {userRole === "admin" && (
       <DateRangePicker
           fromDate={fromDate}
           toDate={toDate}
@@ -253,12 +246,18 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
             setToDate(to);
           }}
         />  
+      )}
         <SearchBar
           placeholder="Search preorders..."
           onSearch={setSearch}
           debounce
         />
-        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+        <RefreshButton onRefresh={() => {
+          reload();
+          setSubmitStatus("loading");
+          setTimeout(() => setSubmitStatus(null), 3000);
+          }}
+        />
       </div>
       <div className="flex whitespace-nowrap overflow-auto gap-2 mb-3">
       {userRole === "admin" && (
@@ -364,9 +363,9 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
       </>
       )}
       </div>
-      <div className='flex-1 overflow-auto'>
-      <table className="w-full text-left text-sm lg:text-md">
-        <thead className="text-center">
+      <div className='flex-1 overflow-auto rounded-xl shadow-xl bg-white font-mono'>
+      <table className="w-full text-left text-sm">
+        <thead className="bg-(--tertiary) sticky top-0">
           <tr className="border-b">
             {userRole === "admin" &&
               <>
@@ -424,9 +423,9 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
             </>}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="bg-white">
           {items.map((it: any) => (
-            <tr key={it._id} className="border-b hover:bg-gray-50 cursor-pointer whitespace-nowrap">
+            <tr key={it._id} className="border-b hover:bg-gray-100 cursor-pointer whitespace-nowrap">
               {userRole === "admin" && it.status !== "cancelled" && it.status !== "delivered" &&
               <>
                 <td className="p-2 text-center">
@@ -446,13 +445,13 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                           );
                         }
                       }}
-                      className="px-2 py-2 h-5 w-5"
+                      className="p-2 h-5 w-5"
                     />
                    )}
 
                 </td>
                 <td className="p-2 text-center">
-                  <button className="text-blue-800 bg-blue-400 px-3 py-3 text-xl rounded-xl hover:underline cursor-pointer hover:bg-blue-800 hover:text-white transition-all duration:300"
+                  <button className="text-blue-800 bg-blue-400 p-2 text-xl rounded-xl cursor-pointer hover:bg-blue-800 hover:text-white transition-all duration:300"
                   onClick={(e) => {
                       e.stopPropagation();
                       setSelectedPreorder2(it);
@@ -504,9 +503,9 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
               <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatTime(it.deliveredAt)}</td>
               </>
               }
-              {it.status !== "cancelled" && it.paymentStatus !== "paid" &&
-              <td className="p-2">
-                <button className='text-red-800 bg-red-400 px-3 py-3 text-lg rounded-xl hover:underline cursor-pointer hover:bg-red-800 hover:text-white transition-all duration:500' 
+              {it.status !== "cancelled" && it.paymentStatus !== "paid" ? (
+              <td className="p-2 text-center">
+                <button className='text-red-800 bg-red-400 p-2 rounded-xl cursor-pointer hover:bg-red-800 hover:text-white transition-all duration:500' 
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedPreorder2(it);
@@ -517,66 +516,104 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
                 </svg>
                 </button>
               </td>
-              }
-              {(it.status === "cancelled" || it.status === "delivered") &&
-              <td className="p-2 text-center">-</td>
-              }
-              {userRole ==="admin" && it.status === "cancelled" &&
-              <td className="p-2 text-red-500 text-center" onClick={() => setSelectedPreorder(it)}>{formatDate(it.cancelledAt)}</td>
+              ) : (
+                <td className="p-2 text-center">-</td>
+              )
               }
               
-              {userRole ==="admin" && it.status === "cancelled" &&
-              <td className="p-2 text-red-500 text-center" onClick={() => setSelectedPreorder(it)}>{formatTime(it.cancelledAt)}</td>
-              }
-              {userRole ==="admin" && it.status === "cancelled" &&
-              <td className="p-2 text-red-500 text-center capitalize" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy.firstName?.toLowerCase()} {it.cancelledBy.lastName?.toLowerCase()}</td>
-              }
+              {userRole ==="admin" && it.status === "cancelled" ? (
+              <td className="p-2 text-red-600 text-center" onClick={() => setSelectedPreorder(it)}>{formatDate(it.cancelledAt)}</td>
+              ) : (
+                <td colSpan={3} className="p-2 text-center">-</td>
+              )}
+              
+              {userRole ==="admin" && it.status === "cancelled" ? (
+              <td className="p-2 text-red-600 text-center" onClick={() => setSelectedPreorder(it)}>{formatTime(it.cancelledAt)}</td>
+            ) : (
+              <td></td>
+            )}
+              {userRole ==="admin" && it.status === "cancelled" ? (
+              <td className="p-2 text-red-600 text-center capitalize" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy.firstName?.toLowerCase()} {it.cancelledBy.lastName?.toLowerCase()}</td>
+            ) : (
+              <td></td>
+            )}
             </tr>
           ))}
         </tbody>
       </table>
       </div>
-      <div className="flex justify-between items-center gap-4 mt-4">
-        <div>
+      <div className="flex justify-between items-center mt-4">
+        <div className="flex gap-4 items-center">
           {userRole === "admin" && selectedIds.length > 0 && (
             <button
             onClick={()=> {
               setSelectedPreorder2(null);
               setAssignRouteModalOpen(true);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-xl hover:bg-blue-300 transition-all duration:300 cursorpointer">
+            className="p-2 bg-blue-400 text-blue-800 hover:text-white rounded-xl shadow-xl hover:bg-blue-800 transition-all duration:300 cursor-pointer">
               Assign {selectedIds.length} Selected
             </button>
           )}
+          {userRole === "admin" && (
+          <button
+          onClick={async () => {
+            setSubmitStatus("loading");
+            const res = await fetch("/api/preOrders/for-routes");
+            if(!res.ok){
+              setMessage("Failed to export");
+              setSubmitStatus("error");
+              return;
+            }
+            setMessage("Export complete");
+            setSubmitStatus("success");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "preorders-for-routes.xlsx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }}
+          className="p-2 bg-green-400 text-green-800 hover:text-white rounded-xl shadow-xl hover:bg-green-800 cursor-pointer transition-all duration:300">
+            Export for Routes
+          </button>
+          )}
         </div>
-        <div className="flex gap-4 items-center">
-            <span className='mt-1'>
-              Showing {items.length} of {total}
-            </span>
-            <button
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl shadow-xl disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-              </svg>
-            </button>
-    
-            <span className="px-1 py-1 text-sm lg:text-lg">
-              Page {page} of {totalPages || 1}
-            </span>
-    
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-              className="px-1 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-            </div>
+        <div className="flex font-mono font-bold items-center gap-4">
+        <span>
+          Showing {items.length} of {total} Preorders
+        </span>
+        <button
+          disabled={page === 1}
+          onClick={() => {
+            handleSetPage("back");
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </button>
+
+        <span className="px-3 py-1">
+          Page {page} of {totalPages || 1}
+        </span>
+
+        <button
+          disabled={page >= totalPages}
+          onClick={() => {
+            handleSetPage("forward")
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
+          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </button>
+      </div>
           </div>
       {selectedPreorder &&
       <PreorderDetailsModal
@@ -632,5 +669,6 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
         />
       )}
     </div>   
+    </div>
   );
 }

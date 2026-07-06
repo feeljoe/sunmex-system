@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/format";
 import { formatNameListWithLimit } from "@/utils/formatters";
 
 export const paymentTermConfirmConfig = [
@@ -11,33 +12,32 @@ export const paymentTermConfirmConfig = [
     ],
   }
 ];
-export function productConfirmConfig({
-  brandMap,
-}: {
-  brandMap: Record<string, string>;
-}) { return [
+export function productConfirmConfig() { 
+  return [
     {
         title: "Basic Information",
         fields: [
-            { label: "Name", key: "name" },
+            { label: "Name", key: "name", format: (val: any) => val?.toLowerCase() },
             { label: "SKU", key: "sku" },
             { label: "Vendor SKU", key: "vendorSku" },
             { label: "UPC", key: "upc" },
-            { label: "Brand", key: "brand", format: (brandId: any) => brandMap[brandId] ?? "-" },
-            { label: "Unit Cost", key: "unitCost", format: (value: {name: any;}) => `$${value}` },
-            { label: "Unit Price", key: "unitPrice", format: (value: {name: any;}) => `$${value}` },
+            // Safely extract the name from the populated object
+            { label: "Brand", key: "brand", format: (val: any) => val?.name?.toLowerCase() || "-" },
+            { label: "Unit Cost", key: "unitCost", format: (val: any) => `${formatCurrency(val || 0)}` },
+            { label: "Unit Price", key: "unitPrice", format: (val: any) => `${formatCurrency(val || 0)}` },
         ],
     },{
         title: "Packaging",
         fields: [
-            { label: "Product Type", key: "productType" },
-            { label: "Product Line", key: "productLine" },
-            { label: "Product Family", key: "productFamily" },
+            // Safely extract the names from the populated objects
+            { label: "Product Type", key: "productType", format: (val: any) => val?.name?.toLowerCase() || "-" },
+            { label: "Product Line", key: "productLine", format: (val: any) => val?.name?.toLowerCase() || "-" },
+            { label: "Product Family", key: "productFamily", format: (val: any) => val?.name?.toLowerCase() || "-" },
             { label: "Case Size", key: "caseSize" },
             { label: "Layer Size", key: "layerSize" },
             { label: "Pallet Size", key: "palletSize" },
             { label: "Weight", key: "weight" },
-            { label: "Units", key: "unit" },
+            { label: "Units", key: "unit", format: (val: any) => val?.toUpperCase() },
         ]
     },
     {
@@ -46,7 +46,8 @@ export function productConfirmConfig({
             { label: "Image Preview", key: "imageUrl" },
         ]
     }
-]}
+]
+}
 
 export const userConfirmConfig = [
     {

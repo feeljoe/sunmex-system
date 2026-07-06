@@ -21,7 +21,7 @@ export default function SubmitResultModal({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        className="bg-white w-96 rounded-2xl p-8 flex flex-col items-center gap-6 shadow-xl"
+        className={`bg-(--secondary) ${status === "loading" ? "w-48 h-48 justify-center" : "w-96 p-8 gap-6"} rounded-2xl flex flex-col items-center shadow-xl`}
       >
         <AnimatePresence mode="wait">
           {status === "loading" && (
@@ -30,9 +30,10 @@ export default function SubmitResultModal({
               initial={{ scale: 0.6, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.6, opacity: 0 }}
-              className="w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"
+              className="w-40 h-40 rounded-full border-20 border-blue-400 border-t-blue-800 animate-spin"
             />
           )}
+          
 
           {status === "success" && (
             <motion.div
@@ -41,14 +42,14 @@ export default function SubmitResultModal({
               animate={{ scale: 1, opacity: 1 }}
               className="flex flex-col items-center gap-4"
             >
-              {/* ✅ Success SVG */}
+              {/* Success state */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
                 stroke="currentColor"
-                className="w-16 h-16 text-green-600"
+                className="w-20 h-20 text-green-800 bg-green-400 p-2 rounded-full"
               >
                 <path
                   strokeLinecap="round"
@@ -63,7 +64,7 @@ export default function SubmitResultModal({
 
               <button
                 onClick={onClose}
-                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="mt-4 px-6 py-2 bg-blue-400 font-bold text-blue-800 rounded-lg shadow-md hover:bg-blue-800 hover:text-white cursor-pointer transition"
               >
                 Done
               </button>
@@ -77,14 +78,14 @@ export default function SubmitResultModal({
               animate={{ scale: 1, opacity: 1 }}
               className="flex flex-col items-center gap-4"
             >
-              {/* ❌ Error SVG */}
+              {/* Error state */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
                 stroke="currentColor"
-                className="w-16 h-16 text-red-600"
+                className="w-20 h-20 text-red-800 bg-red-400 p-2 rounded-full"
               >
                 <path
                   strokeLinecap="round"
@@ -99,14 +100,14 @@ export default function SubmitResultModal({
 
               <button
                 onClick={onClose}
-                className="mt-4 px-6 py-2 border rounded-lg hover:bg-gray-50 transition"
+                className="mt-4 px-6 py-2 text-gray-800 font-bold bg-gray-400 rounded-lg shadow-md hover:bg-gray-800 hover:text-white cursor-pointer transition"
               >
                 Go Back
               </button>
             </motion.div>
           )}
 
-          {/* ⚠️ NEW: Info SVG State */}
+          {/*Info State */}
           {status === "info" && (
             <motion.div
               key="info"
@@ -114,14 +115,14 @@ export default function SubmitResultModal({
               animate={{ scale: 1, opacity: 1 }}
               className="flex flex-col items-center gap-4"
             >
-              {/* ℹ️ Info/Warning SVG */}
+              {/* Info/Warning SVG */}
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 fill="none" 
                 viewBox="0 0 24 24" 
                 strokeWidth={1.5} 
                 stroke="currentColor" 
-                className="w-16 h-16 text-yellow-500"
+                className="w-20 h-20 text-yellow-800 bg-yellow-400 p-2 rounded-full"
               >
                 <path 
                   strokeLinecap="round" 
@@ -136,13 +137,13 @@ export default function SubmitResultModal({
 
               <button
                 onClick={onClose}
-                className="mt-4 px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition cursor-pointer shadow-md"
+                className="mt-4 px-6 py-2 bg-yellow-400 text-yellow-800 font-bold rounded-lg hover:bg-yellow-800 hover:text-white transition cursor-pointer shadow-md"
               >
-                Okay
+                Fix problems
               </button>
             </motion.div>
           )}
-          
+
         </AnimatePresence>
       </motion.div>
     </div>

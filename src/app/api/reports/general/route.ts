@@ -39,20 +39,37 @@ export async function GET(req: NextRequest) {
     }
 
     if (fromDate || toDate) {
-      const dateField = (isPreorder || isDirectSale) ? "deliveredAt" : "returnedAt";
-
-      match[dateField] = {};
-
+      const dateCondition: any = {};
+      
       if (fromDate) {
         const from = parseLocalDate(fromDate);
         from.setHours(0, 0, 0, 0);
-        match[dateField].$gte = from;
+        dateCondition.$gte = from;
       }
 
       if (toDate) {
         const to = parseLocalDate(toDate);
         to.setHours(23, 59, 59, 999);
-        match[dateField].$lte = to;
+        dateCondition.$lte = to;
+      }
+
+      const completedField = (isPreorder || isDirectSale) ? "deliveredAt" : "returnedAt";
+
+      // Apply the date filter to the correct field based on the status!
+      if (status === "cancelled") {
+        match.cancelledAt = dateCondition;
+      } else if (status === "pending" || status === "assigned" || status === "ready") {
+        match.createdAt = dateCondition;
+      } else if (status === "delivered" || status === "received") {
+        match[completedField] = dateCondition;
+      } else {
+        // If no specific status is selected, show documents that were either
+        // created, completed, or cancelled within this date range.
+        match.$or = [
+          { [completedField]: dateCondition },
+          { cancelledAt: dateCondition },
+          { createdAt: dateCondition }
+        ];
       }
     }
 
@@ -65,15 +82,11 @@ export async function GET(req: NextRequest) {
       return [{ $sort: { createdAt: -1 } }];
     }
 
-    const fallbackDate = fromDate
-      ? new Date(fromDate + "T00:00:00")
-      : new Date(0);
-
     return [
       {
         $addFields: {
           sortDate: {
-            $ifNull: ["$completedAt", fallbackDate],
+            $ifNull: ["$completedAt", { $ifNull: ["$cancelledAt", "$createdAt"] }],
           },
         },
       },
@@ -99,6 +112,12 @@ export async function GET(req: NextRequest) {
 
     { $lookup: { from: "users", localField: "routeAssigned.user", foreignField: "_id", as: "routeUser" } },
     { $unwind: { path: "$routeUser", preserveNullAndEmptyArrays: true } },
+    
+    { $lookup: { from: "users", localField: "deliveredBy", foreignField: "_id", as: "deliveredBy"}},
+    { $unwind: { path: "$deliveredBy", preserveNullAndEmptyArrays: true } },
+
+    {$lookup: { from: "users", localField: "cancelledBy", foreignField: "_id", as: "cancelledBy" } },
+    { $unwind: { path: "$cancelledBy", preserveNullAndEmptyArrays: true } },
 
     ...(driverId
       ? [{
@@ -134,7 +153,7 @@ export async function GET(req: NextRequest) {
         assembledAt: 1,
 
         handledBy: {
-          $concat: ["$routeUser.firstName", " ", "$routeUser.lastName"],
+          $concat: ["$deliveredBy.firstName", " ", "$deliveredBy.lastName"],
         },
 
         handledCode: "$routeAssigned.code",
@@ -142,6 +161,13 @@ export async function GET(req: NextRequest) {
         completedAt: "$deliveredAt",
 
         cancelledAt: 1,
+        cancelledBy: {
+          $cond: [
+            "$cancelledBy",
+            { $concat: ["$cancelledBy.firstName", " ", "$cancelledBy.lastName"] },
+            "-",
+          ],
+        },
       },
     },
   ];
@@ -156,11 +182,25 @@ export async function GET(req: NextRequest) {
     { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "createdBy" } },
     { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
 
-    { $lookup: { from: "routes", localField: "route", foreignField: "_id", as: "route" } },
-    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+    { $lookup: { from: "routes", localField: "route", foreignField: "_id", as: "routeData" } },
+    { $unwind: { path: "$routeData", preserveNullAndEmptyArrays: true } },
 
-    { $lookup: { from: "users", localField: "route.user", foreignField: "_id", as: "route" } },
-    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+    { $lookup: { from: "users", localField: "routeData.user", foreignField: "_id", as: "routeUser" } },
+    { $unwind: { path: "$routeUser", preserveNullAndEmptyArrays: true } },
+    
+    { $lookup: { from: "users", localField: "deliveredBy", foreignField: "_id", as: "deliveredBy" } },
+    { $unwind: { path: "$deliveredBy", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "users", localField: "cancelledBy", foreignField: "_id", as: "cancelledBy" } },
+    { $unwind: { path: "$cancelledBy", preserveNullAndEmptyArrays: true } },
+
+    ...(driverId
+      ? [{
+          $match: {
+            "routeUser._id": new mongoose.Types.ObjectId(driverId),
+          },
+        }]
+      : []),
 
     {
       $project: {
@@ -176,12 +216,26 @@ export async function GET(req: NextRequest) {
         createdBy: {
           $concat: ["$createdBy.firstName", " ", "$createdBy.lastName"],
         },
-
-        handledCode: "$route.code",
+        handledBy: {
+          $cond: [
+            "$deliveredBy",
+            { $concat: ["$deliveredBy.firstName", " ", "$deliveredBy.lastName"] },
+            "-",
+          ],
+        },
+        handledCode: "$routeData.code",
 
         completedAt: "$deliveredAt",
 
         cancelledAt: 1,
+
+        cancelledBy: {
+          $cond: [
+            "$cancelledBy",
+            { $concat: ["$cancelledBy.firstName", " ", "$cancelledBy.lastName"] },
+            "-",
+          ],
+        },
       },
     },
   ];
@@ -201,6 +255,12 @@ export async function GET(req: NextRequest) {
 
     { $lookup: { from: "users", localField: "routeAssigned.user", foreignField: "_id", as: "routeUser" } },
     { $unwind: { path: "$routeUser", preserveNullAndEmptyArrays: true } },
+    
+    { $lookup: { from: "users", localField: "returnedBy", foreignField: "_id", as: "returnedBy" } },
+    { $unwind: { path: "$returnedBy", preserveNullAndEmptyArrays: true } },
+
+    { $lookup: { from: "users", localField: "cancelledBy", foreignField: "_id", as: "cancelledBy" } },
+    { $unwind: { path: "$cancelledBy", preserveNullAndEmptyArrays: true } },
 
     ...(driverId
       ? [{
@@ -229,7 +289,7 @@ export async function GET(req: NextRequest) {
         assembledAt: { $literal: null },
 
         handledBy: {
-          $concat: ["$routeUser.firstName", " ", "$routeUser.lastName"],
+          $concat: ["$returnedBy.firstName", " ", "$returnedBy.lastName"],
         },
 
         handledCode: "$routeAssigned.code",
@@ -237,6 +297,14 @@ export async function GET(req: NextRequest) {
         completedAt: "$returnedAt",
 
         cancelledAt: 1,
+
+        cancelledBy: {
+          $cond: [
+            "$cancelledBy",
+            { $concat: ["$cancelledBy.firstName", " ", "$cancelledBy.lastName"] },
+            "-",
+          ],
+        },
       },
     },
   ];

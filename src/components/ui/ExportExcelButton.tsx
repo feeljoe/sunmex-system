@@ -29,17 +29,17 @@ export function ExportExcelButton() {
   };
 
   return (
-    <div title="Export to Excel" className="flex bg-green-500 rounded-xl items-center text-white justify-center hover:bg-(--tertiary) transition-all duration:500">
+    <div title="Export to Excel" className="flex bg-green-400 rounded-xl items-center text-green-800 hover:bg-green-800 hover:text-white transition-all duration:500">
       <button
         onClick={handleExport}
-        className="px-2 py-2 rounded-xl cursor-pointer"
+        className="p-2 rounded-xl cursor-pointer"
       >
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
             fill="none" viewBox="0 0 24 24" 
             strokeWidth={1.5} 
             stroke="currentColor" 
-            className="size-8">
+            className="size-6">
             <path 
                 strokeLinecap="round" 
                 strokeLinejoin="round" 
