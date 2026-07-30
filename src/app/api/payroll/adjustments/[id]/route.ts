@@ -7,7 +7,7 @@ import PayrollAdjustment from "@/models/PayrollAdjustment"; // Adjust this impor
 // ----------------------------------------------------------------------
 export async function PATCH(
     req: NextRequest,
-    context: { params: { id: string } }
+    context: { params: Promise<{ id: string }>}
 ) {
     try {
         await connectToDatabase();
