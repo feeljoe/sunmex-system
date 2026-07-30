@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     const paymentTerm = await PaymentTerm.create({
       name,
-      days: dueOnReceipt ? 0 : Number(days),
+      dueDays: dueOnReceipt ? 0 : Number(days),
       dueOnReceipt,
     });
 

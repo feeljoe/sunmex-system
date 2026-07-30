@@ -22,7 +22,7 @@ const PreorderSchema = new Schema(
     ],
     type: {type: String, enum: ["charge", "noCharge"], default: "charge"},
     noChargeReason: {type: String},
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     subtotal: {type: Number, default: 0},
     total: { type: Number, default: 0 },
     status: { type: String, enum: ["pending", "assigned", "ready", "delivered", "cancelled"], default: "pending" },
@@ -34,7 +34,7 @@ const PreorderSchema = new Schema(
       type: Date,
       index: true,
     },
-    deliveredAt: {type: Date},
+    deliveredAt: {type: Date, index: true},
     deliveredBy: {type: Schema.Types.ObjectId, ref: "User"},
     deliverySignature: {
       type: String,

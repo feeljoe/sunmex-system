@@ -122,6 +122,7 @@ export async function PATCH(
     return NextResponse.json(preorder);
 
   } catch (err: any) {
+    console.log("Error: ", err);
     await session.abortTransaction();
     return NextResponse.json(
       { error: err.message },

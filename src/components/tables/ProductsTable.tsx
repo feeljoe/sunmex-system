@@ -7,7 +7,6 @@ import { productConfirmConfig } from '../modals/configConfirms/confirmConfig';
 import { SearchBar } from '../ui/SearchBar';
 import { RefreshButton } from '../ui/RefreshButton';
 import EditProductModal from '../modals/EditProductModal';
-import { useLookupMap } from '@/utils/useLookupMap';
 import { formatCurrency } from '@/utils/format';
 import Link from 'next/link';
 import { PaginatedSelect } from '../ui/PaginatedSelect';
@@ -51,9 +50,6 @@ export function ProductsTable() {
   useEffect(() => {
     setPage(1);
   }, [search, selectedBrand, selectedType]);
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);}, 3000);
-  }, [reload]);
   
       const requestDelete = (product: any) => {
           setProductToDelete(product);
@@ -82,6 +78,40 @@ export function ProductsTable() {
       const cancelDelete = () => {
           setConfirmOpen(false);
           setProductToDelete(null);
+      };
+
+      // ----------------------------------------------------
+      // EXPORT EXCEL LOGIC
+      // ----------------------------------------------------
+      const handleExportExcel = async () => {
+        try {
+          setSubmitStatus("loading");
+          setMessage("Generating Excel file...");
+
+          const res = await fetch("/api/products/export");
+          if (!res.ok) throw new Error("Export failed");
+
+          // Get the binary Excel buffer from the API
+          const blob = await res.blob();
+          
+          // Trigger the browser download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `products-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+
+          setSubmitStatus("success");
+          setMessage("Export completed!");
+          
+        } catch (err) {
+          console.error(err);
+          setSubmitStatus("error");
+          setMessage("Failed to export products.");
+        }
       };
 
       const totalPages = total > 0? Math.ceil(total/limit): 1;
@@ -138,7 +168,12 @@ export function ProductsTable() {
             debounce
         />
         
-        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+        <RefreshButton onRefresh={() => {
+            setSubmitStatus("loading");
+            reload(); 
+            setTimeout(() => setSubmitStatus(null), 3000);
+          }}
+        />
       </div>
       <div className='flex-1 overflow-auto rounded-xl shadow-xl'>
       <table className='w-full text-left'>
@@ -149,11 +184,11 @@ export function ProductsTable() {
             <th className='px-4 py-2'>Brand</th>
             <th className='px-4 py-2'>Name</th>
             <th className='px-4 py-2'>Category</th>
-            <th className='px-4 py-2'>Cost</th>
-            <th className='px-4 py-2'>Price</th>
-            <th className='px-4 py-2'>Margin</th>
-            <th className='px-4 py-2 text-center'>Edit</th>
-            <th className='px-4 py-2 text-center'>Delete</th>
+            <th className='px-2 py-2 text-right'>Cost</th>
+            <th className='px-2 py-2 text-right'>Price</th>
+            <th className='px-2 py-2 text-right'>Margin</th>
+            <th className='px-4 py-2 text-right'>Edit</th>
+            <th className='px-4 py-2 text-right'>Delete</th>
           </tr>
         </thead>
         <tbody className='bg-white'>
@@ -180,7 +215,7 @@ export function ProductsTable() {
               <td className='px-2 py-2 text-right'>{formatCurrency(it.unitCost) ?? '-'}</td>
               <td className='px-2 py-2 text-right'>{formatCurrency(it.unitPrice) ?? '-'}</td>
               <td className={`px-2 py-2 text-right ${getMarginColor(margin)}`}>{margin.toFixed(1)}%</td>
-              <td className='p-2 text-center'>
+              <td className='p-2 text-right'>
                 <button 
                   className="text-blue-800 bg-blue-400 p-2 text-lg rounded-xl hover:bg-blue-800 hover:text-white cursor-pointer transition-all duration:500"
                   onClick={() => {setEdit(true); setSelectedProduct(it);}}
@@ -190,7 +225,7 @@ export function ProductsTable() {
                   </svg>
                 </button>
               </td>
-              <td className='p-2 text-center'>
+              <td className='p-2 text-right'>
                   <button 
                     className='text-red-800 bg-red-400 p-2 text-lg rounded-xl hover:bg-red-800 hover:text-white cursor-pointer transition-all duration:500' 
                     onClick={() => requestDelete(it)}
@@ -205,6 +240,18 @@ export function ProductsTable() {
         </tbody>
       </table>
       </div>
+      <div className='flex justify-between items-center font-mono'>
+        <div className='flex mt-4'>
+            <button 
+              onClick={handleExportExcel}
+              className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              Export
+            </button>
+        </div>
       <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
         <span>
           Showing {items.length} of {total} products
@@ -239,6 +286,7 @@ export function ProductsTable() {
           </svg>
         </button>
       </div>
+    </div>
     </div>
     </div>
     {edit &&

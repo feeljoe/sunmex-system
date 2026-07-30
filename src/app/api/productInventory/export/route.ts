@@ -20,17 +20,35 @@ export async function GET() {
 
   const fileName = `${mm}-${dd}-${yyyy} Inventory.xlsx`;
 
-  const rows = inventory.map((it: any) => ({
-    SKU: it.product?.sku ?? "",
-    UPC: it.product?.upc ?? "",
-    Brand: it.product?.brand?.name ?? "",
-    Name: it.product?.name ?? "",
-    "Inventory $": Number(it.currentInventory * (it.product?.unitCost ?? 0)),
-    "Current Inventory": it.currentInventory ?? 0,
-    "Presaved Inventory": it.preSavedInventory ?? 0,
-    "On Route Inventory": it.onRouteInventory ?? 0,
-    "Inactive Inventory": it.inactiveInventory ?? 0,
-  }));
+  const rows = inventory.map((it: any) => {
+    // 1. Force all metrics to be numbers so math never breaks
+    const currentInv = Number(it.currentInventory || 0);
+    const preSavedInv = Number(it.preSavedInventory || 0);
+    const onRouteInv = Number(it.onRouteInventory || 0);
+    const inactiveInv = Number(it.inactiveInventory || 0);
+    const unitCost = Number(it.product?.unitCost || 0);
+
+    return {
+      // 2. Safely extract strings and strip hidden spaces to perfectly match the Products export
+      "SKU": it.product?.sku ? String(it.product.sku).trim() : "-",
+      "UPC": it.product?.upc ? String(it.product.upc).trim() : "-",
+      "Brand": it.product?.brand?.name ? String(it.product.brand.name?.toUpperCase()).trim() : "-",
+      "Name": it.product?.name ? String(it.product.name?.toUpperCase()).trim() : "-",
+      
+      // 3. Combined total cost
+      "Inventory $": (currentInv + preSavedInv) * unitCost,
+      
+      // 4. Separated costs
+      "Current Inventory $": currentInv * unitCost,
+      "Presaved Inventory $": preSavedInv * unitCost,
+      
+      // 5. Quantities
+      "Current Inventory": currentInv,
+      "Presaved Inventory": preSavedInv,
+      "On Route Inventory": onRouteInv,
+      "Inactive Inventory": inactiveInv,
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();

@@ -9,11 +9,13 @@ export default function SubmitResultModal({
   message,
   onClose,
   collection,
+  progressText,
 }: {
   status: Status;
   message?: string | null;
   onClose?: () => void;
   collection:string;
+  progressText?: string;
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -21,7 +23,8 @@ export default function SubmitResultModal({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        className={`bg-(--secondary) ${status === "loading" ? "w-48 h-48 justify-center" : "w-96 p-8 gap-6"} rounded-2xl flex flex-col items-center shadow-xl`}
+        className={`bg-(--secondary) ${
+          status === "loading" ? "w-48 h-48 justify-center" : "w-96 p-8 gap-6"} rounded-2xl flex flex-col items-center shadow-xl`}
       >
         <AnimatePresence mode="wait">
           {status === "loading" && (
@@ -30,8 +33,12 @@ export default function SubmitResultModal({
               initial={{ scale: 0.6, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.6, opacity: 0 }}
-              className="w-40 h-40 rounded-full border-20 border-blue-400 border-t-blue-800 animate-spin"
-            />
+              className="flex flex-col items-center gap-4 w-full"
+            >
+              {/* Spinning Loader */}
+              <div className="w-40 h-40 rounded-full border-20 border-blue-400 border-t-blue-800 animate-spin" />
+              
+            </motion.div>
           )}
           
 

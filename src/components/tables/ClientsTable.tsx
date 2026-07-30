@@ -30,10 +30,6 @@ export function ClientsTable() {
         setPage(1);
       }, [search, selectedChain, selectedPaymentTerm]);
 
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);},3000);
-  }, [reload]);
-
   const handleSetPage = (value:string) => {
     setSubmitStatus("loading");
     if(value === "back") {
@@ -42,10 +38,6 @@ export function ClientsTable() {
       setPage(p => p + 1);
     }
   };
-
-  useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);}, 1000);
-  }, [handleSetPage]);
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<any | null>(null);
@@ -81,6 +73,40 @@ export function ClientsTable() {
               }
             
         };
+
+        // ----------------------------------------------------
+      // EXPORT EXCEL LOGIC
+      // ----------------------------------------------------
+      const handleExportExcel = async () => {
+        try {
+          setSubmitStatus("loading");
+          setMessage("Generating Excel file...");
+
+          const res = await fetch("/api/clients/export");
+          if (!res.ok) throw new Error("Export failed");
+
+          // Get the binary Excel buffer from the API
+          const blob = await res.blob();
+          
+          // Trigger the browser download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `clients-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+
+          setSubmitStatus("success");
+          setMessage("Export completed!");
+          
+        } catch (err) {
+          console.error(err);
+          setSubmitStatus("error");
+          setMessage("Failed to export clients.");
+        }
+      };
     
         const cancelDelete = () => {
             setConfirmOpen(false);
@@ -89,6 +115,7 @@ export function ClientsTable() {
         const totalPages = total > 0? Math.ceil(total/limit): 1;
 
         const resetFilters = () => {
+          setSubmitStatus("loading");
           setSelectedChain("");
           setSelectedPaymentTerm("");
         };
@@ -205,6 +232,18 @@ export function ClientsTable() {
         </tbody>
       </table>
       </div>
+      <div className='flex justify-between items-center font-mono font-bold'>
+      <div className='flex mt-4'>
+            <button 
+              onClick={handleExportExcel}
+              className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              Export
+            </button>
+        </div>
       <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
         <span>
           Showing {items.length} of {total} products
@@ -233,6 +272,7 @@ export function ClientsTable() {
           </svg>
         </button>
       </div>
+    </div>
     </div>
     </div>
     {confirmOpen &&

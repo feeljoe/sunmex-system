@@ -95,6 +95,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       memo.pickedQuantity = memo.quantity ?? 0;
       memo.returnedQuantity = memo.quantity ?? 0;
       memo.routeAssigned = routeAssignedId;
+      memo.returnedBy = user.userId;
       memo.returnedAt = new Date();
       memo.total = total;
   

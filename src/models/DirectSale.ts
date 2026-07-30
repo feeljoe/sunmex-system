@@ -55,6 +55,7 @@ const DirectSaleSchema = new Schema(
         },
         deliveredAt: {
             type: Date,
+            index: true,
         },
         cancelledAt:{
             type: Date,

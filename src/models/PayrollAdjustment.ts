@@ -10,6 +10,12 @@ const PayrollAdjustmentSchema = new Schema(
     date: { type: Date, required: true }, // The date the bonus was earned/applied
     processed: { type: Boolean, default: false }, // Flips to true when the paycheck is marked "Paid"
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    editHistory: [{
+      editedAt: { type: Date, default: Date.now },
+      editedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      reason: { type: String },
+      previousAmount: { type: Number }
+  }]
   },
   { timestamps: true, versionKey: false }
 );

@@ -81,6 +81,7 @@ export async function GET(req: Request) {
     .populate("route")
     .populate("createdBy", "firstName lastName")
     .populate("updatedBy", "firstName lastName")
+    .populate("cancelledBy", "firstName lastName")
     .populate({
       path: "products",
       populate: {

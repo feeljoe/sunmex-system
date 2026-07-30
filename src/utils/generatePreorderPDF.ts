@@ -319,25 +319,51 @@ autoTable(doc, {
 // -------------------
 // SIGNATURE (LEFT SIDE)
 // -------------------
-if (preorder.status === "delivered" && preorder.deliverySignature) {
-  const sigX = 40;
-  const sigY = baseY; // align with totals
+// A valid base64 image will be thousands of characters long. 
+  // This safely filters out null, undefined, and the 6-character "data:," string.
+  const isValidSignature = 
+    preorder.deliverySignature && 
+    typeof preorder.deliverySignature === "string" && 
+    preorder.deliverySignature.length > 50;
 
-  doc.setFontSize(10);
-  doc.text("Received By:", sigX, sigY - 10);
+  if (preorder.status === "delivered" && isValidSignature) {
+    const sigX = 40;
+    const sigY = baseY; // align with totals
 
-  doc.addImage(
-    preorder.deliverySignature,
-    "PNG",
-    sigX,
-    sigY,
-    140,
-    50
-  );
+    doc.setFontSize(10);
+    doc.text("Received By:", sigX, sigY - 10);
 
-  doc.setFontSize(9);
-  doc.text(preorder.client.clientName, sigX, sigY + 65);
-}
+    try {
+      // 1. Dynamically check the format of the image
+      let imgFormat = "PNG"; // Fallback default
+      const sigStr = String(preorder.deliverySignature).toLowerCase();
+
+      if (sigStr.startsWith("data:image/jpeg") || sigStr.startsWith("data:image/jpg")) {
+        imgFormat = "JPEG";
+      } else if (sigStr.startsWith("data:image/webp")) {
+        imgFormat = "WEBP";
+      }
+      
+      // 2. Add the image using the detected format
+      doc.addImage(
+        preorder.deliverySignature,
+        imgFormat,
+        sigX,
+        sigY,
+        140,
+        50
+      );
+
+      doc.setFontSize(9);
+      doc.text(preorder.client.clientName, sigX, sigY + 65);
+    } catch (err) {
+      console.error("Signature rendering failed:", err);
+      doc.setFontSize(8);
+      doc.setTextColor(200, 0, 0);
+      doc.text("[Signature format unsupported or corrupted]", sigX, sigY + 25);
+      doc.setTextColor(0, 0, 0); // reset color
+    }
+  }
 
   const pdfBlob = doc.output("blob");
   const pdfUrl = URL.createObjectURL(pdfBlob);

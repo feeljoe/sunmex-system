@@ -1,4 +1,3 @@
-// app/api/accounting/bulk-pay/route.ts
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import DirectSale from "@/models/DirectSale";
@@ -21,8 +20,13 @@ export async function PATCH(req: Request) {
       const query = isDirectSale ? { directSale: doc._id, status: "received", paymentProcessed: { $ne: true } }: { preorder: doc._id, status: "received", paymentProcessed: {$ne: true} };
       const linkedCMs = await CreditMemo.find(query);
 
+      // PREVENT DUPLICATES: Check if a Credit Memo payment line already exists
+      const hasCmPayment = doc.payments?.some((p: any) => p.type === "creditMemo" || p.type === "CreditMemo");
+
       for (const cm of linkedCMs) {
-        doc.payments.push({ type: "creditMemo", amount: Math.abs(cm.total) });
+        if (!hasCmPayment) {
+            doc.payments.push({ type: "creditMemo", amount: Math.abs(cm.total) });
+        }
         cm.paymentProcessed = true;
         await cm.save();
       }
@@ -43,7 +47,6 @@ export async function PATCH(req: Request) {
         currentBalance -= applyCredit;
        }
 
-       // Apply payment if there is balance and we still have check funds
        if (currentBalance > 0 && remainingCash > 0) {
           const applyCash = Math.min(currentBalance, remainingCash);
           
@@ -66,7 +69,6 @@ export async function PATCH(req: Request) {
        for (const order of orders) await processDocument(order, PreOrder, false);
        for (const ds of directSales) await processDocument(ds, DirectSale, true);
 
-    // Mark unlinked credit memos as completed/processed so they drop off the queue
       for (const cm of cms) {
         cm.paymentProcessed = true; 
         await cm.save();

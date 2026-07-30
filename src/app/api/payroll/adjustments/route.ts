@@ -9,6 +9,7 @@ export async function GET() {
     // Fetch all pending adjustments and populate the user's name
     const adjustments = await PayrollAdjustment.find({ processed: false })
       .populate("user", "firstName lastName")
+      .populate("createdBy")
       .sort({ createdAt: -1 })
       .lean();
 

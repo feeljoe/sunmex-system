@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     );
     const nextNumber = `CRM-${route.code}-${1000 + counter.seq}`;
 
-    let routeAssigned = status !== "pending" ? route._id : null;
+    let routeAssigned = route._id ?? null;
     let total = status !== "pending" ? subtotal : 0;
 
     // 3. Create the Credit Memo inside the transaction array `[{...}]`
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
         // Ensure we check the specific product reason, falling back to the global reason
         const reason = p.returnReason || returnReason;
 
-        if (reason === "good return") {
+        if (reason.toLowerCase() === "good return") {
           // Look for the item using .toString() for safety
           const existingItem = route.inventory.find(
             (ip: any) => ip.product.toString() === p.productId.toString()

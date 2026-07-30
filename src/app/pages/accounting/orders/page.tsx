@@ -280,7 +280,7 @@ export default function AccountingOrdersPage() {
     if (!bulkAmount || isNaN(Number(bulkAmount))) {
       setSubmitStatus("info");
       setMessage("Enter a valid amount");
-      return
+      return;
     }
 
     setSubmitStatus("loading");
@@ -303,13 +303,75 @@ export default function AccountingOrdersPage() {
     });
 
     if (res.ok) {
+        // -----------------------------------------------------------------
+        // OPTIMISTIC UI ENGINE: BULK PAY
+        // -----------------------------------------------------------------
+        let remainingCash = Number(bulkAmount) || 0;
+        let remainingUnlinkedCredit = selectedCMsBal; // from the useMemo above
+
+        setLocalOrders(prev => prev.map(o => {
+            // If this record was part of the bulk payment selection
+            if (selectedItems.has(o._id)) {
+                
+                // 1. If it's a Credit Memo, just mark it as processed
+                if (o.type === "creditMemo") {
+                    return { ...o, computedStatus: "paid", balance: 0, paid: Math.abs(o.credits) };
+                }
+
+                // 2. If it's an Invoice, cascade the payments!
+                const discountAmount = o.total * (bulkDiscount / 100);
+                const newPaymentsToAdd: any[] = [];
+
+                if (discountAmount > 0) {
+                    newPaymentsToAdd.push({ _id: `temp-disc-${Date.now()}-${o._id}`, type: "discount", amount: discountAmount });
+                }
+
+                // Calculate balance AFTER discount
+                let currentBalance = Math.max((o.balance || 0) - discountAmount, 0);
+
+                // Apply Unlinked Credits if we have them
+                if (currentBalance > 0 && remainingUnlinkedCredit > 0) {
+                    const applyCredit = Math.min(currentBalance, remainingUnlinkedCredit);
+                    newPaymentsToAdd.push({ _id: `temp-cm-${Date.now()}-${o._id}`, type: "creditMemo", amount: applyCredit });
+                    remainingUnlinkedCredit -= applyCredit;
+                    currentBalance -= applyCredit;
+                }
+
+                // Apply Cash/Check if we still have funds
+                if (currentBalance > 0 && remainingCash > 0) {
+                    const applyCash = Math.min(currentBalance, remainingCash);
+                    newPaymentsToAdd.push({
+                        _id: `temp-cash-${Date.now()}-${o._id}`,
+                        type: bulkMethod,
+                        amount: applyCash,
+                        checkNumber: bulkMethod === "check" ? bulkCheckNumber : undefined
+                    });
+                    remainingCash -= applyCash;
+                    currentBalance -= applyCash;
+                }
+
+                const totalDeducted = (o.balance || 0) - currentBalance;
+                const newPaid = (o.paid || 0) + totalDeducted;
+                const newStatus = currentBalance <= 0.01 ? "paid" : o.computedStatus;
+
+                return {
+                    ...o,
+                    payments: [...(o.payments || []), ...newPaymentsToAdd],
+                    paid: newPaid,
+                    balance: currentBalance,
+                    computedStatus: newStatus
+                };
+            }
+            return o;
+        }));
+
         setSubmitStatus("success");
         setMessage("Payments saved successfully!");
         setIsBulkModalOpen(false);
         setSelectedItems(new Set());
         setBulkAmount("");
         setBulkCheckNumber("");
-        reload();
+        // Look ma, no reload()!
     } else {
         setSubmitStatus("error");
         setMessage("Error processing bulk payment");

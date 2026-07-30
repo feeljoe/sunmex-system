@@ -42,8 +42,9 @@ export function GeneralReportsTable(){
     const [message, setMessage] = useState("");
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportType, setExportType] = useState<"general" | "bankDeposits" | "">("");
+    const [exportType, setExportType] = useState<"general" | "bankDeposits" | "general-basic" | "">("");
     const [exportStep, setExportStep] = useState<1 | 2>(1);
+    const [exportProgress, setExportProgress] = useState<string>("");
 
     const handleSetPage = (value:string) => {
         setSubmitStatus("loading");
@@ -92,64 +93,76 @@ export function GeneralReportsTable(){
 
     const handleExport = async () => {
         try {
-          setSubmitStatus("loading");
-          const params = new URLSearchParams({
-            page: "1",
-            limit: "1000000000", // export ALL filtered data
-            search,
-            fromDate: fromDate || "",
-            toDate: toDate || "",
-            type: typeFilter || "",
-            status: statusFilter || "",
-            vendorId: vendorId || "",
-            driverId: driverId || "",
-            warehouseId: warehouseId || "",
-            export: "true", // important flag
-          });
-          const endpoint = exportType === "general" 
-            ? `/api/reports/general/export?${params.toString()}`
-            : `/api/reports/bankDeposits/export?${params.toString()}`;
-          const res = await fetch(endpoint);
-          if (!res.ok) throw new Error("Export failed");
-          
-          setSubmitStatus("success");
-          setMessage("Export completed!");
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-      
-          const a = document.createElement("a");
-          a.href = url;
-          
-          const formatDateForFile = (dateStr: string) => {
-            const d = new Date(dateStr + "T00:00:00");
-            return d.toLocaleDateString("en-US");
-          };
-          
-          const prefix = exportType === "general" ? "general-report" : "bank-deposits-report";
-          let fileName = `${prefix}.csv`;
-          
-          if (fromDate && toDate) {
-            if (fromDate === toDate) {
-              fileName = `${prefix}-${formatDateForFile(fromDate)}.csv`;
-            } else {
-              fileName = `${prefix}-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.csv`;
-            }
-          } else if (fromDate) {
-            fileName = `${prefix}-from-${formatDateForFile(fromDate)}.csv`;
-          }
-          
-          a.download = fileName;
+            setSubmitStatus("loading");
+            setExportProgress("Starting download...");
 
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error(err);
-          setSubmitStatus("error");
-          setMessage(`Export failed: ${err}`);
+            const params = new URLSearchParams({
+                page: "1",
+                limit: "1000000000",
+                search,
+                fromDate: fromDate || "",
+                toDate: toDate || "",
+                type: typeFilter || "",
+                status: statusFilter || "",
+                vendorId: vendorId || "",
+                driverId: driverId || "",
+                warehouseId: warehouseId || "",
+                export: "true",
+            });
+            const endpoint = exportType === "general"
+            ? `/api/reports/general/export?${params.toString()}`
+            : exportType === "general-basic"
+            ? `/api/reports/general-basic/export?${params.toString()}`
+            : `/api/reports/bankDeposits/export?${params.toString()}`;
+
+            const res = await fetch(endpoint);
+            if (!res.body) throw new Error("Readable stream not supported in this browser.");
+
+            const reader = res.body.getReader();
+            const chunks = [];
+            let receivedLength = 0;
+
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (done) break;
+
+                chunks.push(value);
+                receivedLength += value.length;
+
+                setExportProgress(`Downloaded ${(receivedLength / 1024 / 1024).toFixed(2)} MB`);
+            }
+                const blob = new Blob(chunks, { type: "text/csv" });
+                setSubmitStatus("success");
+                setMessage("Export completed!");
+                setExportProgress("");
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+
+                const formatDateForFile = (dateStr: string) => new Date(dateStr + "T00:00:00").toLocaleDateString("en-US");
+                const prefix = exportType === "general" ? "general-report-detailed" : exportType === "general-basic" ? "general-report-basic" :"bank-deposits-report";
+                let fileName = `${prefix}.csv`;
+                
+                if (fromDate && toDate) {
+                    fileName = fromDate === toDate ? `${prefix}-${formatDateForFile(fromDate)}.csv` : `${prefix}-from-${formatDateForFile(fromDate)}-to-${formatDateForFile(toDate)}.csv`;
+                } else if (fromDate) {
+                    fileName = `${prefix}-from-${formatDateForFile(fromDate)}.csv`;
+                }
+                
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+        } catch (err: any) {
+            console.error(err);
+            setSubmitStatus("error");
+            setMessage(`Export failed: ${err}`);
+            setExportProgress("");
         }
-      };
+    }
 
     const handleRowClick = async (it:any) => {
         setLoadingRow(it._id);
@@ -368,19 +381,36 @@ export function GeneralReportsTable(){
             {/* Export Selection Modal */}
             {isExportModalOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-(--secondary) p-6 rounded-xl shadow-2xl w-96 max-w-[90vw]">
+                    <div className="bg-(--secondary) p-6 font-mono font-bold rounded-xl shadow-2xl w-96 max-w-[90vw]">
                     {exportStep === 1 ? (
                             <>
-                                <h2 className="text-xl font-bold mb-4 border-b pb-2">Select Report Type</h2>
+                                <h2 className="text-xl text-center font-bold mb-4 border-b pb-2">Select Report Type</h2>
                                 <div className="flex flex-col gap-3 mb-6">
-                                    <label 
+                                <label 
                                         className={`flex items-center justify-between cursor-pointer p-4 rounded-xl transition-all duration-200 ${
-                                            exportType === "general" 
-                                                ? "bg-blue-500 text-white shadow-sm" 
+                                            exportType === "general-basic" 
+                                                ? "bg-blue-400 text-blue-800 shadow-sm" 
                                                 : "bg-white hover:bg-gray-200"
                                         }`}
                                     >
-                                        <span className="text-lg font-medium">General Report</span>
+                                        <span className="text-lg font-medium">General Report (Basic)</span>
+                                        <input 
+                                            type="radio" 
+                                            name="exportType" 
+                                            value="general"
+                                            checked={exportType === "general-basic"}
+                                            onChange={() => setExportType("general-basic")}
+                                            className="hidden" // This hides the default dot
+                                        />
+                                    </label>
+                                    <label 
+                                        className={`flex items-center justify-between cursor-pointer p-4 rounded-xl transition-all duration-200 ${
+                                            exportType === "general" 
+                                                ? "bg-blue-400 text-blue-800 shadow-sm" 
+                                                : "bg-white hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        <span className="text-lg font-medium">General Report (Detailed)</span>
                                         <input 
                                             type="radio" 
                                             name="exportType" 
@@ -394,7 +424,7 @@ export function GeneralReportsTable(){
                                     <label 
                                         className={`flex items-center justify-between cursor-pointer p-4 rounded-xl transition-all duration-200 ${
                                             exportType === "bankDeposits" 
-                                                ? "bg-blue-500 text-white shadow-sm" 
+                                                ? "bg-blue-400 text-blue-800 shadow-sm" 
                                                 : "bg-white hover:bg-gray-200"
                                         }`}
                                     >
@@ -430,7 +460,7 @@ export function GeneralReportsTable(){
                                 <p className="mb-6 text-gray-700 text-center">
                                     Are you sure you want to generate the <br/>
                                     <strong className="text-black text-lg">
-                                        {exportType === "general" ? "General Report" : "Bank Deposits Report"}
+                                        {exportType === "general" ? "General Report (Detailed)" : exportType === "general-basic" ? "General Report (Basic)" : "Bank Deposits Report"}
                                     </strong>?
                                 </p>
                                 <div className="flex justify-between gap-3">
@@ -484,6 +514,7 @@ export function GeneralReportsTable(){
                         setSubmitStatus(null);
                         setIsExportModalOpen(false);
                     }}
+                    progressText={exportProgress}
                     collection="General Reports"
                 />
             )}

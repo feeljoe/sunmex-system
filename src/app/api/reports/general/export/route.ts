@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import mongoose from "mongoose";
-import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
-  await connectToDatabase();
+  try {
+    await connectToDatabase();
   const searchParams = req.nextUrl.searchParams;
 
   const fromDate = searchParams.get("fromDate");
@@ -243,82 +243,124 @@ export async function GET(req: NextRequest) {
     },
   ];
 
-  const [preorders, directSales, creditMemos] = await Promise.all([
-    db.collection("preorders").aggregate(preorderPipeline).toArray(),
-    db.collection("directsales").aggregate(directSalePipeline).toArray(),
-    db.collection("creditmemos").aggregate(creditMemoPipeline).toArray(),
-  ]);
+  // Helper function to format a raw database row into a CSV string line
+  const formatRowToCSV = (r: any, headers: string[]) => {
+    const mappedObj = {
+      Number: r.number || "",
+      Chain: r.chain || "",
+      "Client #": r.clientNumber || "",
+      "Client Name": r.clientName || "",
+      "Vendor Route": r.vendorRoute || "",
+      "Vendor Name": r.vendorName || "",
+      "Driver Route": r.driverRoute || "",
+      "Driver Name": r.driverName || "",
+      Warehouse: r.warehouseName || "",
+      "Created At": r.createdAt || "",
+      "Created Day": r.createdDay || "",
+      "Created Month": r.createdMonth || "",
+      "Created Year": r.createdYear || "",
+      "Assembled At": r.assembledAt || "",
+      "Assembled Day": r.assembledDay || "",
+      "Assembled Month": r.assembledMonth || "",
+      "Assembled Year": r.assembledYear || "",
+      "Delivered/Received At": r.deliveredAt || r.receivedAt || "",
+      "Delivered Day": r.deliveredDay || r.receivedDay || "",
+      "Delivered Month": r.deliveredMonth || r.receivedMonth || "",
+      "Delivered Year": r.deliveredYear || r.receivedYear || "",
+      SKU: r.productSku || "",
+      Brand: r.brand || "",
+      Product: r.productName || "",
+      Type: r.typeName || "",
+      "Original Qty": r.originalQty || 0,
+      "Assembled Qty": r.assembledQty || 0,
+      "Delivered Qty": r.deliveredQty || 0,
+      Cost: r.cost || 0,
+      Price: r.price || 0,
+      "Cost Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.cost || 0) : 0,
+      "Sale Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.price || 0) : 0,
+      "Credit Total": r.deliveredQty < 0 ? (r.deliveredQty || 0) * (r.price || 0): 0,
+      Margin: ((r.deliveredQty || 0) * (r.price || 0)) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0,
+      Profit: (((r.deliveredQty || 0) * (r.price || 0)) * (((r.deliveredQty || 0) * (r.price || 0))) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0),
+      Charge: r.charge || 0,
+      "No Charge": r.noCharge || 0,
+      "Credit Memo": r.creditMemo || 0,
+      "Good Return": r.goodReturn || 0,
+    };
+    return headers.map(h => `"${String((mappedObj as any)[h] ?? "").replace(/"/g, '""')}"`).join(",");
+  };
 
-  const rows = [...preorders, ...directSales, ...creditMemos].map((r) => ({
-    Number: r.number || "",
-    Chain: r.chain || "",
-    "Client #": r.clientNumber || "",
-    "Client Name": r.clientName || "",
-    "Vendor Route": r.vendorRoute || "",
-    "Vendor Name": r.vendorName || "",
-    "Driver Route": r.driverRoute || "",
-    "Driver Name": r.driverName || "",
-    Warehouse: r.warehouseName || "",
-    "Created At": r.createdAt || "",
-    "Created Day": r.createdDay || "",
-    "Created Month": r.createdMonth || "",
-    "Created Year": r.createdYear || "",
-    "Assembled At": r.assembledAt || "",
-    "Assembled Day": r.assembledDay || "",
-    "Assembled Month": r.assembledMonth || "",
-    "Assembled Year": r.assembledYear || "",
-    "Delivered/Received At": r.deliveredAt || r.receivedAt || "",
-    "Delivered Day": r.deliveredDay || r.receivedDay || "",
-    "Delivered Month": r.deliveredMonth || r.receivedMonth || "",
-    "Delivered Year": r.deliveredYear || r.receivedYear || "",
-    SKU: r.productSku || "",
-    Brand: r.brand || "",
-    Product: r.productName || "",
-    Type: r.typeName || "",
-    "Original Qty": r.originalQty || 0,
-    "Assembled Qty": r.assembledQty || 0,
-    "Delivered Qty": r.deliveredQty || 0,
-    Cost: r.cost || 0,
-    Price: r.price || 0,
-    "Cost Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.cost || 0) : 0,
-    "Sale Total": r.deliveredQty > 0 ? (r.deliveredQty || 0) * (r.price || 0) : 0,
-    "Credit Total": r.deliveredQty < 0 ? (r.deliveredQty || 0) * (r.price || 0): 0,
-    Margin: ((r.deliveredQty || 0) * (r.price || 0)) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0,
-    Profit: ((r.deliveredQty || 0) * (r.price || 0)) * (((r.deliveredQty || 0) * (r.price || 0)) > 0 ? (((r.deliveredQty || 0) * (r.price || 0)) - ((r.deliveredQty || 0) * (r.cost || 0)))/((r.deliveredQty || 0) * (r.price || 0)) : 0),
-    Charge: r.charge || 0,
-    "No Charge": r.noCharge || 0,
-    "Credit Memo": r.creditMemo || 0,
-    "Good Return": r.goodReturn || 0,
-  }));
-  console.log("Rows length: ", rows.length);
+  // Define the headers we will use for the CSV
+  const headers = [
+    "Number", 
+    "Chain", 
+    "Client #", 
+    "Client Name", 
+    "Vendor Route", 
+    "Vendor Name",
+    "Driver Route", 
+    "Driver Name", 
+    "Warehouse", 
+    "Created At", 
+    "Created Day", 
+    "Created Month", 
+    "Created Year", 
+    "Assembled At", 
+    "Assembled Day", 
+    "Assembled Month", 
+    "Assembled Year", 
+    "Delivered/Received At", 
+    "Delivered Day", 
+    "Delivered Month", 
+    "Delivered Year", 
+    "SKU", 
+    "Brand", 
+    "Product", 
+    "Type", 
+    "Original Qty", 
+    "Assembled Qty", 
+    "Delivered Qty", 
+    "Cost", 
+    "Price", 
+    "Cost Total", 
+    "Sale Total", 
+    "Credit Total", 
+    "Margin", 
+    "Profit", 
+    "Charge", 
+    "No Charge", 
+    "Credit Memo", 
+    "Good Return"
+  ];
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(encoder.encode(headers.map(h => `"${h}"`).join(",") + "\n"));
 
-  // 1. Extract headers dynamically from the first row
-  if (rows.length === 0) {
-    return new NextResponse("No data found for this date range.", { status: 404 });
-  }
-  const headers = Object.keys(rows[0]);
+      const poCursor = db.collection("preorders").aggregate(preorderPipeline);
+      for await (const doc of poCursor) {
+        controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
+      }
+      const dsCursor = db.collection("directsales").aggregate(directSalePipeline);
+      for await (const doc of dsCursor) {
+        controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
+      }
+      const cmCursor = db.collection("creditmemos").aggregate(creditMemoPipeline);
+      for await (const doc of cmCursor) {
+        controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
+      }
 
-  // 2. Build the CSV string manually (super fast, very low memory)
-  const csvRows = [];
-  csvRows.push(headers.map(h => `"${h}"`).join(",")); // Header row
+      controller.close();
+    }
+  });
 
-  for (const row of rows) {
-    const values = headers.map(header => {
-      const val = row[header as keyof typeof row];
-      // Escape quotes and wrap in quotes to handle commas inside text
-      const cleanVal = String(val ?? "").replace(/"/g, '""');
-      return `"${cleanVal}"`;
-    });
-    csvRows.push(values.join(","));
-  }
-
-  const csvString = csvRows.join("\n");
-
-  // 3. Return the CSV file directly
-  return new NextResponse(csvString, {
+  return new NextResponse(stream, {
     headers: {
       "Content-Disposition": 'attachment; filename="general-report.csv"',
       "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
     },
   });
+  } catch (err: any) {
+    return Response.json({error: err || "Export failed"}, {status: 500});
+  }
 }

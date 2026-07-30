@@ -32,16 +32,8 @@ export function BrandsTable() {
   };
 
   useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);}, 1000);
-  }, [handleSetPage]);
-
-  useEffect(() => {
       setPage(1);
     }, [search]);
-
-    useEffect(() => {
-      setTimeout(() => {setSubmitStatus(null);},3000);
-    }, [reload]);
 
       const requestDelete = (brand: any) => {
           setBrandToDelete(brand);
@@ -73,6 +65,37 @@ export function BrandsTable() {
       };
       const totalPages = total > 0? Math.ceil(total/limit): 1;
 
+      const handleExportExcel = async () => {
+        try {
+          setSubmitStatus("loading");
+          setMessage("Generating Excel file...");
+
+          const res = await fetch("/api/brands/export");
+          if (!res.ok) throw new Error("Export failed");
+
+          // Get the binary Excel buffer from the API
+          const blob = await res.blob();
+          
+          // Trigger the browser download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `brands-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+
+          setSubmitStatus("success");
+          setMessage("Export completed!");
+          
+        } catch (err) {
+          console.error(err);
+          setSubmitStatus("error");
+          setMessage("Failed to export brands.");
+        }
+      };
+
   return (
     <>
     <div className='h-full w-full'>
@@ -93,7 +116,11 @@ export function BrandsTable() {
               onSearch={setSearch}
               debounce
           />
-          <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+          <RefreshButton onRefresh={() => {
+            setSubmitStatus("loading");
+            reload(); 
+            setTimeout(() => setSubmitStatus(null), 1000);
+            }}/>
       </div>
       <div className='flex-1 overflow-auto rounded-xl shadow-xl'>
       <table className='w-full text-left'>
@@ -134,13 +161,28 @@ export function BrandsTable() {
         </tbody>
       </table>
       </div>
+      <div className='flex justify-between items-center font-mono'>
+        <div className='flex mt-4'>
+            <button 
+              onClick={handleExportExcel}
+              className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              Export
+            </button>
+        </div>
       <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
         <span>
           Showing {items.length} of {total} brands
         </span>
         <button
           disabled={page === 1}
-          onClick={() => handleSetPage("back")}
+          onClick={() => {
+            handleSetPage("back");
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
           className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
@@ -154,13 +196,17 @@ export function BrandsTable() {
 
         <button
           disabled={page >= totalPages}
-          onClick={() => handleSetPage("forward")}
+          onClick={() => {
+            handleSetPage("forward");
+            setTimeout(() => setSubmitStatus(null), 1000);
+          }}
           className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
           </svg>
         </button>
+      </div>
       </div>
     </div>
     </div>

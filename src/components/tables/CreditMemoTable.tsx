@@ -339,7 +339,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
       )}
 
       <div className="flex-1 overflow-auto bg-white rounded-xl shadow-xl">
-        <table className="text-left text-sm">
+        <table className="text-left w-full text-sm">
           <thead className="bg-(--tertiary) sticky top-0">
             <tr className="border-b">
             {userRole === "admin" && (
@@ -475,7 +475,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                       )}
                       </td>
                     }
-                    {(it.routeAssigned === undefined) &&
+                    {(it.routeAssigned === undefined || it.routeAssigned === null) &&
                       <td className="p-2 capitalize"> 001 | {it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()} </td>
                     }
                     <td className="p-2">{formatDate(it.returnedAt)}</td>
@@ -483,7 +483,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                   </>
                 )}
 
-                {it.warehouseStatus === "pending" ? (
+                {it.warehouseStatus === "pending" && it.status !== "cancelled" ? (
                   <td className="p-2">
                     <button
                       className="bg-red-400 text-red-800 hover:text-white hover:bg-red-800 p-2 rounded-xl cursor-pointer transition-colors duration:300"
