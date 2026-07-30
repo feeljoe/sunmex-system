@@ -66,7 +66,7 @@ export async function PATCH(
 // ----------------------------------------------------------------------
 export async function DELETE(
     req: NextRequest,
-    context: { params: { id: string } }
+    context: { params: Promise<{ id: string }>}
 ) {
     try {
         await connectToDatabase();
