@@ -12,7 +12,7 @@ import DirectSaleDetailsModal from "../modals/DirectSaleDetailsModal";
 import { DateTime } from "luxon";
 import { formatCurrency } from "@/utils/format";
 
-export function GeneralReportsTable(){
+export function GeneralReportsTable({userRole}:{userRole: string | undefined}){
     const statusColors: Record<string, string> = {
         pending: "bg-gray-400 text-gray-800",
         assigned: "bg-(--tertiary) text-(--quarteary)",
@@ -501,6 +501,7 @@ export function GeneralReportsTable(){
             )}
             {selectedDirectSale && (
                 <DirectSaleDetailsModal
+                    userRole={userRole === "admin" ? "admin" : "no-access"}
                     directSale={selectedDirectSale}
                     onClose={() => setSelectedDirectSale(null)}
                 />
