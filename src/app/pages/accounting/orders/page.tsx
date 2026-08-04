@@ -15,7 +15,8 @@ import DeletePaymentsModal from "@/components/modals/DeletePaymentsModal";
 import { PaginatedSelect } from "@/components/ui/PaginatedSelect";
 import { StaticSelect } from "@/components/ui/StaticSelect";
 import { generateAccountingPDF } from "@/utils/generateAccountingPDF";
-
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 type Order = {
   _id: string;
   number: string;
@@ -31,7 +32,9 @@ type Order = {
   type: "order" | "directSale" | "creditMemo";
 };
 
-export default function AccountingOrdersPage() {
+export default async function AccountingOrdersPage() {
+  const session = await getServerSession(authOptions);
+  const userRole = session?.user?.role;
   // 1. DRAFT STATES (These change instantly but do NOT trigger API)
   const [draftFrom, setDraftFrom] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [draftTo, setDraftTo] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
@@ -976,6 +979,7 @@ export default function AccountingOrdersPage() {
       {/* Direct Sale Details Modal */}
       {selectedDirectSale && (
           <DirectSaleDetailsModal
+            userRole={userRole === "admin" ? "admin" : "no-access"}
             directSale={selectedDirectSale}
             onClose={() => setSelectedDirectSale(null)}
           />
