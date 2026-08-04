@@ -3,10 +3,12 @@
 import { useState } from "react";
 export default function CancelPreorderModal({
     preorder,
+    directSale,
     onClose,
     onConfirm,
 }: {
-    preorder: any;
+    preorder?: any;
+    directSale?: any;
     onClose: () => void;
     onConfirm: (reason: string) => void;
 }) {
@@ -14,11 +16,19 @@ export default function CancelPreorderModal({
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+          {preorder ? (
             <h2 className="text-2xl font-semibold text-red-600">
-              Cancel Preorder #{preorder.number}
+                Cancel Preorder #{preorder.number}
             </h2>
+          ): directSale ? (
+            <h2 className="text-2xl font-semibold text-red-600">
+                Cancel Direct Sale #{directSale.number}
+            </h2>
+          ): (
+            <h2></h2>
+          )}
             <h3 className="text-xl font-semibold text-red-600 text-center">
-                <strong>for {preorder.client?.clientName}</strong>?
+                <strong>for {preorder ? preorder?.client?.clientName : directSale?.client?.clientName}</strong>?
             </h3>
             <textarea 
                 className="w-full shadow-xl rounded-xl p-2 resize-none"

@@ -6,7 +6,7 @@ import PrepareOrderModal from "../modals/PreparePreorderModal";
 import { RefreshButton } from "../ui/RefreshButton";
 import SubmitResultModal from "../modals/SubmitResultModal";
 
-export function WarehousePreordersTable(user: any) {
+export function WarehousePreordersTable( { user } : any) {
     const {items:preorders, reload} = useList("/api/preOrders/warehouse");
     const {items:routes} = useList("/api/routes", {
         type: "driver",
@@ -46,7 +46,7 @@ export function WarehousePreordersTable(user: any) {
 
     return (
         <>
-            <div className="bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col h-[80vh] w-[90vw]">
+            <div className={`bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col ${user.role === "admin" ? "h-[85vh] w-[88vw]" : "h-[80vh] w-[97vw]"}`}>
                 <div className="flex items-center justify-between mb-2">
                         {/* Route filter */}
                         <div className="flex gap-4 items-center h-10">

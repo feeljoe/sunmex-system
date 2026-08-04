@@ -103,6 +103,7 @@ export async function GET(req: Request) {
             {
               createdBy: vendorIdObj,
               status: "pending",
+              ...baseFilters,
             },
             {
               createdBy: vendorIdObj,

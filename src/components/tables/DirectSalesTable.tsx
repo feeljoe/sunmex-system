@@ -63,40 +63,6 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
     }
   };
 
-  // ----------------------------------------------------
-  // EXPORT EXCEL LOGIC
-  // ----------------------------------------------------
-  const handleExportExcel = async () => {
-    try {
-      setSubmitStatus("loading");
-      setMessage("Generating Excel file...");
-
-      const res = await fetch("/api/direct-sale/export");
-      if (!res.ok) throw new Error("Export failed");
-
-      // Get the binary Excel buffer from the API
-      const blob = await res.blob();
-
-      // Trigger the browser download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `products-export-${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-      setSubmitStatus("success");
-      setMessage("Export completed!");
-
-    } catch (err) {
-      console.error(err);
-      setSubmitStatus("error");
-      setMessage("Failed to export products.");
-    }
-  };
-
   const cancelDirectSale = async (reason: string) => {
 
     if (!selectedDirectSale2) {
@@ -135,7 +101,7 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
   };
 
   return (
-    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col h-[75vh] ${isAdmin ? "w-[90vw]" : "w-[97vw]"}`}>
+    <div className={`bg-(--secondary) rounded-lg shadow-xl p-4 lg:p-10 flex flex-col ${isAdmin ? "w-[88vw] h-[80vh]" : "w-[90vw] h-[75vh]"}`}>
 
       {/* ADMIN FILTERS SECTION */}
       {isAdmin && (
@@ -186,20 +152,24 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
               <th className="p-2">Sold By</th>
               <th className="p-2 text-center">Delivery Date</th>
               <th className="p-2 text-center">Delivery Time</th>
-              <th className="p-2 text-center">Cancelled Date</th>
-              <th className="p-2 text-center">Cancelled Time</th>
-              <th className="p-2 text-center">Cancelled By</th>
+              {isAdmin && (
+                <>
+                <th className="p-2 text-center">Cancelled Date</th>
+                <th className="p-2 text-center">Cancelled Time</th>
+                <th className="p-2 text-center">Cancelled By</th>
+                </>
+              )}
               <th className="p-2 text-center">Cancel</th>
             </tr>
           </thead>
           <tbody>
             {items.map((it: any) => (
-              <tr key={it._id} className="border-b hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedDirectSale(it)}>
+              <tr key={it._id} className="border-b whitespace-nowrap hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedDirectSale(it)}>
                 <td className="p-2 font-mono font-bold text-blue-600">{it.number}</td>
                 <td className="p-2 capitalize">{it.client?.clientName?.toLowerCase()}</td>
                 <td className="p-2 font-semibold text-green-700 text-right">{formatCurrency(it.total)}</td>
-                <td className="p-2 flex justify-center">
-                  <span className={`py-1 w-30 rounded-xl text-center text-xs font-bold uppercase ${statusColors[it.status]}`}>
+                <td className="p-2 text-center">
+                  <span className={`p-2 rounded-xl text-center text-xs font-bold uppercase ${statusColors[it.status]}`}>
                     {it.status}
                   </span>
                 </td>
@@ -209,16 +179,22 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
                 </td>
                 <td className="p-2 text-center">{formatDate(it.createdAt)}</td>
                 <td className="p-2 text-center">{formatTime(it.createdAt)}</td>
-                {isAdmin && it.status === "cancelled" ? (
-                  <td className="p-2 text-red-600 text-center" onClick={() => setSelectedDirectSale(it)}>{formatDate(it.cancelledAt)}</td>
-                ) : (
-                  <td colSpan={3} className="p-2 text-center">-</td>
-                )}
-                {isAdmin && it.status === "cancelled" && (
-                  <td className="p-2 text-red-600 text-center" onClick={() => setSelectedDirectSale(it)}>{formatTime(it.cancelledAt)}</td>
-                )}
-                {isAdmin && it.status === "cancelled" && (
-                  <td className="p-2 text-red-600 text-center capitalize" onClick={() => setSelectedDirectSale(it)}>{it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}</td>
+                {isAdmin && (
+                  it.status === "cancelled" ? (
+                    <>
+                      <td className="p-2 text-red-600 text-center">
+                        {formatDate(it.cancelledAt)}
+                      </td>
+                      <td className="p-2 text-red-600 text-center">
+                        {formatTime(it.cancelledAt)}
+                      </td>
+                      <td className="p-2 text-red-600 text-center capitalize">
+                        {it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}
+                      </td>
+                    </>
+                  ) : (
+                    <td colSpan={3} className="p-2 text-center">-</td>
+                  )
                 )}
                 {it.status !== "cancelled" && it.paymentStatus !== "paid" ? (
                   <td className="p-2 text-center">
@@ -244,20 +220,8 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
       </div>
 
       {/* PAGINATION */}
-      <div className='flex justify-between items-center font-mono'>
-        <div className='flex mt-4'>
-          <button
-            onClick={handleExportExcel}
-            className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-            </svg>
-            Export
-          </button>
-        </div>
-        <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
-          <span>
+       <div className="flex justify-end font-mono font-bold items-center gap-2 mt-4">
+          <span className={`${isAdmin ? "" : "text-xs"}`}>
             Showing {items.length} of {total} products
           </span>
           <button
@@ -268,12 +232,12 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
             }}
             className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className={`${isAdmin ? "size-6": "size-4"}`}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
           </button>
 
-          <span className="px-3 py-1">
+          <span className={`px-2 py-1 ${isAdmin ? "" : "text-xs"}`}>
             Page {page} of {totalPages || 1}
           </span>
 
@@ -285,21 +249,21 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
             }}
             className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className={`${isAdmin ? "size-6": "size-4"}`}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
           </button>
         </div>
-      </div>
       {selectedDirectSale &&
         <DirectSaleDetailsModal
+          userRole={isAdmin? "admin" : "not-allowed"}
           directSale={selectedDirectSale}
           onClose={() => setSelectedDirectSale(null)}
         />
       }
       {cancelModalOpen && selectedDirectSale2 && (
         <CancelPreorderModal
-          preorder={selectedDirectSale2}
+          directSale={selectedDirectSale2}
           onClose={() => setCancelModalOpen(false)}
           onConfirm={cancelDirectSale}
         />

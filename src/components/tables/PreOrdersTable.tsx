@@ -188,7 +188,7 @@ export function PreordersTable({ userRole, userId }:{ userRole: string, userId: 
   };
   
   return (
-    <div className={`h-[75vh] ${userRole === "admin" ? "w-[90vw]" : "w-[95vw]"}`}>
+    <div className={`${userRole === "admin" ? "w-[88vw] h-[80vh]" : "w-[90vw] h-[75vh]"}`}>
     <div className="flex items-center justify-end py-2">
     <Link href="/pages/sales/preorders/add-preorder">
             <button className="flex gap-4 p-3 mb-1 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">

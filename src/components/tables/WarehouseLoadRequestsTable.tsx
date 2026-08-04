@@ -53,7 +53,7 @@ export function WarehouseLoadRequestsTable({ user }: any) {
 
   return (
     <>
-      <div className="bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col h-[80vh] w-[90vw]">
+      <div className={`bg-(--secondary) font-mono font-bold rounded-xl shadow-xl p-4 flex flex-col ${user?.role === "admin" ? "h-[85vh] w-[88vw]" :"h-[80vh] w-[97vw]"}`}>
 
         {/* HEADER */}
         <div className="flex items-center justify-between mb-4">

@@ -46,11 +46,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const payload: any = {
       name: body.name,
-      productIds: body.productIds || undefined,
-      brandIds: body.brandIds || undefined,
-      clientsAssigned: body.clientsAssigned || undefined,
-      chainsAssigned: body.chainsAssigned || undefined,
       pricing: body.pricing,
+      productIds: body.productIds || [],
+      brandIds: body.brandIds || [],
+      productPrices: body.productPrices || [],
+      brandPrices: body.brandPrices || [],
+      clientsAssigned: body.clientsAssigned || [],
+      chainsAssigned: body.chainsAssigned || [],
+      clientPrices: body.clientPrices || [],
+      chainPrices: body.chainPrices || [],
     };
 
     const created = await PricingList.create(payload);

@@ -3,6 +3,7 @@ import CreditMemo from "@/models/CreditMemo";
 import PreOrder from "@/models/PreOrder";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
+import RouteAudit from "@/models/RouteAudit";
 
 export async function GET(req: Request) {
   try {
@@ -99,10 +100,31 @@ export async function GET(req: Request) {
               status: po.warehouseReturnProcessed ? "completed": "pending"
             }));
 
+      const auditQuery: any = {
+        routeAssigned: {$exists: true, $ne: null},
+        $or: [
+          { status: "pending", createdAt: { $gte: startOfDay, $lte: endOfDay } },
+          { status: "completed", warehouseReceivedAt: { $gte: startOfDay, $lte: endOfDay } }
+        ]
+      };
+      if (route) auditQuery.routeAssigned = route;
+
+      const audits = await RouteAudit.find(auditQuery)
+        .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
+        .populate({ path: "products.product", populate: { path: "brand" } })
+        .populate("createdBy")
+        .sort({ createdAt: -1 })
+        .lean();
+
+      const formattedAudits = audits.map((au: any) => ({
+        ...au,
+        type: "audit"
+      }));
+
     // useList expects an object with 'items'
     return NextResponse.json({
-      items: [...formattedCMs, ...formattedPreorders],
-      total: formattedCMs.length + formattedPreorders.length
+      items: [...formattedCMs, ...formattedPreorders, ...formattedAudits],
+      total: formattedCMs.length + formattedPreorders.length + formattedAudits.length
     });
 
   } catch (error: any) {

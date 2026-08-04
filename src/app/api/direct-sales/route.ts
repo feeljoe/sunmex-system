@@ -30,11 +30,11 @@ export async function GET(req: Request) {
     const phoenixNow = DateTime.now()
       .setZone("America/Phoenix");
     const start = phoenixNow
-      .startOf("day")
+      .startOf("week")
       .toUTC()
       .toJSDate();
     const end = phoenixNow
-    .endOf("day")
+    .endOf("week")
     .toUTC()
     .toJSDate();
 

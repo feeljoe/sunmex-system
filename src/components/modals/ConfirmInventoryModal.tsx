@@ -75,8 +75,9 @@ export default function ConfirmInventoryModal({
             return;
         }
 
+        // By default, only deduct items that are missing/damaged AND not being returned to warehouse
         const defaultDeductions = auditItems
-            .filter((item: { adjusted: any; actualQty: number; expectedQty: number; }) => item.adjusted && item.actualQty < item.expectedQty)
+            .filter((item: any) => item.adjusted && item.actualQty < item.expectedQty && item.reason !== "returned")
             .map((item: { productId: any; }) => item.productId);
         
         setSelectedDeductions(defaultDeductions);
@@ -102,7 +103,7 @@ export default function ConfirmInventoryModal({
                 setMessage("Audit Submitted");
                 setSubmitStatus("success");
                 onCompleted();
-            }else {
+            } else {
                 setMessage("Failed to submit Audit");
                 setSubmitStatus("error");
             }
@@ -114,9 +115,10 @@ export default function ConfirmInventoryModal({
     };
 
     const differences = auditItems.filter((item: { adjusted: any; }) => item.adjusted);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-(--secondary) p-6 rounded-xl shadow-2xl w-[90vw] max-h-[80vh] flex flex-col">
+          <div className="bg-(--secondary) p-6 rounded-xl shadow-2xl w-[90vw] max-h-[80vh] flex flex-col relative">
             
             {/* Header */}
             <div className="text-center border-b pb-4 mb-4">
@@ -157,7 +159,6 @@ export default function ConfirmInventoryModal({
                         </div>
                       </div>
     
-                      {/* Inline Reason Dropdown (Only shows if adjusted) */}
                       {item.adjusted && (
                         <div className="w-48 text-xs font-bold">
                             <label>DIFFERENCE REASON</label>
@@ -167,6 +168,7 @@ export default function ConfirmInventoryModal({
                             className={`w-full h-10 p-2 border-2 rounded-lg font-bold text-sm outline-none ${!item.reason ? "border-red-400 bg-red-50 text-red-700" : "border-gray-300 bg-white"}`}
                           >
                             <option value="" disabled>Select Reason...</option>
+                            <option value="returned">Return to Warehouse</option> {/* NEW OPTION */}
                             <option value="extra">Extra</option>
                             <option value="missing">Missing</option>
                             <option value="damaged">Damaged</option>
@@ -223,7 +225,7 @@ export default function ConfirmInventoryModal({
                           return (
                             <tr key={item.productId} className={`border-b ${isSelected ? "bg-red-200" : ""}`}>
                               <td className="p-3 text-center">
-                                {qtyDiff > 0 && ( // Only allow deductions if they are missing/short items
+                                {qtyDiff > 0 && ( 
                                   <input 
                                     type="checkbox" 
                                     checked={isSelected}
@@ -234,7 +236,7 @@ export default function ConfirmInventoryModal({
                               </td>
                               <td className="p-3 font-bold">{item.brand} - {item.name} {item.weight ? `| ${item.weight}${item.unit?.toUpperCase()}` : ""} {item.caseSize ? `| ${item.caseSize} units per case` : ""}</td>
                               <td className={`p-3 text-center font-bold ${qtyDiff > 0 ? "text-red-600" : "text-green-600"}`}>{-qtyDiff}</td>
-                              <td className="p-3 capitalize font-semibold text-gray-600">{item.reason}</td>
+                              <td className="p-3 capitalize font-semibold text-gray-600">{item.reason === "returned" ? "Return to Warehouse" : item.reason}</td>
                               <td className={`p-3 text-right font-bold ${qtyDiff > 0 ? "text-red-600" : "text-green-600"}`}>
                                 {qtyDiff > 0 ? formatCurrency(costDiff) : "$0.00"}
                               </td>
@@ -258,6 +260,7 @@ export default function ConfirmInventoryModal({
                 </div>
               </>
             )}
+
             {submitStatus && (
                 <SubmitResultModal
                     message={message}
@@ -268,5 +271,5 @@ export default function ConfirmInventoryModal({
             )}
           </div>
         </div>
-      );
+    );
 }

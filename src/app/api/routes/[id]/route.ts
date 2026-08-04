@@ -4,6 +4,40 @@ import Route from "@/models/Route";
 import User from "@/models/User";
 import Client from "@/models/Client";
 
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectToDatabase();
+    const { id } = await context.params;
+
+    const route = await Route.findById(id)
+      .populate({
+        path: "inventory.product",
+        populate: {
+          path: "brand",
+        },
+      })
+      .populate("user");
+
+    if (!route) {
+      return NextResponse.json(
+        { error: "Route Not Found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(route);
+  } catch (err) {
+    console.error("Error fetching route:", err);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
 /* ---------------- PATCH ---------------- */
 export async function PATCH(
   req: NextRequest,

@@ -63,6 +63,9 @@ const DirectSaleSchema = new Schema(
         cancelledBy: {
             type: Schema.Types.ObjectId, ref: "User",
         },
+        cancelReason: {
+            type: String
+        },
         updatedAt: {type: Date},
         updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
         paymentStatus: {

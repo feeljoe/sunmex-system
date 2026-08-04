@@ -69,39 +69,50 @@ export const userConfirmConfig = [
 ];
 
 export const pricingListConfirmConfig = [
-    {
-      title: "Pricing List Details",
-      fields: [
-        { label: "Name", key: "name" },
-  
-        {
-          label: "Applies To",
-          key: "appliesTo",
-          format: (_: any, data: any) =>
-            data.appliesTo === "product"
-              ? formatNameListWithLimit(data.productIds)
-              : formatNameListWithLimit(data.brandIds),
+  {
+    title: "Pricing List Details",
+    fields: [
+      { label: "Name", key: "name" },
+      {
+        label: "Brands",
+        key: "brands",
+        format: (_: any, data: any) => {
+          if (!data.brands || data.brands.length === 0) return "None";
+          return data.brands.map((b: any) => (b.price !== "" ? `${b.name} ($${b.price})` : b.name)).join(", ");
         },
-  
-        {
-          label: "Assigned",
-          key: "clientsAssigned",
-          format: (_: any, data: any) =>
-            data.appliesToClients === "client"
-              ? formatNameListWithLimit(data.clientsAssigned, {
-                  key: "clientName",
-                })
-              : formatNameListWithLimit(data.chainsAssigned),
+      },
+      {
+        label: "Products",
+        key: "products",
+        format: (_: any, data: any) => {
+          if (!data.products || data.products.length === 0) return "None";
+          return data.products.map((p: any) => (p.price !== "" ? `${p.name} ($${p.price})` : p.name)).join(", ");
         },
-  
-        {
-          label: "Price",
-          key: "pricing",
-          format: (v: any) => `$${v}`,
+      },
+      {
+        label: "Chains",
+        key: "chainsAssigned",
+        format: (_: any, data: any) => {
+          if (!data.chainsAssigned || data.chainsAssigned.length === 0) return "None";
+          return data.chainsAssigned.map((c: any) => (c.price !== "" ? `${c.name} ($${c.price})` : c.name)).join(", ");
         },
-      ],
-    },
-  ];
+      },
+      {
+        label: "Clients",
+        key: "clientsAssigned",
+        format: (_: any, data: any) => {
+          if (!data.clientsAssigned || data.clientsAssigned.length === 0) return "None";
+          return data.clientsAssigned.map((c: any) => (c.price !== "" ? `${c.clientName} ($${c.price})` : c.clientName)).join(", ");
+        },
+      },
+      {
+        label: "Global Price",
+        key: "pricing",
+        format: (v: any) => formatCurrency(v),
+      },
+    ],
+  },
+];
   
   export const clientConfirmConfig = [
     {

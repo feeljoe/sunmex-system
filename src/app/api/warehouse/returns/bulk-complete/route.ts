@@ -4,6 +4,7 @@ import PreOrder from "@/models/PreOrder";
 import ProductInventory from "@/models/ProductInventory";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
+import RouteAudit from "@/models/RouteAudit";
 
 export async function PATCH(req: Request) {
   const session = await mongoose.startSession();
@@ -16,6 +17,7 @@ export async function PATCH(req: Request) {
     const {
       creditMemoIds = [], // Array of all CM _ids for this route
       preorderIds = [], // Array of all Preorder _ids for this route
+      auditIds = [], // Array of all Audit _ids for this route (Inventory-wise)
       aggregatedProducts, // Array of { productId, returnReason, totalPicked, verifiedQuantity }, now includes originalReason, newReason, sourceType
       warehouseUser,
       driverSignature,
@@ -27,7 +29,7 @@ export async function PATCH(req: Request) {
 
     // 2. Process each aggregated product group
     for (const agg of aggregatedProducts) {
-      if (agg.sourceType === "preorder") continue;
+      if (agg.sourceType === "preorder" || agg.sourceType === "audit") continue;
       const pickedQty = Math.round(Number(agg.totalPicked) || 0);
       const verifiedQty = Math.round(Number(agg.verifiedQuantity) || 0);
       let shortage = Math.max(pickedQty - verifiedQty, 0); // Calculate how many are missing
@@ -115,6 +117,40 @@ export async function PATCH(req: Request) {
       cm.warehouseSignature = warehouseSignature;
       cm.warehouseReceivedAt = new Date();
       await cm.save({ session });
+    }
+
+    const audits = await RouteAudit.find({ _id: { $in: auditIds } }).session(session);
+
+    for (const au of audits) {
+      for (const p of au.products) {
+        const agg = aggregatedProducts.find((a: any) =>
+          a.sourceType === "audit" &&
+          a.productId === p.product?.toString() &&
+          a.originalReason === p.reason
+        );
+        if (agg) {
+          p.newReason = agg.newReason;
+          p.verifiedQuantity = agg.verifiedQuantity;
+
+          const invUpdate: any = { $inc: {} };
+
+          if (p.difference) {
+            if(agg.newReason === "returned") {
+              invUpdate.$inc.currentInventory = agg.verifiedQuantity;
+            }
+          }
+
+          if (Object.keys(invUpdate.$inc).length > 0) {
+            await ProductInventory.updateOne({ product: p.product }, invUpdate, { session });
+          }
+        }
+      }
+      au.status = "completed";
+      au.receivedBy = warehouseUser;
+      au.driverSignature = driverSignature;
+      au.warehouseSignature = warehouseSignature;
+      au.warehouseReceivedAt = new Date();
+      await au.save({ session });
     }
 
     await session.commitTransaction();

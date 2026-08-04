@@ -42,7 +42,18 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   }
 
   const body = await req.json();
-  const {name, pricing, brandIds, productIds, clientsAssigned, chainsAssigned} = body;
+  const { 
+    name, 
+    pricing, 
+    brandIds, 
+    productIds, 
+    productPrices, 
+    brandPrices, 
+    clientsAssigned, 
+    chainsAssigned, 
+    clientPrices, 
+    chainPrices
+  } = body;
 
   try{
     const updated = await PricingList.findByIdAndUpdate(
@@ -52,17 +63,22 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
         pricing,
         brandIds,
         productIds,
+        productPrices,
+        brandPrices,
         clientsAssigned,
         chainsAssigned,
+        clientPrices,
+        chainPrices,
       },
-      {new: true}
+      { new: true }
     );
     if(!updated) {
-      return NextResponse.json({error: "Pricing Lsit not found"}, {status: 404});
+      return NextResponse.json({error: "Pricing List not found"}, {status: 404});
     }
 
     return NextResponse.json(updated);
   }catch(err: any) {
+    console.log("Error", err);
     return NextResponse.json({error: err.message}, {status:500});
   }
 }

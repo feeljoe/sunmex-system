@@ -76,6 +76,31 @@ export default function ReceiveRouteReturnsModal({
         });
     });
 
+    routeData.audits?.forEach((au: any) => {
+      const docNumber = "AUDIT";
+      au.products.forEach((p: any) => {
+        const diff = Math.abs(p.difference);
+        const prod = p?.product;
+        const key = `${prod?._id}-${p?.reason}-au`;
+
+        if (!map.has(key)) {
+          map.set(key, {
+            sourceType: "audit",
+            productId: prod?._id,
+            brandName: prod?.brand?.name || "Unknown Brand",
+            productName: prod?.name || "Unknown Product",
+            weight: prod?.weight || "",
+            unit: prod?.unit || "",
+            returnReason: p?.reason,
+            totalPicked: 0,
+            sourceDocs: new Set<string>(),
+          });
+        }
+        map.get(key).totalPicked += diff;
+        map.get(key).sourceDocs.add(docNumber);
+      });
+    });
+
 
     return Array.from(map.values()).map(item => ({
       ...item,
@@ -141,8 +166,9 @@ export default function ReceiveRouteReturnsModal({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        creditMemoIds: routeData.creditMemos.map((cm: any) => cm._id),
-        preorderIds: routeData.preorders.map((po: any) => po._id),
+        creditMemoIds: routeData.creditMemos.map((cm: any) => cm._id) || [],
+        preorderIds: routeData.preorders.map((po: any) => po._id) || [],
+        auditIds: routeData.audits?.map((au: any) => au._id) || [],
         aggregatedProducts: payloadProducts,
         warehouseUser: user?.id,
         driverSignature: signature,
@@ -192,6 +218,9 @@ export default function ReceiveRouteReturnsModal({
                     Docs: {agg.sourceDocs}
                   </div>
                   <div className={`mt-1`}>
+                    {agg.sourceType !== "audit" ?(
+
+                    
                     <select
                       value={reasonOverrides[key] || agg.returnReason}
                       onChange={(e) => setReasonOverrides(prev => ({...prev, [key]: e.target.value}))}
@@ -213,6 +242,9 @@ export default function ReceiveRouteReturnsModal({
                             </>
                         )}
                     </select>
+                    ): (
+                      <span className="text-sm font-bold capitalize border-b-2 bg-transparent text-green-600 border-green-600">Return to Warehouse</span>
+                    )}
                     {agg.sourceType === "preorder" && (
                         <span className="ml-4 bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Preorder Dev.</span>
                     )}

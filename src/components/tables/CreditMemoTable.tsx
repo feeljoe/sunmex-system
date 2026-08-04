@@ -36,12 +36,6 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
 
   const [fromDate, setFromDate] = useState(userRole === "vendor" ? today : () => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [toDate, setToDate] = useState(userRole === "vendor" ? today : () => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
-  const [appliedFilters, setAppliedFilters] = useState({
-    fromDate,
-    toDate,
-    vendorId: userRole === "vendor" ? userId : "",
-    routeId: "",
-  });
 
   // Data for selects
   const [vendors, setVendors] = useState<any[]>([]);
@@ -532,7 +526,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
         </div>
         <div className="flex font-mono font-bold items-center gap-4 mt-2">
         <span>
-          Showing {items.length} of {total} Preorders
+          Showing {items.length} of {total} Credit Memos
         </span>
         <button
           disabled={page === 1}
@@ -569,6 +563,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
       {selected && (
         <CreditMemoDetailsModal
           creditMemo={selected}
+          userRole={userRole}
           onClose={() => setSelected(null)}
         />
       )}

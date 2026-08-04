@@ -58,6 +58,31 @@ export default function ViewRouteReturnsModal({routeData, onClose}: any) {
                 map.get(key).sourceDocs.add(docNumber);
             });
         });
+
+        routeData.audits?.forEach((au: any) => {
+          const docNumber = "AUDIT";
+          au.products.forEach((p: any) => {
+            const diff = Math.abs(p.difference);
+            const prod = p?.product;
+            const key = `${prod?._id}-${p?.reason}-au`;
+    
+            if (!map.has(key)) {
+              map.set(key, {
+                sourceType: "audit",
+                productId: prod?._id,
+                brandName: prod?.brand?.name || "Unknown Brand",
+                productName: prod?.name || "Unknown Product",
+                weight: prod?.weight || "",
+                unit: prod?.unit || "",
+                returnReason: p?.reason,
+                totalPicked: 0,
+                sourceDocs: new Set<string>(),
+              });
+            }
+            map.get(key).totalPicked += diff;
+            map.get(key).sourceDocs.add(docNumber);
+          });
+        });
     
     
         return Array.from(map.values()).map(item => ({
