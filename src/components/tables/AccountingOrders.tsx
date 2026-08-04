@@ -30,7 +30,7 @@ type Order = {
   type: "order" | "directSale" | "creditMemo";
 };
 
-export default async function AccountingOrdersPage({userRole}:{userRole: string;}) {
+export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
   // 1. DRAFT STATES (These change instantly but do NOT trigger API)
   const [draftFrom, setDraftFrom] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [draftTo, setDraftTo] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));

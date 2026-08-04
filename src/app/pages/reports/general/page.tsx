@@ -1,7 +1,7 @@
 import { GeneralReportsTable } from "@/components/tables/GeneralReportsTable";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-export default async function SupplierOrdersPage() {
+export default async function GeneralReportsPage() {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role;
   return (
