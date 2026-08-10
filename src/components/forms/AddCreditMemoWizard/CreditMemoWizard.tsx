@@ -44,6 +44,8 @@ export default function CreditMemoWizard({
   const { items: pricingLists } =
     useList("/api/pricingLists", { limit: 1000 });
 
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number; capturedAt: Date } | null>(null);
+
   // Prefill in edit mode
   useEffect(() => {
     if (!existingCreditMemo) return;
@@ -62,6 +64,25 @@ export default function CreditMemoWizard({
     );
 
   }, [existingCreditMemo]);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            capturedAt: new Date(),
+          });
+        },
+        (error) => {
+          console.warn("Could not get location: ", error.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+    console.log("User location: ", userLocation);
+  }, []);
 
   const pricedProducts = useMemo(() => {
     return applyPricingLists(products, selectedClient, pricingLists)
@@ -82,7 +103,8 @@ export default function CreditMemoWizard({
 
   const validateStep = (step: number) => {
     if (step === 1) return !!selectedClient;
-    return true;
+
+    if (step === 2) return (products.length > 0);
   };
 
   const submitCreditMemo = async () => {
@@ -96,6 +118,8 @@ export default function CreditMemoWizard({
         quantity: p.quantity,
         actualCost: p.effectiveUnitPrice,
         returnReason: p.returnReason,
+        condition: p.condition,
+        expirationDate: p.expirationDate,
       }));
 
     const url = isEdit
@@ -109,6 +133,7 @@ export default function CreditMemoWizard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         client: selectedClient?._id,
+        location: userLocation,
         products: productsWithCost,
         total,
       }),
@@ -150,22 +175,29 @@ export default function CreditMemoWizard({
   const back = () =>
     setStep(s => Math.max(s - 1, 1));
 
+  const handleSelectedClient = (client: any) => {
+    setSelectedClient(client);
+    setStep(2);
+  }
+
   return (
-    <>
-      <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-4/5 overflow-x-auto overflow-y-auto">
+    <div className={`flex flex-col w-[88vw] ${userRole === "admin" ? "h-[88vh]" : "h-[72vh]"} gap-4`}>
+      <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl h-full w-full overflow-auto">
 
         {step === 1 && (
           <StepSelectClient
             userRole={userRole}
             selectedClient={selectedClient}
-            onSelect={setSelectedClient}
+            onSelect={handleSelectedClient}
           />
         )}
 
         {step === 2 && (
           <StepAddProducts
-            products={products}
+            userRole={userRole}
+            products={pricedProducts}
             setProducts={setProducts}
+            pricingLists={pricingLists}
             selectedClient={selectedClient}
           />
         )}
@@ -221,6 +253,7 @@ export default function CreditMemoWizard({
             <button
               disabled={!validateStep(step)}
               onClick={next}
+              hidden={step === 1}
               className={`
                 px-5 py-3 rounded-xl font-bold text-white
                 ${validateStep(step)
@@ -240,6 +273,6 @@ export default function CreditMemoWizard({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

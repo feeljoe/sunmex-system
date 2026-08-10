@@ -186,7 +186,7 @@ export function DateRangePicker({ fromDate, toDate, onChange }: Props) {
 
       <button
         onClick={() => setOpen(o => !o)}
-        className="h-full items-center rounded-xl shadow-xl font-bold font-mono bg-white px-2 py-2 gap-2 text-sm flex cursor-pointer hover:bg-blue-800 hover:text-white transtition-all duration:300"
+        className="h-full items-center rounded-xl md:shadow-xl font-bold font-mono bg-white px-2 py-2 gap-2 text-sm flex cursor-pointer hover:bg-blue-800 hover:text-white transtition-all duration:300"
       >
         {fromDate && toDate 
           ? `${formatDisplayDate(fromDate)} → ${formatDisplayDate(toDate)}` 

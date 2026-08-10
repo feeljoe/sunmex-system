@@ -4,6 +4,7 @@ import { calculateDynamicTotal } from "@/utils/calculatePreorderDynamicTotal";
 import { formatCurrency } from "@/utils/format";
 import { generatePreorderPDF } from "@/utils/generatePreorderPDF";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const chunkTextByWords = (text: string, maxLength: number) => {
   if (!text) return [];
@@ -83,12 +84,27 @@ export default function PreorderDetailsModal({
   let totalQty = 0;
   const router = useRouter();
 
+  const [isLocationHovered, setIsLocationHovered] = useState(false);
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    const timeout = setTimeout(() => {
+      setIsLocationHovered(true);
+    }, 300);
+    setHoverTimeout(timeout);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout) clearTimeout(hoverTimeout);
+    setIsLocationHovered(false);
+  };
+
   /* =============================
      RENDER
   ==============================*/
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
-      <div className={`bg-(--secondary) font-mono rounded-xl shadow-xl ${userRole === "admin" ? "w-full lg:max-w-5xl" : "w-[95vw]"} max-h-[90vh] overflow-auto`}>
+      <div className={`bg-(--secondary) font-mono rounded-xl shadow-xl w-[95vw] ${userRole === "admin" ? "lg:max-w-5xl" : ""} max-h-[90vh] overflow-auto`}>
 
         {/* HEADER */}
         <div className="flex p-2 bg-(--tertiary) justify-between items-center mb-2">
@@ -104,41 +120,69 @@ export default function PreorderDetailsModal({
             </svg>
           </button>
         </div>
-        <h2 className={`font-semibold text-center ${userRole === "admin" ? "text-xl" : "text-md"}`}>
+        <h2 className={`font-semibold text-center text-md md:text-xl`}>
           {preorder.client?.clientName}
         </h2>
-        <h3 className={`text-center mb-4 ${userRole !== "admin" ? "text-xs" : ""}`}>Address: {preorder.client?.billingAddress?.addressLine}, {preorder.client?.billingAddress?.city}, {preorder.client?.billingAddress?.state}, {preorder.client?.billingAddress?.country}, {preorder.client?.billingAddress?.zipCode} </h3>
+        <h3 className={`flex flex-col text-center mb-4 text-xs md:text-[14px] text-gray-500 px-2`}>
+          <span>{preorder.client?.billingAddress?.addressLine}, </span>
+          <span>{preorder.client?.billingAddress?.city}, {preorder.client?.billingAddress?.state}, {preorder.client?.billingAddress?.country}, {preorder.client?.billingAddress?.zipCode}</span> </h3>
 
         {/* META INFO */}
         {userRole === "admin" && (
-          <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm text-center">
+          <div className="flex flex-wrap gap-2 justify-around items-center text-xs md:text-[14px] text-center px-2 py-4">
             <div className="flex flex-col gap-2">
               <span className="font-semibold">Route</span>
-              <div>{preorder.routeAssigned?.code ?? "-"}</div>
+              <span className="p-2">{preorder.routeAssigned?.code ?? "-"}</span>
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="font-semibold">Status</span>
-              <div className={``}><span className={`p-2 rounded-xl font-bold ${statusColorsPreorder[preorder.status]}`}>{preorder.status.toUpperCase()}</span></div>
+              <span className={`p-2 rounded-xl font-bold ${statusColorsPreorder[preorder.status]}`}>{preorder.status.toUpperCase()}</span>
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="font-semibold">Type</span>
-              <div><span className={`p-2 rounded-xl font-bold ${preorder.type === "noCharge" ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{preorder.type === "charge" ? "CHARGE" : preorder.type === "noCharge" ? "NO CHARGE" : "-"}</span></div>
+              <span className={`p-2 rounded-xl font-bold ${preorder.type === "noCharge" ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>
+                {`${preorder.type === "noCharge" ? "NO CHARGE" : preorder.type ? preorder.type?.toUpperCase() : "-"}`}
+              </span>
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="font-semibold">Created At</span>
-              <div>
+              <div className="p-2">
                 {formatDate(preorder.createdAt)}{" "}
                 {formatTime(preorder.createdAt)}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 mb-4">
+            <div className="flex flex-col gap-2">
               <span className="font-semibold">Payment Status</span>
-              <div className={``}><span className={`p-2 rounded-xl font-bold ${statusColorsPayment[preorder.paymentStatus]}`}>{preorder.paymentStatus.toUpperCase()}</span></div>
+              <span className={`p-2 rounded-xl font-bold ${statusColorsPayment[preorder.paymentStatus]}`}>
+                {preorder.paymentStatus.toUpperCase()}
+              </span>
             </div>
+
+            {preorder.location && (
+              <div className="flex flex-col gap-2">
+                <span className="font-semibold">Location</span>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${preorder.location.latitude},${preorder.location.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  className="md:w-48 group p-2 rounded-xl font-bold text-blue-800 hover:bg-blue-800 hover:text-white transition-all duration-500 ease-in-out cursor-pointer justify-center items-center"
+                >
+                  <span className="">
+                    {isLocationHovered
+                      ? "Check Location"
+                      : `${preorder.location.latitude.toFixed(5)}, 
+                        ${preorder.location.longitude.toFixed(5)}`
+                    }
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
         )}
         {preorder.status === "cancelled" && (
@@ -149,8 +193,8 @@ export default function PreorderDetailsModal({
         )}
 
         {/* PRODUCTS TABLE */}
-        <div className="max-h-[52vh] ml-2 mr-2 overflow-y-auto rounded-xl shadow-xl">
-          <table className={`w-full text-left ${userRole === "admin" ? "" : "text-xs"}`}>
+        <div className="max-h-[37vh] md:max-h-[56vh] ml-2 mr-2 overflow-y-auto rounded-xl shadow-xl">
+          <table className={`w-full text-left text-xs md:text-[16px]`}>
             <thead className="sticky top-0 bg-(--tertiary)">
               <tr className="whitespace-nowrap">
                 <th className="p-2">Brand</th>
@@ -166,8 +210,8 @@ export default function PreorderDetailsModal({
                 ) : (
                   <th className="p-2 text-center">QTY</th>
                 )}
-                    <th className="p-2 text-right">Price</th>
-                    <th className="p-2 text-right">Total</th>
+                <th className="p-2 text-right">Price</th>
+                <th className="p-2 text-right">Total</th>
               </tr>
             </thead>
             <tbody className="bg-white">
@@ -248,10 +292,10 @@ export default function PreorderDetailsModal({
           </table>
         </div>
 
-        <div className={`flex justify-end font-semibold mt-2 mr-2 ${userRole === "admin" ? "text-2xl" : "text-lg"}`}>
+        <div className={`flex justify-end font-semibold mt-2 mr-2 text-lg md:text-2xl`}>
           {preorder.status === "cancelled" ? `Total Units: N/A` : `Total Units: ${totalQty}`}
         </div>
-        <div className={`flex justify-end font-semibold mt-2 mb-2 mr-2 ${userRole === "admin" ? "text-2xl" : "text-lg"}`}>
+        <div className={`flex justify-end font-semibold mt-2 mb-2 mr-2 text-lg md:text-2xl`}>
           {`${preorder.status === "cancelled" ? "Total" : preorder.status !== "delivered" ? "Subtotal:" : "Total:"} ${preorder.status === "cancelled" ? "N/A" : formatCurrency(calculateDynamicTotal(preorder))}`}
         </div>
 

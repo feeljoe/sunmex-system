@@ -3,16 +3,16 @@ import mongoose, { Schema, model, models } from "mongoose";
 
 const PreorderSchema = new Schema(
   {
-    number: {type: String, required: true, unique: true},
+    number: { type: String, required: true, unique: true },
     client: { type: Schema.Types.ObjectId, ref: "Client", required: true },
     products: [
       {
         productInventory: { type: Schema.Types.ObjectId, ref: "ProductInventory", required: true },
         quantity: { type: Number, required: true },
-        pickedQuantity: {type: Number, default: 0},
-        differenceReason: {type: String, enum: ["productDamaged", "productExpired", "productNotAvailable"]},
-        authorizedBy: {type: Schema.Types.ObjectId, ref: "User"},
-        deliveredQuantity: {type: Number},
+        pickedQuantity: { type: Number, default: 0 },
+        differenceReason: { type: String, enum: ["productDamaged", "productExpired", "productNotAvailable"] },
+        authorizedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        deliveredQuantity: { type: Number },
         actualCost: { type: Number, default: 0 }, // optional if cost changes
         deviationReason: {
           type: String,
@@ -20,30 +20,30 @@ const PreorderSchema = new Schema(
         }
       },
     ],
-    type: {type: String, enum: ["charge", "noCharge"], default: "charge"},
-    noChargeReason: {type: String},
+    type: { type: String, enum: ["charge", "noCharge"], default: "charge" },
+    noChargeReason: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    subtotal: {type: Number, default: 0},
+    subtotal: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
     status: { type: String, enum: ["pending", "assigned", "ready", "delivered", "cancelled"], default: "pending" },
     createdAt: { type: Date, default: Date.now },
-    routeAssigned: {type: Schema.Types.ObjectId, ref:"Route"},
-    assembledBy: {type: Schema.Types.ObjectId, ref: "User"},
-    assembledAt: {type: Date},
+    routeAssigned: { type: Schema.Types.ObjectId, ref: "Route" },
+    assembledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    assembledAt: { type: Date },
     deliveryDate: {
       type: Date,
       index: true,
     },
-    deliveredAt: {type: Date, index: true},
-    deliveredBy: {type: Schema.Types.ObjectId, ref: "User"},
+    deliveredAt: { type: Date, index: true },
+    deliveredBy: { type: Schema.Types.ObjectId, ref: "User" },
     deliverySignature: {
       type: String,
     },
-    cancelledAt: {type: Date},
-    cancelledBy: {type: Schema.Types.ObjectId, ref: "User"},
-    updatedAt: {type: Date},
-    updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
-    cancelReason:{type: String},
+    cancelledAt: { type: Date },
+    cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    updatedAt: { type: Date },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelReason: { type: String },
     paymentMethod: {
       type: String,
       enum: ["cash", "check", ""],
@@ -52,11 +52,11 @@ const PreorderSchema = new Schema(
     payments: [
       {
         type: {
-          type:String,
+          type: String,
           enum: ["cash", "check", "creditMemo", "discount"],
           required: "true"
         },
-        amount: {type: Number, required: true},
+        amount: { type: Number, required: true },
         checkNumber: { type: String }
       }
     ],
@@ -65,7 +65,7 @@ const PreorderSchema = new Schema(
       enum: ["pending", "paid"],
       default: "pending"
     },
-    paymentDeletedReason: { type: String, default: null},
+    paymentDeletedReason: { type: String, default: null },
     quickbooks: {
       synced: { type: Boolean, default: false },
       qbTxnId: { type: String },
@@ -73,7 +73,12 @@ const PreorderSchema = new Schema(
       error: { type: String },
     },
     warehouseReturnProcessed: { type: Boolean, default: false },
-    cogs: {type: Number, default: 0},
+    cogs: { type: Number, default: 0 },
+    location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      capturedAt: { type: Date }
+    },
   },
   { versionKey: false }
 );

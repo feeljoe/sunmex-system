@@ -11,9 +11,10 @@ import EditClientModal from '../modals/EditClientModal';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/format';
 import { PaginatedSelect } from '../ui/PaginatedSelect';
-
+import { useSidebar } from '@/app/components/SideBarContext';
 
 export function ClientsTable() {
+  const { sidebarOpen } = useSidebar();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
@@ -121,8 +122,8 @@ export function ClientsTable() {
         };
   return (
     <>
-    <div className='h-[75vh] w-[90vw]'>
-      <div className="flex items-center justify-end py-2">
+    <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]":"md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[82vh]`}>
+    <div className="flex items-center justify-end py-2">
         <Link href="/pages/management/clients/add-client">
           <button className="flex gap-4 p-3 mb-1 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
               Add Client

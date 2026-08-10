@@ -172,7 +172,7 @@ export default function ReceiveRouteReturnsModal({
         aggregatedProducts: payloadProducts,
         warehouseUser: user?.id,
         driverSignature: signature,
-        warehouseSignature: user?.firstName + " " + user?.lastName,
+        warehouseSignature: user?.name,
       }),
     });
 

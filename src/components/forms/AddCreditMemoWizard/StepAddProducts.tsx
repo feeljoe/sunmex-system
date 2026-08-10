@@ -3,15 +3,20 @@
 
 import { useList } from "@/utils/useList";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { applyPricingLists } from "@/utils/applyPricingLists";
 
 export default function StepAddProducts({
+  userRole,
   products,
   setProducts,
+  pricingLists,
   selectedClient,
 }: {
+  userRole: string;
   products: any[];
-  setProducts: React.Dispatch<React.SetStateAction<any[]>>;
+  pricingLists: any[];
   selectedClient: any;
+  setProducts: React.Dispatch<React.SetStateAction<any[]>>;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRefs = useRef<HTMLInputElement[]>([]);
@@ -34,6 +39,16 @@ export default function StepAddProducts({
   }, [productsCatalog, products]);
 
   const addProduct = (product: any) => {
+    const rawProduct = {
+      productId: product._id,
+      brandId: product.brand?._id,
+      unitPrice: product.unitPrice,
+    };
+
+    // B. Calculate the exact discounted price for this client
+    const applied = applyPricingLists([rawProduct], selectedClient, pricingLists)[0];
+    const finalPrice = applied.effectiveUnitPrice ?? product.unitPrice ?? 0;
+
     setProducts((prev) => [
       {
         productId: product._id,
@@ -42,6 +57,7 @@ export default function StepAddProducts({
         name: product.name,
         sku: product.sku,
         weight: product.weight,
+        unitPrice: finalPrice,
         unit: product.unit,
         caseSize: product.caseSize,
         basePrice: product.unitPrice,
@@ -68,7 +84,7 @@ export default function StepAddProducts({
   
   return (
     <>
-    <div className="space-y-6 flex w-full flex-col">
+    <div className="space-y-2 flex w-full flex-col">
       <h2 className="text-xl font-semibold text-center">Add Products to Credit Memo</h2>
 
       {/* Product select + add button */}
@@ -153,9 +169,9 @@ export default function StepAddProducts({
     {products.map((p, i) => (
       <div 
         key={p.productId} 
-        className="flex bg-white rounded-xl py-3 px-2 gap-3 mt-5 justify-between"
+        className="flex bg-white rounded-xl p-2 gap-2 mt-2 justify-between"
       >
-        <div className="flex items center text-center">
+        <div className={`${userRole === "admin" ? "text-md": "text-sm"}`}>
         <span className="py-2 capitalize">{p.brand && (<span className="font-bold">{p.brand} </span>)}{p.name?.toLowerCase()} {p.weight && p.unit && (<span>{p.weight}{p.unit?.toUpperCase()}</span>)} {p.caseSize && (<span>({p.caseSize} units per case)</span>)} <span className="text-gray-400 text-xs">({p.sku})</span></span>
         </div>
         <div className="flex items-center gap-4">
@@ -176,6 +192,23 @@ export default function StepAddProducts({
           }}
           className="bg-gray-200  w-20 text-center px-4 py-2 shadow-xl rounded-xl"
         />
+        {userRole === "admin" && (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={p.unitPrice}
+                  onChange={(e) =>
+                    setProducts(prev =>
+                      prev.map(prod =>
+                        prod._id === p._id
+                          ? { ...prod, unitPrice: Number(e.target.value) }
+                          : prod
+                      )
+                    )
+                  }
+                  className="w-24 text-center bg-yellow-100 px-4 py-2 shadow-xl rounded-xl"
+                />
+              )}
         <button
           onClick={() => removeProduct(p.productId)}
           className="bg-red-500 text-white px-2 py-2 rounded-xl shadow-xl"

@@ -6,6 +6,7 @@ import NavBar from "@/app/components/NavBar";
 import { useState } from "react";
 import { Providers } from "../providers";
 import Mobilebar from "../components/Mobilebar";
+import { SidebarContext } from "../components/SideBarContext";
 
 export default function AppLayout({children, role}: {children: React.ReactNode; role:string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -27,7 +28,9 @@ export default function AppLayout({children, role}: {children: React.ReactNode; 
         <div className={`flex flex-col w-full min-h-screen`}>
           <Providers>
             <NavBar/>
+            <SidebarContext.Provider value={{sidebarOpen}}>
             {children}
+            </SidebarContext.Provider>
           </Providers>
         </div>
       </div>

@@ -10,57 +10,78 @@ import { applyPricingLists } from "@/utils/applyPricingLists";
 import SelectPreorderTypeModal from "@/components/modals/SelectPreorderTypeModal";
 import { useRouter } from "next/navigation";
 
-type PreorderWizardProps ={
-    userRole: any;
-    mode?: "create" | "edit";
-    existingPreorder?: any;
+type PreorderWizardProps = {
+  userRole: any;
+  mode?: "create" | "edit";
+  existingPreorder?: any;
 };
 
 export default function PreorderWizard({
   userRole,
-  mode ="create",
-  existingPreorder,}: PreorderWizardProps) {
-    const isEdit = mode === "edit";
-    const router = useRouter();
-    
-    useEffect(() => {
-      if (!existingPreorder) return;
-    
-      setSelectedClient(existingPreorder.client);
-    
-      setProducts(
-        existingPreorder.products.map((p:any) => ({
-          inventoryId: p.productInventory?._id,
-          productId: p.productInventory?.product?._id,
-          brand: p.productInventory?.product?.brand?.name,
-          name: p.productInventory?.product?.name,
-          unitPrice: p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0,
-          weight: p.productInventory?.product?.weight,
-          unit: p.productInventory?.product?.unit,
-          caseSize: p.productInventory?.product?.caseSize,
-          sku: p.productInventory?.product?.sku,
-          quantity: p.quantity,
-          pickedQuantity: p.pickedQuantity ?? 0,
-          deliveredQuantity: p.deliveredQuantity ?? 0,
-          maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
-        }))
-      );
-    
-      setPreorderType(existingPreorder.type);
-      setPreorderReason(existingPreorder.noChargeReason);
-    
-    }, [existingPreorder]);
+  mode = "create",
+  existingPreorder, }: PreorderWizardProps) {
+  const isEdit = mode === "edit";
+  const router = useRouter();
 
-    // STATE
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number; capturedAt: Date } | null>(null);
+
+  useEffect(() => {
+    if (!existingPreorder) return;
+
+    setSelectedClient(existingPreorder.client);
+
+    setProducts(
+      existingPreorder.products.map((p: any) => ({
+        inventoryId: p.productInventory?._id,
+        productId: p.productInventory?.product?._id,
+        brand: p.productInventory?.product?.brand?.name,
+        name: p.productInventory?.product?.name,
+        unitPrice: p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0,
+        weight: p.productInventory?.product?.weight,
+        unit: p.productInventory?.product?.unit,
+        caseSize: p.productInventory?.product?.caseSize,
+        sku: p.productInventory?.product?.sku,
+        quantity: p.quantity,
+        pickedQuantity: p.pickedQuantity ?? 0,
+        deliveredQuantity: p.deliveredQuantity ?? 0,
+        maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
+      }))
+    );
+
+    setPreorderType(existingPreorder.type);
+    setPreorderReason(existingPreorder.noChargeReason);
+
+  }, [existingPreorder]);
+
+  useEffect(() => {
+    if("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            capturedAt: new Date(),
+          });
+        },
+        (error) => {
+          console.warn("Could not get location: ", error.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+    console.log("User location: ", userLocation);
+  }, []);
+
+  // STATE
   const [submitStatus, setSubmitStatus] = useState<"loading" | "error" | "success" | null>(null);
   const [message, setMessage] = useState("");
   const [invalidProducts, setInvalidProducts] = useState<string[]>([]);
-   // EDIT
+  // EDIT
   const [step, setStep] = useState(isEdit ? 2 : 1);
   const [selectedClient, setSelectedClient] = useState<any | null>(
     existingPreorder?.client || null);
   const [products, setProducts] = useState<any[]>(
-    existingPreorder?.products?.map((p:any)=>({
+    existingPreorder?.products?.map((p: any) => ({
       inventoryId: p.productInventory?._id,
       productId: p.productInventory?.product?._id,
       brand: p.productInventory?.product?.brand?.name,
@@ -73,12 +94,12 @@ export default function PreorderWizard({
       quantity: p.quantity,
       pickedQuantity: p.pickedQuantity ?? 0,
       deliveredQuantity: p.deliveredQuantity ?? 0,
-      maxQty: Math.round(Number(p.productInventory?.currentInventory ||0)) + Math.round(Number(p.quantity || 0)), 
+      maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
     })) || []
   );
-  
+
   useEffect(() => {
-    if(invalidProducts.length > 0){
+    if (invalidProducts.length > 0) {
       setInvalidProducts([]);
     }
   }, [products]);
@@ -89,7 +110,7 @@ export default function PreorderWizard({
 
   const preorderStatus = existingPreorder?.status || "pending";
 
-  const {items: pricingLists } = useList("/api/pricingLists", {limit: 1000});
+  const { items: pricingLists } = useList("/api/pricingLists", { limit: 1000 });
   const pricedProducts = useMemo(() => {
     return applyPricingLists(products, selectedClient, pricingLists).map(p => ({
       ...p,
@@ -107,13 +128,14 @@ export default function PreorderWizard({
     setSelectedClient(client);
     setStep(2);
   }
- // SUBMIT
+  // SUBMIT
 
   const submitPreorder = async () => {
     setSubmitStatus("loading");
 
     const body = {
       client: selectedClient?._id,
+      location: userLocation,
       products: pricedProducts
         .filter(p => p.quantity > 0)
         .map(p => ({
@@ -131,19 +153,19 @@ export default function PreorderWizard({
     };
 
     const res = await fetch(
-      isEdit? `/api/preOrders/${existingPreorder._id}`
-      : "/api/preOrders", {
+      isEdit ? `/api/preOrders/${existingPreorder._id}`
+        : "/api/preOrders", {
       method: isEdit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if(!res.ok){
+    if (!res.ok) {
       const error = await res.json();
       let message = error?.error || "Could not submit preorder";
-      if(error?.details?.length){
+      if (error?.details?.length) {
         setInvalidProducts(error.details.map((d: any) => d.inventoryId));
-        message += 
-          `\n\nIssues:\n\n` + 
+        message +=
+          `\n\nIssues:\n\n` +
           error.details
             .map((d: any) =>
               `• ${d.name} (requested: ${d.requested ?? "-"}, available: ${d.available ?? "-"})`
@@ -156,8 +178,8 @@ export default function PreorderWizard({
       return;
     }
     setSubmitStatus("success");
-    setMessage(isEdit? "Preorder Updated" : "Preorder submitted");
-    
+    setMessage(isEdit ? "Preorder Updated" : "Preorder submitted");
+
     setTimeout(() => {
       router.replace("/pages/sales/preorders");
     }, 1000);
@@ -171,108 +193,107 @@ export default function PreorderWizard({
   };
 
 
-  async function handleSubmit(){
+  async function handleSubmit() {
     setSelectedClient(null);
     setProducts([]);
     setMessage("");
   }
   const next = () => {
-    if((step===1 || step===2) && userRole === "admin" && !isEdit){
+    if ((step === 1 || step === 2) && userRole === "admin" && !isEdit) {
       setShowPreorderType(true);
       return;
-    }else if((step===1 || step===2) && userRole !== "admin" && !isEdit){
+    } else if ((step === 1 || step === 2) && userRole !== "admin" && !isEdit) {
       setPreorderType("charge");
     }
     setStep(s => Math.min(s + 1, 3))
-    };
+  };
   const back = () => setStep(s => Math.max(s - 1, 1));
 
   return (
     <>
-    <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-[75vh] overflow-hidden">
-      {step === 1 && (
-        <StepSelectClient
-          userRole={userRole}
-          selectedClient={selectedClient}
-          onSelect={handleSelectedClient}
-        />
-      )}
+      <div className="bg-(--secondary) px-2 py-3 rounded-lg shadow-xl mx-auto w-full h-[75vh] overflow-hidden">
+        {step === 1 && (
+          <StepSelectClient
+            userRole={userRole}
+            selectedClient={selectedClient}
+            onSelect={handleSelectedClient}
+          />
+        )}
 
-      {step === 2 && (
-        <StepAddProducts
-          userRole={userRole}
-          products={products}
-          setProducts={setProducts}
-          preorderStatus={preorderStatus}
-          invalidProducts={invalidProducts}
-          pricingLists={pricingLists}
-          selectedClient={selectedClient}
-        />
-      )}
+        {step === 2 && (
+          <StepAddProducts
+            userRole={userRole}
+            products={products}
+            setProducts={setProducts}
+            preorderStatus={preorderStatus}
+            invalidProducts={invalidProducts}
+            pricingLists={pricingLists}
+            selectedClient={selectedClient}
+          />
+        )}
 
-      {step === 3 && (
-        <StepConfirm
-          client={selectedClient}
-          products={pricedProducts}
-          type={preorderType}
-          total={total}
-        />
-      )}
-      
-      {showPreorderType && (
-        <SelectPreorderTypeModal
-          onCancel={() => setShowPreorderType(false)}
-          client={selectedClient}
-          onConfirm={(reason:string, type:string) => {
-          setPreorderType(type);
-          setPreorderReason(reason);
-          setShowPreorderType(false);
-          setStep(step === 2? 3 : 2);
-          }}
-        />
-      )}
+        {step === 3 && (
+          <StepConfirm
+            client={selectedClient}
+            products={pricedProducts}
+            type={preorderType}
+            total={total}
+          />
+        )}
 
-      {submitStatus && (
-        <SubmitResultModal
+        {showPreorderType && (
+          <SelectPreorderTypeModal
+            onCancel={() => setShowPreorderType(false)}
+            client={selectedClient}
+            onConfirm={(reason: string, type: string) => {
+              setPreorderType(type);
+              setPreorderReason(reason);
+              setShowPreorderType(false);
+              setStep(step === 2 ? 3 : 2);
+            }}
+          />
+        )}
+
+        {submitStatus && (
+          <SubmitResultModal
             status={submitStatus}
             message={message}
             onClose={() => {
-                setSubmitStatus(null);
-                if(submitStatus === "success") {
-                  handleSubmit();
-                  setStep(1);
-                }
+              setSubmitStatus(null);
+              if (submitStatus === "success") {
+                handleSubmit();
+                setStep(1);
+              }
             }}
             collection="Preorder"
-        />
-      )}
-    </div>
-    <div className="flex w-full justify-between">
-    <div>
-        <button hidden={step === 1} onClick={back} className="px-5 py-3 bg-gray-300 shadow-xl rounded-xl cursor-pointer">
+          />
+        )}
+      </div>
+      <div className="flex w-full justify-between">
+        <div>
+          <button hidden={step === 1} onClick={back} className="px-5 py-3 bg-gray-300 shadow-xl rounded-xl cursor-pointer">
             Go Back
-        </button>
-    </div>
-    <div className="flex gap-4">
-      {step < 3 ? (
-        <button disabled={!validateStep(step)} onClick={next} className={`
+          </button>
+        </div>
+        <div className="flex gap-4">
+          {step < 3 ? (
+            <button disabled={!validateStep(step)} onClick={next} className={`
             px-5 py-3 rounded-xl font-bold text-white
             transition-all duration-500 
-            ${
-              validateStep(step)
+            ${validateStep(step)
                 ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
                 : "bg-blue-100 cursor-not-allowed"
-            }
+              }
           `}>
-          Next
-        </button>
-      ) : (
-        <button onClick={submitPreorder} className="px-5 py-3 bg-green-600 text-white rounded-xl cursor-pointer">
-          {isEdit? "Update" : "Submit"}
-        </button>
-      )}
-    </div>
-  </div>
-  </>
+              Next
+            </button>
+          ) : (
+            <button onClick={submitPreorder} className="px-5 py-3 bg-green-600 text-white rounded-xl cursor-pointer">
+              {isEdit ? "Update" : "Submit"}
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

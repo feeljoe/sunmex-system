@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { RefreshButton } from "../ui/RefreshButton";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { PaginatedSelect } from "../ui/PaginatedSelect";
+import { useSidebar } from "@/app/components/SideBarContext";
 
 type Tier = { minPrice: number; maxPrice: number | null; percentage: number };
 type Rule = { 
@@ -25,6 +26,7 @@ type TargetModalState = {
 };
 
 export default function CommissionConfig({userId}: {userId: string}) {
+  const { sidebarOpen } = useSidebar();
   const [defaultRate, setDefaultRate] = useState<number>(1.5);
   const [rules, setRules] = useState<Rule[]>([]);
   const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null>(null);
@@ -152,7 +154,7 @@ export default function CommissionConfig({userId}: {userId: string}) {
   };
 
   return (
-    <div className="bg-(--secondary) p-5 rounded-xl shadow-xl w-[90vw] h-[80vh] flex flex-col font-mono">
+    <div className={`mt-2 transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]":"md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[85vh] bg-(--secondary) p-5 rounded-xl shadow-xl flex flex-col font-mono`}>
       <div className="flex justify-between items-center border-b pb-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold">Commission Rules</h2>

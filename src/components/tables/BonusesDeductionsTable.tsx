@@ -4,8 +4,10 @@ import { useList } from "@/utils/useList";
 import { useEffect, useState } from "react";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { RefreshButton } from "../ui/RefreshButton";
+import { useSidebar } from "@/app/components/SideBarContext";
 
 export default function BonusesDeductionsTable({ userId }: { userId: string }) {
+    const { sidebarOpen } = useSidebar();
     const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | "info" | null>(null);
     const [message, setMessage] = useState("");
     const [adjustments, setAdjustments] = useState<any[]>([]);
@@ -138,7 +140,7 @@ export default function BonusesDeductionsTable({ userId }: { userId: string }) {
     };
 
     return (
-        <div className="bg-(--secondary) p-6 rounded-xl shadow-xl w-[90vw] h-[80vh] flex flex-col">
+        <div className={`mt-2 transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]" : "md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[85vh] bg-(--secondary) p-5 rounded-xl shadow-xl flex flex-col font-mono`}>
             <div className="flex justify-between items-center mb-4">
                 <div>
                     <h3 className="text-2xl font-bold">Pending Adjustments</h3>
@@ -367,15 +369,15 @@ export default function BonusesDeductionsTable({ userId }: { userId: string }) {
                         </div>
 
                         <div className="flex justify-between gap-3 mt-6">
-                            <button 
-                                onClick={() => setEditingAdj(null)} 
+                            <button
+                                onClick={() => setEditingAdj(null)}
                                 className="px-2 py-2 bg-gray-300 text-gray-800 rounded-xl font-bold hover:bg-gray-800 hover:text-white transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
-                            <button 
-                                onClick={handleUpdateAdjustment} 
-                                disabled={!editingAdj.userId || !editingAdj.amount || !editingAdj.reason} 
+                            <button
+                                onClick={handleUpdateAdjustment}
+                                disabled={!editingAdj.userId || !editingAdj.amount || !editingAdj.reason}
                                 className="px-2 py-2 bg-blue-400 text-blue-800 hover:text-white rounded-xl font-bold disabled:bg-blue-300 hover:bg-blue-800 transition-colors cursor-pointer"
                             >
                                 Update Adjustment

@@ -7,9 +7,11 @@ import { chainConfirmConfig } from '../modals/configConfirms/confirmConfig';
 import { SearchBar } from '../ui/SearchBar';
 import { RefreshButton } from '../ui/RefreshButton';
 import Link from 'next/link';
+import { useSidebar } from '@/app/components/SideBarContext';
 
 export function ChainsTable() {
 
+  const { sidebarOpen } = useSidebar();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
@@ -76,8 +78,8 @@ export function ChainsTable() {
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
   return (
     <>
-      <div className='w-full h-full'>
-        <div className="flex items-center justify-end p-2">
+      <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]":"md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[82vh]`}>
+      <div className="flex items-center justify-end p-2">
           <Link href="/pages/management/chains/add-chain">
             <button className="flex gap-4 p-3 mb-1 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
                 Add Chain

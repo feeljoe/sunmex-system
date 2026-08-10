@@ -22,7 +22,7 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await req.json();
 
-    const { client, products } = body;
+    const { client, products, location } = body;
 
     const creditMemo = await CreditMemo.findById(id).session(session);
 
@@ -44,12 +44,17 @@ export async function PATCH(
 
     // Update fields
     creditMemo.client = client;
+    if(location){
+      creditMemo.location = location;
+    }
 
     creditMemo.products = products.map((p: any) => ({
       product: p.product,
       quantity: p.quantity,
       actualCost: p.actualCost ?? 0,
       returnReason: p.returnReason,
+      condition: p.condition,
+      expirationDate: p.expirationDate ? new Date(p.expirationDate) : undefined,
     }));
 
     creditMemo.subtotal = subtotal;
@@ -77,38 +82,38 @@ export async function PATCH(
 
 export async function GET(
   req: Request,
-  context: { params: Promise<{ id: string }>}
+  context: { params: Promise<{ id: string }> }
 ) {
-  try{
+  try {
     await connectToDatabase();
     const { id } = await context.params;
 
     const creditMemo = await CreditMemo.findById(id)
-    .populate({
-      path: "products",
-      populate: {
-        path: "product",
+      .populate({
+        path: "products",
+        populate: {
+          path: "product",
           populate: {
             path: "brand",
           },
-      },
-    })
-    .populate({
-      path: "client",
-      populate: {
-        path: "paymentTerm",
-      },
-    })
-    .populate("routeAssigned")
-    .populate("createdBy");
+        },
+      })
+      .populate({
+        path: "client",
+        populate: {
+          path: "paymentTerm",
+        },
+      })
+      .populate("routeAssigned")
+      .populate("createdBy");
 
-    if(!creditMemo) {
-      return NextResponse.json({ error: "Credit Memo Not Found"}, {status: 404});
+    if (!creditMemo) {
+      return NextResponse.json({ error: "Credit Memo Not Found" }, { status: 404 });
     }
     return NextResponse.json(creditMemo);
-  } catch(err){
+  } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Server error"}, {status: 500});
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 
 }

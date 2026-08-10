@@ -9,46 +9,49 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
   try {
     await connectToDatabase();
     const body = await req.json();
     const counter = await CounterCreditMemo.findOneAndUpdate(
-          {name: "creditmemo" },
-          { $inc: { seq: 1 } },
-          { new: true, upsert: true}
-        );
-        let nextNumber;
-        // 1️⃣ Validate client access
-        if (session?.user?.role === "vendor") {
-          const route = await Route.findOne({
-            type: "vendor",
-            user: session.user.id,
-            clients: body.client,
-          });
-    
-          if (!route) {
-            throw new Error("Client not assigned to this vendor");
-          }
-          nextNumber =  `CRM-${route.code}-${1000 + counter.seq}`;
-        }else {
-          nextNumber = `CRM-001-${1000 + counter.seq}`;
-        }
+      { name: "creditmemo" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    let nextNumber;
+    // 1️⃣ Validate client access
+    if (session?.user?.role === "vendor") {
+      const route = await Route.findOne({
+        type: "vendor",
+        user: session.user.id,
+        clients: body.client,
+      });
+
+      if (!route) {
+        throw new Error("Client not assigned to this vendor");
+      }
+      nextNumber = `CRM-${route.code}-${1000 + counter.seq}`;
+    } else {
+      nextNumber = `CRM-001-${1000 + counter.seq}`;
+    }
 
     const creditMemo = await CreditMemo.create({
       number: nextNumber,
       client: body.client,
+      location: body?.location || undefined,
       createdBy: session?.user?.id,
       subtotal: body.total,
       status: body.status ?? "pending",
       createdAt: new Date(),
       products: body.products.map((p: any) => {
-        if(!p.product) throw new Error("product ID is missing");
+        if (!p.product) throw new Error("product ID is missing");
         return {
-        product: p.product,
-        quantity: p.quantity,
-        actualCost: p.actualCost ?? 0,
-        returnReason: p.returnReason,
+          product: p.product,
+          quantity: p.quantity,
+          actualCost: p.actualCost ?? 0,
+          returnReason: p.returnReason,
+          condition: p.condition,
+          expirationDate: p.expirationDate ? new Date(p.expirationDate) : undefined,
         }
       }),
       updatedBy: session?.user.id,
@@ -71,7 +74,7 @@ export async function GET(req: Request) {
     await connectToDatabase();
 
     const { searchParams } = new URL(req.url);
-    
+
     const routeId = searchParams.get("routeId");
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
@@ -80,47 +83,47 @@ export async function GET(req: Request) {
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
     const vendorId = searchParams.get("vendorId");
-    
+
     const session = await getServerSession(authOptions);
 
-    const matchQuery: any= {};
-    const baseFilters: any= {};
-    if(fromDate && toDate){
-      
+    const matchQuery: any = {};
+    const baseFilters: any = {};
+    if (fromDate && toDate) {
+
       const [fy, fm, fd] = fromDate.split("-").map(Number);
       const [ty, tm, td] = toDate.split("-").map(Number);
-      const start = new Date(fy, fm-1, fd, 0, 0, 0, 0);
-      const end = new Date(ty, tm-1, td, 23, 59, 59, 999);
-      
+      const start = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
+      const end = new Date(ty, tm - 1, td, 23, 59, 59, 999);
+
       baseFilters.createdAt = {
         $gte: start,
         $lte: end,
       };
     }
-    if(session?.user?.role === "vendor"){
-          const vendorIdObj = new mongoose.Types.ObjectId(session.user.id);
-          matchQuery.$or = [
-            {
-              createdBy: vendorIdObj,
-              status: "pending",
-              ...baseFilters,
-            },
-            {
-              createdBy: vendorIdObj,
-              ...baseFilters,
-            }
-          ];
-        }else {
-          Object.assign(matchQuery, baseFilters);
-          if (vendorId) {
-            matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
-          }
+    if (session?.user?.role === "vendor") {
+      const vendorIdObj = new mongoose.Types.ObjectId(session.user.id);
+      matchQuery.$or = [
+        {
+          createdBy: vendorIdObj,
+          status: "pending",
+          ...baseFilters,
+        },
+        {
+          createdBy: vendorIdObj,
+          ...baseFilters,
         }
-    
-    if(routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
-    
+      ];
+    } else {
+      Object.assign(matchQuery, baseFilters);
+      if (vendorId) {
+        matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
+      }
+    }
+
+    if (routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
+
     const pipeline: any[] = [
-      {$match: matchQuery},
+      { $match: matchQuery },
       // JOIN CLIENT
       {
         $lookup: {
@@ -142,65 +145,65 @@ export async function GET(req: Request) {
         },
       },
     ];
-    
-    if(search){
+
+    if (search) {
       const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
 
       const andConditions: any[] = [];
       const generalSearch: any[] = [];
       tokens.forEach(token => {
         const [rawKey, ...rest] = token.split(":");
-        if(rest.length){
+        if (rest.length) {
           const key = rawKey.toLowerCase();
-          const value = rest.join(":").replace(/"/g,"");
+          const value = rest.join(":").replace(/"/g, "");
 
-          switch(key){
+          switch (key) {
             case "status":
-              andConditions.push({ status:value });
+              andConditions.push({ status: value });
               break;
 
             case "payment":
-              andConditions.push({ paymentStatus:value });
+              andConditions.push({ paymentStatus: value });
               break;
 
             case "client":
-              andConditions.push({ "client.clientName": { $regex:value, $options:"i" } });
+              andConditions.push({ "client.clientName": { $regex: value, $options: "i" } });
               break;
 
             case "product":
-              andConditions.push({ "productDocs.name": { $regex:value, $options:"i" } });
+              andConditions.push({ "productDocs.name": { $regex: value, $options: "i" } });
               break;
 
             case "number":
-              andConditions.push({ number: { $regex:value, $options:"i" } });
+              andConditions.push({ number: { $regex: value, $options: "i" } });
               break;
 
             case "total":
-              if(!isNaN(Number(value)))
-                andConditions.push({ total:Number(value) });
+              if (!isNaN(Number(value)))
+                andConditions.push({ total: Number(value) });
               break;
 
             case "subtotal":
-              if(!isNaN(Number(value)))
-                andConditions.push({ subtotal:Number(value) });
+              if (!isNaN(Number(value)))
+                andConditions.push({ subtotal: Number(value) });
               break;
           }
         } else {
-          const clean = token.replace(/"/g,"");
+          const clean = token.replace(/"/g, "");
 
           generalSearch.push(
-            { number:{ $regex:clean, $options:"i"} },
-            { "client.clientName":{ $regex:clean, $options:"i"} },
-            { "productDocs.name":{ $regex:clean, $options:"i"} },
-            { status:{ $regex:clean, $options:"i"} }
+            { number: { $regex: clean, $options: "i" } },
+            { "client.clientName": { $regex: clean, $options: "i" } },
+            { "productDocs.name": { $regex: clean, $options: "i" } },
+            { status: { $regex: clean, $options: "i" } }
           );
         }
       });
 
       const finalMatch: any = {};
-      if(andConditions.length) finalMatch.$and = andConditions;
-      if(generalSearch.length) finalMatch.$or = generalSearch;
-      pipeline.push({ $match: finalMatch});
+      if (andConditions.length) finalMatch.$and = andConditions;
+      if (generalSearch.length) finalMatch.$or = generalSearch;
+      pipeline.push({ $match: finalMatch });
     }
 
     pipeline.push({
@@ -222,11 +225,11 @@ export async function GET(req: Request) {
     items = await CreditMemo.populate(items, [
       {
         path: "client",
-        populate: { path: "billingAddress"}
+        populate: { path: "billingAddress" }
       },
       {
         path: "client",
-        populate: { path: "paymentTerm"}
+        populate: { path: "paymentTerm" }
       },
       {
         path: "routeAssigned",
@@ -236,14 +239,14 @@ export async function GET(req: Request) {
       { path: "returnedBy", select: "firstName lastName" },
       { path: "assembledBy", select: "firstName lastName" },
       {
-          path: "products.product",
-          populate: { path: "brand" },
+        path: "products.product",
+        populate: { path: "brand" },
       },
       { path: "cancelledBy" },
     ]);
     const totalResult = await CreditMemo.aggregate([
       ...countPipeline,
-      { $count: "total"}
+      { $count: "total" }
     ]);
 
     const total = totalResult[0]?.total || 0;
@@ -254,7 +257,7 @@ export async function GET(req: Request) {
       page,
       limit
     });
-  }catch(err: any){
-    return NextResponse.json({ error: String(err.message) }, {status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: String(err.message) }, { status: 500 });
   }
 }

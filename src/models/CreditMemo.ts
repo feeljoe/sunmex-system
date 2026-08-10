@@ -3,50 +3,60 @@ import { Schema, model, models } from "mongoose";
 
 const CreditMemoSchema = new Schema(
   {
-    number: {type: String, required: true, unique: true},
+    number: { type: String, required: true, unique: true },
     client: { type: Schema.Types.ObjectId, ref: "Client", required: true },
-    preorder: {type: Schema.Types.ObjectId, ref: "PreOrder"},
-    directSale: {type: Schema.Types.ObjectId, ref: "DirectSale"},
+    preorder: { type: Schema.Types.ObjectId, ref: "PreOrder" },
+    directSale: { type: Schema.Types.ObjectId, ref: "DirectSale" },
     products: [
       {
         product: { type: Schema.Types.ObjectId, ref: "Product" },
         quantity: { type: Number, required: true },
-        pickedQuantity: {type: Number, default: 0},
-        returnedQuantity: {type: Number},
-        warehouseVerifiedQuantity: {type: Number},
+        pickedQuantity: { type: Number, default: 0 },
+        returnedQuantity: { type: Number },
+        warehouseVerifiedQuantity: { type: Number },
         actualCost: { type: Number, default: 0 }, // optional if cost changes
         returnReason: {
           type: String,
           enum: ["credit memo", "good return"],
-        }
+        },
+        condition: {
+          type: String,
+          enum: ["damaged", "expired", "good"]
+        },
+        expirationDate: { type: Date }
       },
     ],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    subtotal: {type: Number, default: 0},
+    subtotal: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
     status: { type: String, enum: ["pending", "received", "cancelled"], default: "pending" },
     createdAt: { type: Date, default: Date.now },
-    routeAssigned: {type: Schema.Types.ObjectId, ref:"Route"},
-    returnedAt: {type: Date},
+    routeAssigned: { type: Schema.Types.ObjectId, ref: "Route" },
+    returnedAt: { type: Date },
     returnSignature: {
       type: String,
     },
-    returnedBy: {type: Schema.Types.ObjectId, ref: "User"},
-    receivedBy: {type: Schema.Types.ObjectId, ref: "User"},
-    driverSignature: {type: String},
-    warehouseSignature: {type: String},
-    warehouseReceivedAt: {type: Date},
+    returnedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    receivedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    driverSignature: { type: String },
+    warehouseSignature: { type: String },
+    warehouseReceivedAt: { type: Date },
     warehouseStatus: {
       type: String,
       enum: ["pending", "completed"],
       default: "pending"
     },
-    cancelledAt: {type: Date},
-    cancelledBy: {type: Schema.Types.ObjectId, ref: "User"},
-    cancelReason:{type: String},
-    updatedAt: {type: Date},
-    updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
-    paymentProcessed: {type: Boolean, default: false},
+    cancelledAt: { type: Date },
+    cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelReason: { type: String },
+    updatedAt: { type: Date },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    paymentProcessed: { type: Boolean, default: false },
+    location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      capturedAt: { type: Date }
+    },
   },
   { versionKey: false }
 );
