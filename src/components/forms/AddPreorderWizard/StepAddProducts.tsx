@@ -365,7 +365,7 @@ export default function StepAddProducts({
                 SKU: {p.sku} | Available: {Math.round(p.maxQty)}
               </span>
             </div>
-            <div className="grid grid-cols-3 md:flex justify-between items-center whitespace-nowrap gap-10">
+            <div className={`grid ${userRole === "admin" ? "grid-cols-3 md:flex": "flex"} justify-between items-center whitespace-nowrap gap-10`}>
               <div className="flex flex-col items-center justify-center">
               <b>QTY</b>
               <input
