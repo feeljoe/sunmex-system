@@ -105,6 +105,7 @@ export default function StepAddProducts({
         quantity: 0,
         pickedQuantity: 0,
         deliveredQuantity: 0,
+        deviationReason: "",
         maxQty: inv.currentInventory,
       },
       ...prev,
@@ -156,6 +157,7 @@ export default function StepAddProducts({
         quantity: 0,
         pickedQuantity: 0,
         deliveredQuantity: 0,
+        deviationReason: "",
         maxQty: inv.currentInventory,
       }));
       return [...finalMapped, ...prev];
@@ -342,7 +344,7 @@ export default function StepAddProducts({
 
       {/* PRODUCTS */}
       {!isCollapsed &&
-      <div className="bg-white shadow-xl rounded-xl mb-6">
+      <div className="bg-white shadow-xl rounded-xl mb-6 overflow-auto">
         {brandProducts.map((p: any, i: number) => (
           <div
             key={p.inventoryId}
@@ -354,7 +356,7 @@ export default function StepAddProducts({
               }
             `}
           >
-            <div className="flex flex-col text-left">
+            <div className="flex flex-col text-left w-full">
               <span className="mt-2 capitalize">
                 {p.brand?.toLowerCase()} {p.name?.toLowerCase()} {p.weight}
                 {p.unit?.toUpperCase()} {p.caseSize ? `(${p.caseSize} Units per case)` : ""}
@@ -363,17 +365,9 @@ export default function StepAddProducts({
                 SKU: {p.sku} | Available: {Math.round(p.maxQty)}
               </span>
             </div>
-            <div className="flex flex-col">
-              {userRole === "admin" &&(
-              <div className="flex justify-between items-center gap-4 p-2">
-                  <b>QTY</b>
-                  {showPicked && (<b>PICKED</b>)}
-                  {showDelivered && (<b>DELIVERED</b>)}
-                  <b>PRICE</b>
-              </div>
-              )}
-            <div className="flex justify-between items-center gap-4">
-              
+            <div className="grid grid-cols-3 md:flex justify-between items-center whitespace-nowrap gap-10">
+              <div className="flex flex-col items-center justify-center">
+              <b>QTY</b>
               <input
                 type="number"
                 inputMode="numeric"
@@ -385,8 +379,10 @@ export default function StepAddProducts({
                 }
                 className="bg-gray-200 w-20 text-center px-4 py-2 shadow-xl rounded-xl"
               />
+              </div>
               {userRole === "admin" && showPicked &&(
-                
+                <div className="flex flex-col items-center justify-center">
+                <b>PICKED</b>
                 <input
                   type="number"
                   min={0}
@@ -409,9 +405,12 @@ export default function StepAddProducts({
                   }
                   className="bg-green-200 w-20 text-center px-4 py-2 shadow-xl rounded-xl"
                 />
+                </div>
               )}
               {userRole === "admin" && showDelivered &&(
-                
+                <>
+                <div className="flex flex-col items-center justify-center">
+                <b>DELIVERED</b>
                 <input
                   type="number"
                   min={0}
@@ -434,8 +433,38 @@ export default function StepAddProducts({
                   }
                   className="bg-green-200 w-20 text-center px-4 py-2 shadow-xl rounded-xl"
                 />
+                </div>
+                {p.pickedQuantity > p.deliveredQuantity && (
+                  <div className="flex flex-col items-center justify-center">
+                  <b>DEVIATION REASON</b>
+                  <div className={`h-10 shadow-xl rounded-xl w-35 ${!p.deviationReason ? "bg-red-50 border-red-500 text-red-800" : "bg-orange-100 text-orange-800"}`}>
+                  <select
+                    value={p.deviationReason || ""}
+                    onChange={(e) =>
+                      setProducts(prev =>
+                        prev.map(prod =>
+                          prod.inventoryId === p.inventoryId
+                            ? { ...prod, deviationReason: e.target.value }
+                            : prod
+                        )
+                      )
+                    }
+                    className={"w-full h-full"}
+                  >
+                    <option value="" disabled>Reason</option>
+                    <option value="returned">Returned</option>
+                    <option value="damaged">Damaged</option>
+                    <option value="missing">Missing</option>
+                  </select>
+                  </div>
+                  </div>
+                )}
+              </>
               )}
+
               {userRole === "admin" && (
+                <div className="flex flex-col items-center justify-center">
+                <b>PRICE</b>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -451,8 +480,8 @@ export default function StepAddProducts({
                   }
                   className="w-24 text-center bg-yellow-100 px-4 py-2 shadow-xl rounded-xl"
                 />
+                </div>
               )}
-            </div>
             </div>
           </div>
         ))}</div>}

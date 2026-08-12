@@ -44,6 +44,7 @@ export default function PreorderWizard({
         quantity: p.quantity,
         pickedQuantity: p.pickedQuantity ?? 0,
         deliveredQuantity: p.deliveredQuantity ?? 0,
+        deviationReason: p.deviationReason || "",
         maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
       }))
     );
@@ -94,6 +95,7 @@ export default function PreorderWizard({
       quantity: p.quantity,
       pickedQuantity: p.pickedQuantity ?? 0,
       deliveredQuantity: p.deliveredQuantity ?? 0,
+      deviationReason: p.deviationReason || "",
       maxQty: Math.round(Number(p.productInventory?.currentInventory || 0)) + Math.round(Number(p.quantity || 0)),
     })) || []
   );
@@ -145,6 +147,7 @@ export default function PreorderWizard({
           ...(isEdit && {
             pickedQuantity: p.pickedQuantity ?? 0,
             deliveredQuantity: p.deliveredQuantity ?? 0,
+            deviationReason: p.deviationReason || null,
           }),
         })),
       type: preorderType,

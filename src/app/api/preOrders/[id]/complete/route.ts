@@ -37,45 +37,46 @@ export async function PATCH(
     }
 
     for (const update of body.products) {
-        const inventoryId =
+      const inventoryId =
         typeof update.productInventory === "string"
-        ? update.productInventory
-        : update.productInventory._id;
+          ? update.productInventory
+          : update.productInventory._id;
 
       const line = preorder.products.find(
-        (p: any) =>
-          p.productInventory._id.toString() ===
-          inventoryId
+        (p: any) => p.productInventory._id.toString() === inventoryId
       );
 
       if (!line) continue;
 
-      const inventory = await ProductInventory.findById(
-        inventoryId
-      ).session(session);
+      const inventory = await ProductInventory.findById(inventoryId).session(session);
 
       if (!inventory) {
         throw new Error("Inventory record not found");
       }
 
-      const orderedQty = Math.round(Number(line.quantity));
-      const pickedQty = Math.round(Number(update.pickedQuantity));
+      const orderedQty = Math.round(Number(line.quantity || 0));
+      const pickedQty = Math.round(Number(update.pickedQuantity || 0)); // Safety: Default to 0
 
       if (inventory.preSavedInventory < orderedQty) {
-        throw new Error("Insufficient presaved inventory");
+        throw new Error(`Insufficient presaved inventory for product ${inventoryId}`);
       }
-      if(pickedQty > orderedQty) {
+      if (pickedQty > orderedQty) {
         throw new Error("Picked quantity cannot exceed ordered quantity");
       }
       const diffQty = orderedQty - pickedQty;
 
       // 🔁 MOVE INVENTORY
-      if(pickedQty > 0){
-      inventory.preSavedInventory -= pickedQty;
-      inventory.onRouteInventory += pickedQty;
+      if (pickedQty > 0) {
+        inventory.preSavedInventory -= pickedQty;
+        inventory.onRouteInventory += pickedQty;
       }
 
-      if(diffQty > 0) {
+      if (diffQty > 0) {
+        // Safety: Ensure we actually have the required authorization data before creating the audit
+        if (!update.authorizedBy || !update.differenceReason) {
+            throw new Error(`Shortage on product requires a reason and authorization.`);
+        }
+
         inventory.preSavedInventory -= diffQty;
         inventory.inactiveInventory = (inventory.inactiveInventory || 0) + diffQty;
 
@@ -86,14 +87,12 @@ export async function PATCH(
               quantity: diffQty,
               differenceReason: update.differenceReason,
               authorizedBy: new mongoose.Types.ObjectId(update.authorizedBy),
-              generatedBy: new mongoose.Types.ObjectId(
-                sessionUser?.user?.id
-              ),
+              generatedBy: new mongoose.Types.ObjectId(sessionUser?.user?.id),
               source: preorder._id,
               status: "pending",
             },
           ],
-          {session}
+          { session }
         );
       }
 
@@ -101,8 +100,8 @@ export async function PATCH(
 
       // Update preorder line
       line.pickedQuantity = pickedQty;
-      line.differenceReason = update.differenceReason;
-      line.authorizedBy = update.authorizedBy
+      line.differenceReason = diffQty > 0 ? update.differenceReason : undefined;
+      line.authorizedBy = diffQty > 0 && update.authorizedBy
         ? new mongoose.Types.ObjectId(update.authorizedBy)
         : undefined;
     }

@@ -634,6 +634,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
               </button>
             )}
             {userRole === "admin" && (
+              <>
               <button
                 onClick={async () => {
                   setSubmitStatus("loading");
@@ -657,6 +658,30 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                 className="text-sm md:text-[16px] p-2 font-bold bg-green-400 text-green-800 hover:text-white rounded-xl shadow-xl hover:bg-green-800 cursor-pointer transition-all duration:300">
                 Export for Routes
               </button>
+              <button
+              onClick={async () => {
+                setSubmitStatus("loading");
+                const res = await fetch("/api/inventory-export");
+                if (!res.ok) {
+                  setMessage("Failed to export");
+                  setSubmitStatus("error");
+                  return;
+                }
+                setMessage("Export complete");
+                setSubmitStatus("success");
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "preorders-for-inventory.xlsx";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              }}
+              className="text-sm md:text-[16px] p-2 font-bold bg-green-400 text-green-800 hover:text-white rounded-xl shadow-xl hover:bg-green-800 cursor-pointer transition-all duration:300">
+              Export for Inventory
+            </button>
+            </>
             )}
           </div>
           <div className="text-sm md:text-[16px] flex w-full md:w-auto font-mono font-bold items-center justify-between gap-4">

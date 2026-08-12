@@ -63,7 +63,7 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await req.json();
 
-    const { client, products, type, noChargeReason } = body;
+    const { client, products, type, noChargeReason, location } = body;
 
     const preorder = await PreOrder.findById(id).session(session);
 
@@ -80,7 +80,6 @@ export async function PATCH(
     // -----------------------------
     // OLD MAPS
     // -----------------------------
-
     const oldQtyMap = new Map<string, number>();
     const oldPickedMap = new Map<string, number>();
     const oldDeliveredMap = new Map<string, number>();
@@ -95,54 +94,37 @@ export async function PATCH(
     // -----------------------------
     // NEW MAPS
     // -----------------------------
-
     const newQtyMap = new Map<string, number>();
     const newPickedMap = new Map<string, number>();
     const newDeliveredMap = new Map<string, number>();
+    const newReasonMap = new Map<string, string>();
 
     products.forEach((p: any) => {
       const idStr = getIdsString(p.productInventory);
       newQtyMap.set(idStr, p.quantity);
       newPickedMap.set(idStr, p.pickedQuantity ?? 0);
       newDeliveredMap.set(idStr, p.deliveredQuantity ?? 0);
+      newReasonMap.set(idStr, p.deviationReason);
     });
 
-    // -----------------------------
-    // ALL INVENTORY IDS
-    // -----------------------------
-
-    const allIds = new Set([
-      ...oldQtyMap.keys(),
-      ...newQtyMap.keys(),
-    ]);
-
+    const allIds = new Set([...oldQtyMap.keys(), ...newQtyMap.keys()]);
     const failedItems: any[] = [];
     const inventoryDocs = new Map<string, any>();
 
-    //PREVALIDATION
+    // PREVALIDATION
     for (const inventoryId of allIds) {
-
-      const inventory = await ProductInventory
-      .findById(inventoryId)
-      .populate("product")
-      .session(session);
-
+      const inventory = await ProductInventory.findById(inventoryId).populate("product").session(session);
       inventoryDocs.set(inventoryId, inventory);
 
       if(!inventory){
-        failedItems.push({
-          inventoryId,
-          message: "Inventory Not Found",
-        });
+        failedItems.push({ inventoryId, message: "Inventory Not Found" });
         continue;
       }
 
       const oldQty = oldQtyMap.get(inventoryId) || 0;
       const newQty = newQtyMap.get(inventoryId) || 0;
-
       const oldPicked = oldPickedMap.get(inventoryId) || 0;
       const newPicked = newPickedMap.get(inventoryId) || 0;
-
       const oldDelivered = oldDeliveredMap.get(inventoryId) || 0;
       const newDelivered = newDeliveredMap.get(inventoryId) || 0;
 
@@ -150,78 +132,45 @@ export async function PATCH(
       const pickedDiff = newPicked - oldPicked;
       const deliveredDiff = newDelivered - oldDelivered;
 
-      //RULES
+      // RULE CHECKS
       if(newPicked > newQty){
-        failedItems.push({
-          inventoryId,
-          name: inventory.product?.name,
-          type: "picked",
-          message: "Picked quantity exceeds ordered quantity",
-        });
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "picked", message: "Picked quantity exceeds ordered quantity" });
       }
       if(newDelivered > newPicked) {
-        failedItems.push({
-          inventoryId,
-          name: inventory.product?.name,
-          type: "delivered",
-          message: "Delivered exceeds picked quantity",
-        });
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "delivered", message: "Delivered exceeds picked quantity" });
       }
       if(qtyDiff > 0 && inventory.currentInventory < qtyDiff){
-        failedItems.push({
-          inventoryId,
-          name: inventory.product?.name,
-          type: "quantity",
-          message: "Not enough inventory",
-          requested: qtyDiff,
-          available: inventory.currentInventory,
-        });
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "quantity", message: "Not enough inventory", requested: qtyDiff, available: inventory.currentInventory });
       }
 
       const projectedPreSaved = inventory.preSavedInventory + qtyDiff;
-
       if(pickedDiff > 0 && projectedPreSaved < pickedDiff) {
-        failedItems.push({
-          inventoryId,
-          name: inventory.product?.name,
-          type: "picked",
-          message: "Not enough reserved inventory to pick",
-          requested: pickedDiff,
-          available: projectedPreSaved,
-        });
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "picked", message: "Not enough reserved inventory to pick", requested: pickedDiff, available: projectedPreSaved });
       }
 
       const projectedOnRoute = inventory.onRouteInventory + pickedDiff;
       if(deliveredDiff > 0 && projectedOnRoute < deliveredDiff){
-        failedItems.push({
-          inventoryId,
-          name: inventory.product?.name,
-          type: "delivered",
-          message: "Not enough on-route inventory to deliver",
-          requested: deliveredDiff,
-          available: projectedOnRoute,
-        });
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "delivered", message: "Not enough on-route inventory to deliver", requested: deliveredDiff, available: projectedOnRoute });
+      }
+
+      // NEW RULE: Force them to provide a reason if there is a shortage during delivery!
+      if (newPicked > newDelivered && !newReasonMap.get(inventoryId)) {
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "reason", message: "A deviation reason is required because Picked exceeds Delivered." });
       }
     }
 
     if(failedItems.length > 0){
-      throw {
-        type: "INVENTORY_ERROR",
-        message: "Some changes could not be applied",
-        details: failedItems,
-      };
+      throw { type: "INVENTORY_ERROR", message: "Some changes could not be applied", details: failedItems };
     }
 
-    //APPLY CHANGES
+    // APPLY CHANGES
     for(const inventoryId of allIds){
       const inventory = inventoryDocs.get(inventoryId);
 
       const oldQty = oldQtyMap.get(inventoryId) || 0;
       const newQty = newQtyMap.get(inventoryId) || 0;
-
       const oldPicked = oldPickedMap.get(inventoryId) || 0;
       const newPicked = newPickedMap.get(inventoryId) || 0;
-
       const oldDelivered = oldDeliveredMap.get(inventoryId) || 0;
       const newDelivered = newDeliveredMap.get(inventoryId) || 0;
 
@@ -229,45 +178,31 @@ export async function PATCH(
       const pickedDiff = newPicked - oldPicked;
       const deliveredDiff = newDelivered - oldDelivered;
 
-      //QTY: CURRENT <--> PRESAVED
-
-      if(qtyDiff > 0){
-        inventory.currentInventory -=qtyDiff;
-        inventory.preSavedInventory +=qtyDiff;
-      }
-      if(qtyDiff < 0){
-        const abs = Math.abs(qtyDiff);
-        inventory.currentInventory += abs;
-        inventory.preSavedInventory -= abs;
+      // QTY: CURRENT <--> PRESAVED
+      if(qtyDiff !== 0){
+        inventory.currentInventory -= qtyDiff;
+        inventory.preSavedInventory += qtyDiff;
       }
 
-      //PICKED: PRESAVED <--> ONROUTE
-
-      if(pickedDiff > 0){
+      // PICKED: PRESAVED <--> ONROUTE
+      if(pickedDiff !== 0){
         inventory.preSavedInventory -= pickedDiff;
         inventory.onRouteInventory += pickedDiff;
       }
-      if(pickedDiff < 0){
-        const abs = Math.abs(pickedDiff);
-        inventory.preSavedInventory += abs;
-        inventory.onRouteInventory -= abs;
-      }
 
-      //DELIVERED: ONROUTE --> OUT OF THE INVENTORY
-
-      if(deliveredDiff > 0){
+      // DELIVERED: ONROUTE --> OUT
+      // If delivered decreases, deliveredDiff is negative. 
+      // Subtracting a negative adds it directly back to onRouteInventory!
+      if(deliveredDiff !== 0){
         inventory.onRouteInventory -= deliveredDiff;
       }
-      if(deliveredDiff < 0){
-        const abs = Math.abs(deliveredDiff);
-        inventory.onRouteInventory += abs;
-      }
+
       await inventory.save({session});
     }
 
-    //UPDATE PREORDER
-
+    // UPDATE PREORDER
     preorder.client = client;
+    if (location) preorder.location = location;
     preorder.type = type;
     preorder.noChargeReason = noChargeReason;
 
@@ -276,63 +211,27 @@ export async function PATCH(
       quantity: p.quantity,
       pickedQuantity: p.pickedQuantity ?? 0,
       deliveredQuantity: p.deliveredQuantity ?? 0,
-      actualCost:
-        p.effectiveUnitPrice ??
-        p.unitPrice ??
-        p.actualCost ??
-        0,
+      deviationReason: (p.pickedQuantity > p.deliveredQuantity) ? p.deviationReason : null,
+      actualCost: p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0,
     }));
 
-    preorder.subtotal = products.reduce(
-      (sum: number, p: any) =>
-        sum +
-        p.quantity *
-          (p.effectiveUnitPrice ??
-            p.unitPrice ??
-            p.actualCost ??
-            0),
-      0
-    );
-
-    preorder.total = products.reduce(
-      (sum: number, p: any) =>
-        sum +
-        p.deliveredQuantity *
-          (p.effectiveUnitPrice ??
-            p.unitPrice ??
-            p.actualCost ??
-            0),
-      0
-    );
-
+    preorder.subtotal = products.reduce((sum: number, p: any) => sum + p.quantity * (p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0), 0);
+    preorder.total = products.reduce((sum: number, p: any) => sum + p.deliveredQuantity * (p.effectiveUnitPrice ?? p.unitPrice ?? p.actualCost ?? 0), 0);
     preorder.updatedBy = sessionUser?.user.id;
     preorder.updatedAt = new Date();
 
     await preorder.save({session});
-
     await session.commitTransaction();
     return NextResponse.json({success: true});
 
   } catch (err: any) {
     await session.abortTransaction();
-
     console.error("PATCH Preorder error: ", err);
 
     if(err.type === "INVENTORY_ERROR") {
-      return NextResponse.json(
-        {
-          error: err.message,
-          details: err.details,
-        },
-        {status: 400}
-      );
+      return NextResponse.json({ error: err.message, details: err.details }, {status: 400});
     }
-
-    return NextResponse.json(
-      { error: err.message || "Unexpected Error" },
-      { status: 400 }
-    );
-
+    return NextResponse.json({ error: err.message || "Unexpected Error" }, { status: 400 });
   } finally {
     session.endSession();
   }
@@ -367,5 +266,4 @@ export async function GET(
     console.error(err);
     return NextResponse.json({ error: "Server error"}, {status: 500});
   }
-
 }
