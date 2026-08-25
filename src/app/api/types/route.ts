@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const [items, total] = await Promise.all([
       Type.find(query)
-        .sort({ name: 1 })
+        .sort({ order: 1 })
         .skip((page - 1) * limit)
         .limit(limit),
       Type.countDocuments(query),

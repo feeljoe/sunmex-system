@@ -2,7 +2,7 @@
 
 import { useList } from "@/utils/useList";
 import { SearchBar } from "../ui/SearchBar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AssignRouteModal from "../modals/AssignRouteModal";
 import CancelPreorderModal from "../modals/CancelPreorderModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
@@ -25,27 +25,31 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   };
   const { sidebarOpen } = useSidebar();
 
+  const ITEMS_PER_PAGE = 100;
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
   const [vendorInput, setVendorInput] = useState("");
   const [routeInput, setRouteInput] = useState("");
   const [warehouseInput, setWarehouseInput] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
-  const [editingPreorder, setEditingPreorder] = useState(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const todayISO = () =>
-    new Date().toISOString().split("T")[0]; // YYYY-MM-DD  
+  
+  // API Fetch State Tracker
+  const [apiDates, setApiDates] = useState({
+      from: userRole === "vendor" ? new Date().toISOString().split("T")[0] : DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"),
+      to: userRole === "vendor" ? new Date().toISOString().split("T")[0] : DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd")
+  });
+  
+  // Draft State for Date Picker
+  const [draftFrom, setDraftFrom] = useState(apiDates.from);
+  const [draftTo, setDraftTo] = useState(apiDates.to);
 
-  const [fromDate, setFromDate] = useState<string>(userRole === "vendor" ? "" : () => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
-  const [toDate, setToDate] = useState<string>(userRole === "vendor" ? "" : () => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
-  const today = todayISO();
-  // Data for selects
+  const [localItems, setLocalItems] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
   const [vendors, setVendors] = useState<any[]>([]);
   const [warehouseUsers, setWarehouseUsers] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
 
-  // Fetch users for selects
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -62,7 +66,6 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
     fetchUsers();
   }, []);
 
-  // Fetch routes for select (/api/routes)
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
@@ -78,16 +81,17 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
     };
     fetchRoutes();
   }, []);
-  const { items, total, reload } = useList("/api/preOrders", {
-    page,
-    limit,
-    search,
-    fromDate: userRole === "vendor" ? today : fromDate,
-    toDate: userRole === "vendor" ? today : toDate,
-    vendorId: userRole === "vendor" ? userId : vendorInput,
-    routeId: routeInput,
-    warehouseUserId: warehouseInput,
+
+  // API Call - Only triggered when apiDates change or reload() is called
+  const { items: fetchedItems, reload, loading } = useList("/api/preOrders", {
+    fromDate: apiDates.from,
+    toDate: apiDates.to,
+    vendorId: userRole === "vendor" ? userId : undefined,
   });
+
+  useEffect(() => {
+      if (fetchedItems) setLocalItems(fetchedItems);
+  }, [fetchedItems]);
 
   const [assignRouteModalOpen, setAssignRouteModalOpen] = useState(false);
   const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
@@ -96,43 +100,47 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null>(null);
   const [message, setMessage] = useState("");
+  const [editingPreorder, setEditingPreorder] = useState(null);
+  const [showFilters, setShowFilters] = useState(true);
+
+  // Snappy Loading Modal Logic
+  useEffect(() => {
+    if (loading) {
+      setSubmitStatus("loading");
+      setMessage("Loading Data...");
+    } else {
+      const timer = setTimeout(() => {
+        setSubmitStatus((prev) => {
+          if (prev === "loading") {
+            setMessage("");
+            return null;
+          }
+          return prev; 
+        });
+      }, 500); // 0.5s delay guarantees the user sees the snappy animation
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   const [isLocationHovered, setIsLocationHovered] = useState(false);
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
-    const timeout = setTimeout(() => {
-      setIsLocationHovered(true);
-    }, 300);
+    const timeout = setTimeout(() => setIsLocationHovered(true), 300);
     setHoverTimeout(timeout);
   };
-
   const handleMouseLeave = () => {
     if (hoverTimeout) clearTimeout(hoverTimeout);
     setIsLocationHovered(false);
   };
 
-  const formatDate = (v?: string) =>
-    v ? new Date(v).toLocaleDateString() : "-";
-
-  const formatTime = (v?: string) =>
-    v
-      ? new Date(v).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
-      : "-";
+  const formatDate = (v?: string) => v ? new Date(v).toLocaleDateString() : "-";
+  const formatTime = (v?: string) => v ? new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
 
   const cancelPreorder = async (reason: string) => {
-
-    if (!selectedPreorder2) {
-      setSubmitStatus("error");
-      setMessage("No preorder selected");
-      return;
-    }
-
+    if (!selectedPreorder2) return;
     setSubmitStatus("loading");
+    setMessage("Cancelling Preorder...");
     try {
       const res = await fetch(`/api/preOrders/${selectedPreorder2._id}/cancel`, {
         method: "PATCH",
@@ -141,49 +149,39 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
       });
       if (!res.ok) {
         const err = await res.json();
-
         setMessage(err.error || "Failed to cancel preorder");
         setSubmitStatus("error");
         return;
       }
       const updated = await res.json();
-      const idx = items.findIndex((i: any) => i._id === (updated._id));
-      if (idx !== -1) items[idx] = updated;
+      
+      // OPTIMISTIC UPDATE: Instant UI refresh
+      setLocalItems(prev => prev.map(item => item._id === updated._id ? updated : item));
+      
       setSubmitStatus("success");
+      setMessage("Preorder Cancelled Successfully");
       setSelectedPreorder(null);
     } catch (err: any) {
       setMessage(err.message);
       setSubmitStatus("error");
     } finally {
       setCancelModalOpen(false);
-      reload();
     }
   };
-
-  const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
   const toggleFilters = (key: string, value: string) => {
     setActiveFilters((prev) => {
       const newFilters = { ...prev };
-      if (newFilters[key] === value) {
-        delete newFilters[key];
-      } else {
-        newFilters[key] = value;
-      }
-
-      const searchString = Object.entries(newFilters)
-        .map(([k, v]) => (v ? `${k}:${v}` : ""))
-        .filter(Boolean)
-        .join(" ");
-
-      setSearch(searchString);
+      if (newFilters[key] === value) delete newFilters[key];
+      else newFilters[key] = value;
       return newFilters;
     });
+    setPage(1); 
   };
 
   const [activeInput, setActiveInput] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>("");
-  const [showFilters, setShowFilters] = useState(true);
+
   const filterOptions = [
     { label: "Pending", key: "status", value: "pending" },
     { label: "Assigned", key: "status", value: "assigned" },
@@ -196,8 +194,38 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
     { label: "Subtotal", key: "subtotal", value: "" },
   ];
 
+  // --------------------------------------------------
+  // CLIENT-SIDE FILTERING ENGINE (INSTANT)
+  // --------------------------------------------------
+  const filteredItems = useMemo(() => {
+      let result = [...localItems];
+
+      if (vendorInput) result = result.filter(o => o.createdBy?._id === vendorInput);
+      if (routeInput) result = result.filter(o => o.routeAssigned?._id === routeInput);
+      if (warehouseInput) result = result.filter(o => o.assembledBy?._id === warehouseInput);
+
+      Object.entries(activeFilters).forEach(([key, value]) => {
+          if (key === "status") result = result.filter(o => o.status === value);
+          if (key === "payment") result = result.filter(o => o.paymentStatus === value);
+          if (key === "total") result = result.filter(o => o.total === Number(value));
+          if (key === "subtotal") result = result.filter(o => o.subtotal === Number(value));
+      });
+
+      if (search) {
+          const lowerSearch = search.toLowerCase();
+          result = result.filter(o => 
+              o.number?.toLowerCase().includes(lowerSearch) ||
+              o.client?.clientName?.toLowerCase().includes(lowerSearch)
+          );
+      }
+
+      return result;
+  }, [localItems, vendorInput, routeInput, warehouseInput, activeFilters, search]);
+
+  const totalPages = filteredItems.length > 0 ? Math.ceil(filteredItems.length / ITEMS_PER_PAGE) : 1;
+  const paginatedItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   const handleSetPage = (value: string) => {
-    setSubmitStatus("loading");
     if (value === "back") {
       setPage((p) => Math.max(1, p - 1));
     } else {
@@ -206,7 +234,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   };
 
   return (
-    <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]":"md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[82vh]`}>
+    <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[89vw]":"md:w-[96vw]"} w-[96vw] h-[75vh] md:h-[86vh]`}>
       <div className="flex items-center justify-end py-2">
         <Link href="/pages/sales/preorders/add-preorder">
           <button className="flex gap-2 p-2 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
@@ -234,32 +262,24 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             {showFilters && (
               <>
                 <div className="flex flex-col md:flex-row justify-between gap-2 mb-2 md:h-10 md:flex-wrap">
-                  {/* VENDOR */}
-                  <select
-                    value={vendorInput}
-                    onChange={(e) => setVendorInput(e.target.value)}
-                    className="p-2 rounded-xl bg-white cursor-pointer"
-                  >
+                  {/* SAFE CHANGE HANDLERS: Only resets page if value actually changed */}
+                  <select value={vendorInput} onChange={(e) => {
+                      if (e.target.value !== vendorInput) { setVendorInput(e.target.value); setPage(1); }
+                  }} className="p-2 rounded-xl bg-white cursor-pointer">
                     <option value="">All Vendors</option>
                     {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
                   </select>
 
-                  {/* ROUTE */}
-                  <select
-                    value={routeInput}
-                    onChange={(e) => setRouteInput(e.target.value)}
-                    className="p-2 rounded-xl bg-white cursor-pointer"
-                  >
+                  <select value={routeInput} onChange={(e) => {
+                      if (e.target.value !== routeInput) { setRouteInput(e.target.value); setPage(1); }
+                  }} className="p-2 rounded-xl bg-white cursor-pointer">
                     <option value="">All Routes</option>
                     {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
                   </select>
 
-                  {/* WAREHOUSE */}
-                  <select
-                    value={warehouseInput}
-                    onChange={(e) => setWarehouseInput(e.target.value)}
-                    className="p-2 rounded-xl bg-white cursor-pointer"
-                  >
+                  <select value={warehouseInput} onChange={(e) => {
+                      if (e.target.value !== warehouseInput) { setWarehouseInput(e.target.value); setPage(1); }
+                  }} className="p-2 rounded-xl bg-white cursor-pointer">
                     <option value="">All Warehouse</option>
                     {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
                   </select>
@@ -272,27 +292,29 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
           {userRole === "admin" && (
             <div className="flex w-full md:w-auto bg-white rounded-xl justify-center shadow-xl">
               <DateRangePicker
-                fromDate={fromDate}
-                toDate={toDate}
+                fromDate={draftFrom}
+                toDate={draftTo}
                 onChange={(from, to) => {
-                  setFromDate(from);
-                  setToDate(to);
+                  setDraftFrom(from);
+                  setDraftTo(to);
+                  // ONLY fire the API if 'to' is valid and it actually changed!
+                  if (to && to !== apiDates.to) {
+                    setApiDates({ from, to });
+                    setPage(1);
+                  }
                 }}
               />
             </div>
           )}
           <div className="flex gap-2 w-full">
             <SearchBar
-              placeholder="Search preorders..."
-              onSearch={setSearch}
+              placeholder="Search by client or number..."
+              onSearch={(val) => { 
+                if (val !== search) { setSearch(val); setPage(1); }
+              }}
               debounce
             />
-            <RefreshButton onRefresh={() => {
-              reload();
-              setSubmitStatus("loading");
-              setTimeout(() => setSubmitStatus(null), 3000);
-            }}
-            />
+            <RefreshButton onRefresh={() => reload()} />
           </div>
         </div>
         {showFilters && (
@@ -300,9 +322,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
           {userRole === "admin" && (
             <>
               {filterOptions.map((f) => {
-                const isActive = f.key === "total" || f.key === "subtotal"
-                  ? !!activeFilters[f.key]
-                  : activeFilters[f.key] === f.value;
+                const isActive = f.key === "total" || f.key === "subtotal" ? !!activeFilters[f.key] : activeFilters[f.key] === f.value;
                 const isInputActive = activeInput === f.key;
 
                 if (f.key === "total" || f.key === "subtotal") {
@@ -315,86 +335,33 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                               setActiveFilters((prev) => {
                                 const copy = { ...prev };
                                 delete copy[f.key];
-                                const searchString = Object.entries(copy)
-                                  .map(([k, v]) => (v ? `${k}:${v}` : ""))
-                                  .filter(Boolean)
-                                  .join(" ");
-                                setSearch(searchString);
                                 return copy;
                               });
+                              setPage(1);
                             } else {
                               setActiveInput(f.key);
                               setTempValue("");
                             }
                           }}
-                          className={`
-                      px-3 py-2 rounded-xl whitespace-nowrap shadow-xl transition-all duration:300 cursor-pointer
-                      ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}
-                    `}
+                          className={`px-3 py-2 rounded-xl whitespace-nowrap shadow-xl transition-all duration:300 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}
                         >
                           {isActive ? `${f.label}:${activeFilters[f.key]}` : f.label}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            value={tempValue}
-                            onChange={(e) => setTempValue(e.target.value)}
-                            className="px-2 py-1 rounded-xl bg-white shadow-xl w-24"
-                            placeholder="value"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => {
-                              if (tempValue) {
-                                setActiveFilters((prev) => {
-                                  const copy = { ...prev, [f.key]: tempValue };
-                                  const searchString = Object.entries(copy)
-                                    .map(([k, v]) => (v ? `${k}:${v}` : ""))
-                                    .filter(Boolean)
-                                    .join(" ");
-                                  setSearch(searchString);
-                                  return copy;
-                                });
-                              }
-                              setActiveInput(null);
-                              setTempValue("");
-                            }}
-                            className="px-3 py-2 rounded-xl bg-blue-500 text-white cursor-pointer"
-                          >
-                            OK
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveInput(null);
-                              setTempValue("");
-                            }}
-                            className="px-3 py-2 rounded-xl bg-gray-300 text-black cursor-pointer"
-                          >
-                            Cancel
-                          </button>
+                          <input type="number" inputMode="decimal" step="0.01" value={tempValue} onChange={(e) => setTempValue(e.target.value)} className="px-2 py-1 rounded-xl bg-white shadow-xl w-24" placeholder="value" autoFocus />
+                          <button onClick={() => { if (tempValue) setActiveFilters((prev) => ({ ...prev, [f.key]: tempValue })); setActiveInput(null); setTempValue(""); setPage(1); }} className="px-3 py-2 rounded-xl bg-blue-500 text-white cursor-pointer">OK</button>
+                          <button onClick={() => { setActiveInput(null); setTempValue(""); }} className="px-3 py-2 rounded-xl bg-gray-300 text-black cursor-pointer">Cancel</button>
                         </div>
                       )}
-
                     </div>
                   );
                 }
 
                 return (
-                  <button
-                    key={f.label}
-                    onClick={() => toggleFilters(f.key, f.value)}
-                    className={`
-                px-3 py-1 rounded-xl shadow-xl transition-all duration-200 cursor-pointer
-
-                ${isActive
-                        ? "bg-(--tertiary) text-white"
-                        : "bg-white hover:bg-gray-100"}
-              `}
-                  >
-                    {f.label}</button>
+                  <button key={f.label} onClick={() => toggleFilters(f.key, f.value)} className={`px-3 py-1 rounded-xl shadow-xl transition-all duration-200 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}>
+                    {f.label}
+                  </button>
                 );
               })}
             </>
@@ -403,32 +370,22 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
         )}
         <div className='flex-1 overflow-auto rounded-xl shadow-xl bg-white font-mono'>
           <table className="w-full text-left text-sm">
-            <thead className="bg-(--tertiary) sticky top-0">
+            <thead className="bg-(--tertiary) sticky top-0 whitespace-nowrap">
               <tr className="border-b">
                 {userRole === "admin" &&
                   <>
                     <th className="p-2">
                       <input
                         type="checkbox"
-                        checked={
-                          items.length > 0 &&
-                          items.every((it: any) =>
-                            selectedIds.includes(it._id)
-                          )
-                        }
+                        checked={paginatedItems.length > 0 && paginatedItems.every((it: any) => selectedIds.includes(it._id))}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            const selectable = items
-                              .filter((it: any) =>
-                                it.status !== "cancelled" &&
-                                it.status !== "delivered"
-                              ).map((it: any) => it._id);
-                            setSelectedIds(selectable);
+                            setSelectedIds(paginatedItems.filter((it: any) => it.status !== "cancelled" && it.status !== "delivered").map((it: any) => it._id));
                           } else {
                             setSelectedIds([]);
                           }
                         }}
-                        className="px-2 py-2 h-5 w-5"
+                        className="px-2 py-2 h-5 w-5 cursor-pointer"
                       />
                     </th>
                     <th className="p-2">Assing Route</th>
@@ -463,38 +420,32 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
               </tr>
             </thead>
             <tbody className="bg-white">
-              {items.map((it: any) => (
+              {paginatedItems.length === 0 && !loading ? (
+                <tr><td colSpan={18} className="text-center p-4 text-gray-500">No records found.</td></tr>
+              ) : (
+                paginatedItems.map((it: any) => (
                 <tr key={it._id} className="border-b hover:bg-gray-100 cursor-pointer whitespace-nowrap">
                   {userRole === "admin" && it.status !== "cancelled" && it.status !== "delivered" &&
                     <>
                       <td className="p-2 text-center">
-                        {it.status !== "cancelled" &&
-                          it.status !== "delivered" && (
-                            <input
-                              type="checkbox"
-                              disabled={it.status === "cancelled" || it.status === "delivered"}
-                              checked={selectedIds.includes(it._id)}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedIds(prev => [...prev, it._id]);
-                                } else {
-                                  setSelectedIds(prev =>
-                                    prev.filter(id => id !== it._id)
-                                  );
-                                }
-                              }}
-                              className="p-2 h-5 w-5"
-                            />
-                          )}
-
+                        <input
+                            type="checkbox"
+                            disabled={it.status === "cancelled" || it.status === "delivered"}
+                            checked={selectedIds.includes(it._id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                            if (e.target.checked) setSelectedIds(prev => [...prev, it._id]);
+                            else setSelectedIds(prev => prev.filter(id => id !== it._id));
+                            }}
+                            className="p-2 h-5 w-5 cursor-pointer"
+                        />
                       </td>
                       <td className="p-2 text-center">
                         <button className="text-blue-800 bg-blue-400 p-2 text-xl rounded-xl cursor-pointer hover:bg-blue-800 hover:text-white transition-all duration:300"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedPreorder2(it);
-                            setSelectedClient(it.client.clientName);
+                            setSelectedClient(it.client?.clientName);
                             setAssignRouteModalOpen(true);
                           }}>
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
@@ -505,48 +456,26 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                     </>
                   }
                   {userRole === "admin" && (it.status === "cancelled" || it.status === "delivered") &&
-                    <>
-                      <td className="P-2 text-center">-</td>
-                      <td className="P-2 text-center">-</td>
-                    </>
+                    <><td className="P-2 text-center">-</td><td className="P-2 text-center">-</td></>
                   }
                   <td className="p-2 font-bold" onClick={() => setSelectedPreorder(it)}>{it.number}</td>
                   <td className="p-2 capitalize font-bold" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName?.toLowerCase()}</td>
                   <td className="p-2 font-bold" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.subtotal)}</td>
                   <td className={`p-2 font-bold ${it.status === "cancelled" ? "text-red-800" : it.status === "delivered" ? it.subtotal === it.total ? "text-green-800" : "text-red-800" : ""}`} onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.total)}</td>
                   <td className={`p-2`} onClick={() => setSelectedPreorder(it)}>
-                    <div className={`px-1 py-1 rounded-xl text-center font-bold
-                  ${statusColors[it.status]}`}>{it.status.toUpperCase()}</div></td>
+                    <div className={`px-1 py-1 rounded-xl text-center font-bold ${statusColors[it.status]}`}>{it.status.toUpperCase()}</div>
+                  </td>
                   {userRole === "admin" &&
                     <>
                       <td className="p-2 capitalize" onClick={() => setSelectedPreorder(it)}>{it.createdBy?.firstName?.toLowerCase()} {it.createdBy?.lastName?.toLowerCase()}</td>
                       <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatDate(it.createdAt)}</td>
                       <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatTime(it.createdAt)}</td>
-                      <td
-                        className="p-2 text-center w-48"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                      >
+                      <td className="p-2 text-center w-48" onClick={(e) => e.stopPropagation()}>
                         {it.location ? (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${it.location.latitude},${it.location.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onMouseEnter={handleMouseEnter}
-                            onMouseLeave={handleMouseLeave}
-                            className="md:w-48 group p-2 rounded-xl font-bold text-blue-800 hover:bg-blue-800 hover:text-white transition-all duration-500 ease-in-out cursor-pointer justify-center items-center"
-                          >
-                            <span className="">
-                              {isLocationHovered
-                                ? "Check Location"
-                                : `${it.location.latitude.toFixed(5)}, 
-                                  ${it.location.longitude.toFixed(5)}`
-                              }
-                            </span>
+                          <a href={`https://www.google.com/maps/search/?api=1&query=${it.location.latitude},${it.location.longitude}`} target="_blank" rel="noopener noreferrer" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="md:w-48 group p-2 rounded-xl font-bold text-blue-800 hover:bg-blue-800 hover:text-white transition-all duration-500 ease-in-out cursor-pointer justify-center items-center">
+                            <span>{isLocationHovered ? "Check Location" : `${it.location.latitude.toFixed(5)}, ${it.location.longitude.toFixed(5)}`}</span>
                           </a>
-                        ) : "-"
-                        }
+                        ) : "-"}
                       </td>
                       {it.assembledBy ? (
                         <>
@@ -554,163 +483,72 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                           <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatDate(it.assembledAt)}</td>
                           <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatTime(it.assembledAt)}</td>
                         </>
-                      ) : (
-                        <td colSpan={3} className="text-center">-</td>
-                      )}
+                      ) : <td colSpan={3} className="text-center">-</td>}
                       <td className="p-2 capitalize text-center" onClick={() => setSelectedPreorder(it)}>
                         {it.status === "delivered" ? (
-                          // If delivered, show the historical permanent record
-                          <>
-                            {it.routeAssigned?.code} | {it.deliveredBy?.firstName?.toLowerCase()} {it.deliveredBy?.lastName?.toLowerCase()}
-                          </>
+                          <>{it.routeAssigned?.code} | {it.deliveredBy?.firstName?.toLowerCase()} {it.deliveredBy?.lastName?.toLowerCase()}</>
                         ) : it.routeAssigned ? (
-                          // If pending/assigned, show whoever is currently holding the route
-                          <>
-                            {it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName?.toLowerCase()} {it.routeAssigned?.user?.lastName?.toLowerCase()}
-                          </>
-                        ) : (
-                          <span>-</span>
-                        )}
+                          <>{it.routeAssigned?.code} | {it.routeAssigned?.user?.firstName?.toLowerCase()} {it.routeAssigned?.user?.lastName?.toLowerCase()}</>
+                        ) : "-"}
                       </td>
                       {it.deliveredAt ? (
                         <>
                           <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatDate(it.deliveredAt)}</td>
                           <td className="p-2" onClick={() => setSelectedPreorder(it)}>{formatTime(it.deliveredAt)}</td>
                         </>
-                      ) : (
-                        <td colSpan={2} className="text-center">-</td>
-                      )}
+                      ) : <td colSpan={2} className="text-center">-</td>}
                     </>
                   }
                   {it.status !== "cancelled" && it.paymentStatus !== "paid" ? (
                     <td className="p-2 text-center">
-                      <button className='text-red-800 bg-red-400 p-2 rounded-xl cursor-pointer hover:bg-red-800 hover:text-white transition-all duration:500'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPreorder2(it);
-                          setCancelModalOpen(true);
-                        }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-                        </svg>
+                      <button className='text-red-800 bg-red-400 p-2 rounded-xl cursor-pointer hover:bg-red-800 hover:text-white transition-all duration:500' onClick={(e) => { e.stopPropagation(); setSelectedPreorder2(it); setCancelModalOpen(true); }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                       </button>
                     </td>
-                  ) : (
-                    <td className="p-2 text-center">-</td>
-                  )
-                  }
+                  ) : <td className="p-2 text-center">-</td>}
 
                   {userRole === "admin" && it.status === "cancelled" ? (
                     <td className="p-2 text-red-600 text-center" onClick={() => setSelectedPreorder(it)}>{formatDate(it.cancelledAt)}</td>
-                  ) : (
-                    <td colSpan={3} className="p-2 text-center">-</td>
-                  )}
-
+                  ) : <td colSpan={3} className="p-2 text-center">-</td>}
                   {userRole === "admin" && it.status === "cancelled" ? (
                     <td className="p-2 text-red-600 text-center" onClick={() => setSelectedPreorder(it)}>{formatTime(it.cancelledAt)}</td>
-                  ) : (
-                    <td></td>
-                  )}
+                  ) : <td></td>}
                   {userRole === "admin" && it.status === "cancelled" ? (
-                    <td className="p-2 text-red-600 text-center capitalize" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy.firstName?.toLowerCase()} {it.cancelledBy.lastName?.toLowerCase()}</td>
-                  ) : (
-                    <td></td>
-                  )}
+                    <td className="p-2 text-red-600 text-center capitalize" onClick={() => setSelectedPreorder(it)}>{it.cancelledBy?.firstName?.toLowerCase()} {it.cancelledBy?.lastName?.toLowerCase()}</td>
+                  ) : <td></td>}
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
+        
+        {/* FOOTER */}
         <div className="flex flex-col md:flex-row justify-between items-center mt-2 gap-2">
           <div className="flex gap-2 w-full md:w-auto justify-between items-center">
             {userRole === "admin" && selectedIds.length > 0 && (
-              <button
-                onClick={() => {
-                  setSelectedPreorder2(null);
-                  setAssignRouteModalOpen(true);
-                }}
-                className="text-sm md:text-[16px] font-bold p-2 bg-blue-400 text-blue-800 hover:text-white rounded-xl shadow-xl hover:bg-blue-800 transition-all duration:300 cursor-pointer">
+              <button onClick={() => { setSelectedPreorder2(null); setAssignRouteModalOpen(true); }} className="text-sm md:text-[16px] font-bold p-2 bg-blue-400 text-blue-800 hover:text-white rounded-xl shadow-xl hover:bg-blue-800 transition-all duration:300 cursor-pointer">
                 Assign {selectedIds.length} Selected
-              </button>
-            )}
-            {userRole === "admin" && (
-              <button
-                onClick={async () => {
-                  setSubmitStatus("loading");
-                  const res = await fetch("/api/preOrders/for-routes");
-                  if (!res.ok) {
-                    setMessage("Failed to export");
-                    setSubmitStatus("error");
-                    return;
-                  }
-                  setMessage("Export complete");
-                  setSubmitStatus("success");
-                  const blob = await res.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "preorders-for-routes.xlsx";
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
-                }}
-                className="text-sm md:text-[16px] p-2 font-bold bg-green-400 text-green-800 hover:text-white rounded-xl shadow-xl hover:bg-green-800 cursor-pointer transition-all duration:300">
-                Export for Routes
               </button>
             )}
           </div>
           <div className="text-sm md:text-[16px] flex w-full md:w-auto font-mono font-bold items-center justify-between gap-4">
             <span className="hidden md:block">
-              Showing {items.length} of {total} Preorders
+              Showing {paginatedItems.length} of {filteredItems.length} Records
             </span>
-            <button
-              disabled={page === 1}
-              onClick={() => {
-                handleSetPage("back");
-                setTimeout(() => setSubmitStatus(null), 1000);
-              }}
-              className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-              </svg>
+            <button disabled={page === 1} onClick={() => handleSetPage("back")} className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
             </button>
-
-            <span className="px-3 py-1">
-              Page {page} of {totalPages || 1}
-            </span>
-
-            <button
-              disabled={page >= totalPages}
-              onClick={() => {
-                handleSetPage("forward")
-                setTimeout(() => setSubmitStatus(null), 1000);
-              }}
-              className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
+            <span className="px-3 py-1">Page {page} of {totalPages}</span>
+            <button disabled={page >= totalPages} onClick={() => handleSetPage("forward")} className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
             </button>
           </div>
         </div>
-        {selectedPreorder &&
-          <PreorderDetailsModal
-            preorder={selectedPreorder}
-            onClose={() => setSelectedPreorder(null)}
-            onEdit={(preorder) => {
-              setEditingPreorder(preorder);
-            }}
-            userRole={userRole}
-          />
-        }
-        {editingPreorder && (
-          <PreorderWizard
-            userRole={userRole}
-            mode="edit"
-            existingPreorder={editingPreorder}
-          />
-        )}
+        
+        {/* MODALS */}
+        {selectedPreorder && <PreorderDetailsModal preorder={selectedPreorder} onClose={() => setSelectedPreorder(null)} onEdit={(preorder) => { setEditingPreorder(preorder); }} userRole={userRole} />}
+        {editingPreorder && <PreorderWizard userRole={userRole} mode="edit" existingPreorder={editingPreorder} />}
+        
         {assignRouteModalOpen && (
           <AssignRouteModal
             bulkMode={selectedIds.length > 0}
@@ -718,35 +556,14 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             clientName={selectedClient}
             preorderId={selectedPreorder2?._id}
             currentRouteId={selectedPreorder2?.routeAssigned?._id ?? selectedPreorder2?.routeAssigned}
-            onClose={() => {
-              setAssignRouteModalOpen(false);
-              setSelectedIds([]);
-            }}
-            onAssigned={() => {
-              reload();
-              setSelectedIds([]);
-            }}
+            onClose={() => { setAssignRouteModalOpen(false); setSelectedIds([]); }}
+            onAssigned={() => { reload(); setSelectedIds([]); }} 
           />
         )}
         {cancelModalOpen && selectedPreorder2 && (
-          <CancelPreorderModal
-            preorder={selectedPreorder2}
-            onClose={() => setCancelModalOpen(false)}
-            onConfirm={cancelPreorder}
-          />
+          <CancelPreorderModal preorder={selectedPreorder2} onClose={() => setCancelModalOpen(false)} onConfirm={cancelPreorder} />
         )}
-        {submitStatus && (
-          <SubmitResultModal
-            status={submitStatus}
-            message={message}
-            onClose={() => {
-              setSubmitStatus(null);
-              setMessage("");
-              setCancelModalOpen(false);
-            }}
-            collection="Preorder"
-          />
-        )}
+        {submitStatus && <SubmitResultModal status={submitStatus} message={message} onClose={() => { setSubmitStatus(null); setMessage(""); setCancelModalOpen(false); }} collection="Preorder" />}
       </div>
     </div>
   );

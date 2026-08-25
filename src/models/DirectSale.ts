@@ -67,6 +67,7 @@ const DirectSaleSchema = new Schema(
             type: String
         },
         updatedAt: {type: Date},
+        createdAt: {type: Date},
         updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
         paymentStatus: {
             type: String,

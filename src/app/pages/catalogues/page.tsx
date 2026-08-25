@@ -19,7 +19,15 @@ export default function CataloguesPage() {
                         </svg>
                     </div>
                 </Link>
-            
+                <Link href="/pages/catalogues/categories" className="w-40 h-50 lg:w-50 lg:h-80 bg-(--secondary) rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
+                    <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
+                        Categories
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-10">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
+                        </svg>
+                    </div>
+                </Link>
         </div>
     );
   }

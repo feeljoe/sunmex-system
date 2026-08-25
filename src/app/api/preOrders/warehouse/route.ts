@@ -29,15 +29,16 @@ export async function GET(req: Request) {
         path: "products.productInventory",
         populate: {
           path: "product",
-          populate: {
-            path: "brand",
-          },
+          populate: [
+            { path: "brand" },
+            { path: "productType" }
+          ],
         },
       })
       .populate("cancelledBy")
       .sort({
-        status: 1,       // assigned first
-        assembledAt: -1, // recently completed on top of ready
+        status: 1,
+        assembledAt: -1,
         createdAt: 1
       })
       .skip((page - 1) * limit),
