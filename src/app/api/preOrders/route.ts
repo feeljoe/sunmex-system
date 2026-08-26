@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import CounterPreorder from "@/models/CounterPreorder";
 import Client from "@/models/Client";
+import { DateTime } from "luxon";
 
 export async function GET(req: Request) {
   try {
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
 
     const routeId = searchParams.get("routeId");
     const page = Math.max(Number(searchParams.get("page")) || 1, 1);
-    const limit = Math.min(Number(searchParams.get("limit")) || 1000, 2000); // Increased limit for local filtering
+    const limit = Math.min(Number(searchParams.get("limit")) || 2000, 3000);
     const search = searchParams.get("search")?.trim() || "";
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
@@ -25,15 +26,15 @@ export async function GET(req: Request) {
 
     const session = await getServerSession(authOptions);
 
-    const matchQuery: any = {};
-    let datefield = "createdAt";
+    // We use a strict $and array to cleanly stack all conditions
+    const matchQuery: any = { $and: [] };
+    let parsedStatus = "";
 
-    // 1. DYNAMIC SEARCH PARSING (If backend search is still used)
+    // 1. DYNAMIC SEARCH PARSING (From the Search Bar)
     if (search) {
       const tokens = search.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
-      const andConditions: any[] = [];
+      const searchAndConditions: any[] = [];
       const generalSearch: any[] = [];
-      let parsedStatus = "";
 
       for (const token of tokens) {
         const [rawKey, ...rest] = token.split(":");
@@ -44,19 +45,19 @@ export async function GET(req: Request) {
           switch (key) {
             case "status":
               parsedStatus = value.toLowerCase();
-              andConditions.push({ status: parsedStatus });
+              searchAndConditions.push({ status: parsedStatus });
               break;
             case "payment":
-              andConditions.push({ paymentStatus: value });
+              searchAndConditions.push({ paymentStatus: value });
               break;
             case "number":
-              andConditions.push({ number: { $regex: value, $options: "i" } });
+              searchAndConditions.push({ number: { $regex: value, $options: "i" } });
               break;
             case "total":
-              andConditions.push({ total: Number(value) });
+              searchAndConditions.push({ total: Number(value) });
               break;
             case "subtotal":
-              andConditions.push({ subtotal: Number(value) });
+              searchAndConditions.push({ subtotal: Number(value) });
               break;
           }
         } else {
@@ -73,48 +74,74 @@ export async function GET(req: Request) {
         }
       }
 
-      if (parsedStatus === "ready") datefield = "assembledAt";
-      else if (parsedStatus === "delivered") datefield = "deliveredAt";
-      else if (parsedStatus === "cancelled") datefield = "cancelledAt";
-
-      if (andConditions.length > 0) matchQuery.$and = andConditions;
+      if (searchAndConditions.length > 0) {
+        matchQuery.$and.push(...searchAndConditions);
+      }
       if (generalSearch.length > 0) {
-        if (matchQuery.$and) matchQuery.$and.push({ $or: generalSearch });
-        else matchQuery.$or = generalSearch;
+        matchQuery.$and.push({ $or: generalSearch });
       }
     }
 
-    // 2. DATE FILTERING
+    // 2. SAFE TIMEZONE DATE FILTERING 🔥
     if (fromDate && toDate) {
-      const [fy, fm, fd] = fromDate.split("-").map(Number);
-      const [ty, tm, td] = toDate.split("-").map(Number);
-      const start = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
-      const end = new Date(ty, tm - 1, td, 23, 59, 59, 999);
-      matchQuery[datefield] = { $gte: start, $lte: end };
+      const start = DateTime.fromISO(fromDate, { zone: "America/Phoenix" }).startOf("day").toJSDate();
+      const end = DateTime.fromISO(toDate, { zone: "America/Phoenix" }).endOf("day").toJSDate();
+
+      let dateCondition: any = {};
+      
+      // If the user explicitly typed a status in the search bar, honor that specific field
+      if (parsedStatus === "ready") {
+        dateCondition = { assembledAt: { $gte: start, $lte: end } };
+      } else if (parsedStatus === "delivered") {
+        dateCondition = { deliveredAt: { $gte: start, $lte: end } };
+      } else if (parsedStatus === "cancelled") {
+        dateCondition = { cancelledAt: { $gte: start, $lte: end } };
+      } else if (parsedStatus === "pending" || parsedStatus === "assigned") {
+        dateCondition = { createdAt: { $gte: start, $lte: end } };
+      } else {
+        // THE FIX: If no specific status is requested by the backend search string, 
+        // return any order that had ACTIVITY during this date range!
+        dateCondition = {
+          $or: [
+            { createdAt: { $gte: start, $lte: end } },
+            { assembledAt: { $gte: start, $lte: end } },
+            { deliveredAt: { $gte: start, $lte: end } },
+            { cancelledAt: { $gte: start, $lte: end } }
+          ]
+        };
+      }
+      
+      matchQuery.$and.push(dateCondition);
     }
 
     // 3. ROLE & SPECIFIC FILTERS
     if (session?.user?.role === "vendor") {
       const vendorIdObj = new mongoose.Types.ObjectId(session.user.id);
-      if (matchQuery.$or) {
-        matchQuery.$and = matchQuery.$and || [];
-        matchQuery.$and.push({ $or: [{ createdBy: vendorIdObj, status: "pending" }] });
-      } else {
-        matchQuery.$or = [{ createdBy: vendorIdObj, status: "pending" }];
-      }
+      matchQuery.$and.push({ $or: [{ createdBy: vendorIdObj, status: "pending" }] });
     } else {
-      if (vendorId) matchQuery.createdBy = new mongoose.Types.ObjectId(vendorId);
+      if (vendorId) {
+        matchQuery.$and.push({ createdBy: new mongoose.Types.ObjectId(vendorId) });
+      }
     }
     
-    if (warehouseUserId) matchQuery.assembledBy = new mongoose.Types.ObjectId(warehouseUserId);
-    if (routeId) matchQuery.routeAssigned = new mongoose.Types.ObjectId(routeId);
+    if (warehouseUserId) {
+      matchQuery.$and.push({ assembledBy: new mongoose.Types.ObjectId(warehouseUserId) });
+    }
+    if (routeId) {
+      matchQuery.$and.push({ routeAssigned: new mongoose.Types.ObjectId(routeId) });
+    }
 
-    // 4. BLAZING FAST FIND & POPULATE (Replaces slow aggregation)
+    // Cleanup the array if it's empty so MongoDB doesn't throw a syntax error
+    if (matchQuery.$and.length === 0) {
+      delete matchQuery.$and;
+    }
+
+    // 4. BLAZING FAST FIND & POPULATE
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
       PreOrder.find(matchQuery)
-        .sort({ _id: -1 }) // Sorting by _id chronologically matches the Number sort, but is heavily indexed!
+        .sort({ _id: -1 }) 
         .skip(skip)
         .limit(limit)
         .populate({
