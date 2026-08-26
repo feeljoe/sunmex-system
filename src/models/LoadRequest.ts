@@ -63,6 +63,7 @@ const LoadRequestSchema = new Schema(
     signature: {type: String},
     deliveryDate: {type: Date},
     deliveredAt: {type: Date},
+    warehouseReturnProcessed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

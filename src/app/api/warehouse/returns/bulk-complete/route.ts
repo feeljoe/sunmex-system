@@ -2,6 +2,7 @@ import { connectToDatabase } from "@/lib/db";
 import CreditMemo from "@/models/CreditMemo";
 import PreOrder from "@/models/PreOrder";
 import ProductInventory from "@/models/ProductInventory";
+import LoadRequest from "@/models/LoadRequest";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import RouteAudit from "@/models/RouteAudit";
@@ -15,10 +16,11 @@ export async function PATCH(req: Request) {
     const body = await req.json();
 
     const {
-      creditMemoIds = [], // Array of all CM _ids for this route
-      preorderIds = [], // Array of all Preorder _ids for this route
-      auditIds = [], // Array of all Audit _ids for this route (Inventory-wise)
-      aggregatedProducts, // Array of { productId, returnReason, totalPicked, verifiedQuantity }, now includes originalReason, newReason, sourceType
+      creditMemoIds = [], 
+      preorderIds = [], 
+      loadRequestIds = [],
+      auditIds = [], 
+      aggregatedProducts, 
       warehouseUser,
       driverSignature,
       warehouseSignature,
@@ -29,21 +31,20 @@ export async function PATCH(req: Request) {
 
     // 2. Process each aggregated product group
     for (const agg of aggregatedProducts) {
-      if (agg.sourceType === "preorder" || agg.sourceType === "audit") continue;
+      // Skip logic for Preorders, Audits, and Load Requests (they are handled individually below)
+      if (["preorder", "po", "audit", "au", "loadRequest", "lr"].includes(agg.sourceType)) continue;
+      
       const pickedQty = Math.round(Number(agg.totalPicked) || 0);
       const verifiedQty = Math.round(Number(agg.verifiedQuantity) || 0);
-      let shortage = Math.max(pickedQty - verifiedQty, 0); // Calculate how many are missing
+      let shortage = Math.max(pickedQty - verifiedQty, 0);
 
-      // --- INVENTORY UPDATE ---
+      // --- CM INVENTORY UPDATE ---
       const invUpdate: any = {
-        $inc: { onRouteInventory: -pickedQty }, // Always clear the truck of what was originally picked
+        $inc: { onRouteInventory: -pickedQty }, 
       };
 
-      // Only add the VERIFIED amount back to current inventory if it's a good return
       if (agg.newReason === "good return" || agg.newReason === "returned") {
         invUpdate.$inc.currentInventory = verifiedQty;
-      } else if (agg.newReason === "credit memo") {
-        invUpdate.$inc.onRouteInventory = -pickedQty; // Clear from inactive if tracking that
       }
 
       await ProductInventory.updateOne(
@@ -52,51 +53,41 @@ export async function PATCH(req: Request) {
         { session }
       );
 
-      // --- CREDIT MEMO DISTRIBUTION (Short the first documents) ---
+      // --- CREDIT MEMO DISTRIBUTION ---
       for (const cm of creditMemos) {
-        // Find the matching product line in this specific Credit Memo
         const cmProductLine = cm.products.find(
           (p: any) => p.product.toString() === agg.productId && p.returnReason === agg.originalReason
         );
 
         if (cmProductLine) {
           const originalCMQty = cmProductLine.pickedQuantity || 0;
-
-          // If we have a shortage, deduct it from this CM up to its max quantity
           const amountToDeduct = Math.min(shortage, originalCMQty);
           const finalVerifiedForThisCM = originalCMQty - amountToDeduct;
 
-          // Update the line item
           cmProductLine.warehouseVerifiedQuantity = finalVerifiedForThisCM;
-          cmProductLine.returnReason = agg.newReason; // Update reason!
-          // Reduce the remaining shortage for the next loop
+          cmProductLine.returnReason = agg.newReason; 
           shortage -= amountToDeduct;
         }
       }
     }
 
+    // --- 3. PROCESS PREORDERS ---
     const preorders = await PreOrder.find({ _id: { $in: preorderIds } }).session(session);
-    
     for (const po of preorders) {
         for (const p of po.products) {
             const diff = (p.pickedQuantity || 0) - (p.deliveredQuantity || 0);
             
             if (diff > 0 && p.deviationReason) {
-                // Find the warehouse instructions for this specific item
                 const agg = aggregatedProducts.find((a: any) => 
-                    a.sourceType === "preorder" && 
+                    (a.sourceType === "preorder" || a.sourceType === "po") && 
                     a.productId === p.productInventory?.toString() && 
                     a.originalReason === p.deviationReason
                 );
                 
                 if (agg) {
-                    p.deviationReason = agg.newReason; // Override the reason if warehouse changed it!
-                    
-                    // Clear from the truck's virtual inventory
+                    p.deviationReason = agg.newReason; 
                     const poInvUpdate: any = { $inc: { onRouteInventory: -diff } };
                     
-                    // If returned (came back on truck) OR missing (never left warehouse), 
-                    // put it back into current warehouse stock based on the verified count.
                     if (agg.newReason === "returned" || agg.newReason === "missing") {
                         poInvUpdate.$inc.currentInventory = agg.verifiedQuantity;
                     }
@@ -109,7 +100,40 @@ export async function PATCH(req: Request) {
         await po.save({ session });
     }
 
-    // 3. Mark all Credit Memos as completed and save
+    // --- 4. PROCESS LOAD REQUESTS (NEW) ---
+    const loadRequests = await LoadRequest.find({ _id: { $in: loadRequestIds } }).session(session);
+    for (const lr of loadRequests) {
+        for (const p of lr.products) {
+            const diff = (p.assembledQuantity || 0) - (p.deliveredQuantity || 0);
+            
+            if (diff > 0 && p.differenceReason) {
+                const agg = aggregatedProducts.find((a: any) => 
+                    (a.sourceType === "loadRequest" || a.sourceType === "lr") && 
+                    a.productId === p.product?.toString() && 
+                    a.originalReason === p.differenceReason
+                );
+                
+                if (agg) {
+                    p.differenceReason = agg.newReason; 
+                    
+                    // Clear from the truck's virtual inventory
+                    const lrInvUpdate: any = { $inc: { onRouteInventory: -diff } };
+                    
+                    // Put it back into warehouse stock based on verified count
+                    if (agg.newReason === "returned" || agg.newReason === "missing") {
+                        lrInvUpdate.$inc.currentInventory = agg.verifiedQuantity;
+                    }
+                    
+                    // Note: LR stores the `product` ID, so we query ProductInventory differently than Preorders
+                    await ProductInventory.updateOne({ product: p.product }, lrInvUpdate, { session });
+                }
+            }
+        }
+        lr.warehouseReturnProcessed = true; // Flags this LR as completed
+        await lr.save({ session });
+    }
+
+    // --- 5. FINALIZE CREDIT MEMOS ---
     for (const cm of creditMemos) {
       cm.warehouseStatus = "completed";
       cm.receivedBy = warehouseUser;
@@ -119,12 +143,12 @@ export async function PATCH(req: Request) {
       await cm.save({ session });
     }
 
+    // --- 6. PROCESS AUDITS ---
     const audits = await RouteAudit.find({ _id: { $in: auditIds } }).session(session);
-
     for (const au of audits) {
       for (const p of au.products) {
         const agg = aggregatedProducts.find((a: any) =>
-          a.sourceType === "audit" &&
+          (a.sourceType === "audit" || a.sourceType === "au") &&
           a.productId === p.product?.toString() &&
           a.originalReason === p.reason
         );
@@ -133,11 +157,8 @@ export async function PATCH(req: Request) {
           p.verifiedQuantity = agg.verifiedQuantity;
 
           const invUpdate: any = { $inc: {} };
-
-          if (p.difference) {
-            if(agg.newReason === "returned") {
+          if (p.difference && agg.newReason === "returned") {
               invUpdate.$inc.currentInventory = agg.verifiedQuantity;
-            }
           }
 
           if (Object.keys(invUpdate.$inc).length > 0) {
