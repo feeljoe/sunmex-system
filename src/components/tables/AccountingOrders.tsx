@@ -15,10 +15,12 @@ import DeletePaymentsModal from "@/components/modals/DeletePaymentsModal";
 import { PaginatedSelect } from "@/components/ui/PaginatedSelect";
 import { StaticSelect } from "@/components/ui/StaticSelect";
 import { generateAccountingPDF } from "@/utils/generateAccountingPDF";
+import { useSidebar } from "@/app/components/SideBarContext";
+
 type Order = {
   _id: string;
   number: string;
-  client: { name: string, paymentTerm: string, discountPercentage: number };
+  client: { _id: string, name: string, paymentTerm: string, discountPercentage: number, chain: string, dueDays: number };
   deliveredAt: string;
   vendorId: string;
   total: number;
@@ -31,6 +33,8 @@ type Order = {
 };
 
 export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
+  const { sidebarOpen } = useSidebar();
+
   // 1. DRAFT STATES (These change instantly but do NOT trigger API)
   const [draftFrom, setDraftFrom] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [draftTo, setDraftTo] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
@@ -93,7 +97,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
       ...item,
       type: item.source === "directSale" ? "directSale" : "order", 
     }));
-    const creditMemos = (meta.unlinkedCreditMemos || []).map((cm: any) => ({
+    const creditMemos = (meta?.unlinkedCreditMemos || []).map((cm: any) => ({
       _id: cm._id,
       number: cm.number,
       client: { 
@@ -125,14 +129,10 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         }
 
         if (status === "overdue" && o.type === "creditMemo" && o.computedStatus === "pending" && o.client?.dueDays > 0) {
-          // 1. Get the returnedAt date in milliseconds
           const returnDateMillis = new Date(o.deliveredAt).getTime(); 
-          
-          // 2. Calculate the due date (dueDays * 86,400,000 milliseconds)
           const dueDaysMillis = o.client.dueDays * 86400000;
           const dueDateMillis = returnDateMillis + dueDaysMillis;
 
-          // 3. It is OVERDUE if right now is PAST (>) the due date
           if (DateTime.now().toMillis() > dueDateMillis) {
               return true;
           }
@@ -143,8 +143,6 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
     });
   }
 
-    // 3. CLIENT-SIDE 
-    // SEARCH FILTER (Instant!)
     if (search.trim()) {
         const lowerSearch = search.toLowerCase();
         combined = combined.filter(o => 
@@ -153,22 +151,18 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         );
     }
 
-    // Chain Filter
     if (draftChain && draftChain !== "all") {
       combined = combined.filter(o => o.client?.chain === draftChain);
     }
 
-    // Client Filter
     if (draftClient && draftClient !== "all") {
         combined = combined.filter(o => o.client?._id === draftClient);
     }
 
-    // Vendor Filter
     if (draftVendor && draftVendor !== "all") {
         combined = combined.filter(o => o.vendorId === draftVendor);
     }
 
-    // Date Filters
     if (draftFrom) {
         const fromTime = new Date(draftFrom + "T00:00:00").getTime();
         combined = combined.filter(o => new Date(o.deliveredAt).getTime() >= fromTime);
@@ -178,11 +172,10 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         combined = combined.filter(o => new Date(o.deliveredAt).getTime() <= toTime);
     }
 
-    // 4. Sort and return
     return combined.sort(
       (a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime()
     );
-  }, [localOrders, meta.unlinkedCreditMemos, status, search, draftChain, draftClient, draftVendor, draftFrom, draftTo]);
+  }, [localOrders, meta?.unlinkedCreditMemos, status, search, draftChain, draftClient, draftVendor, draftFrom, draftTo]);
 
   const executeSearch = () => {
       setAppliedQuery({
@@ -207,7 +200,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
 
   const handlePay = async (order: Order) => {
     const input = paymentInputs[order._id];
-    if (!input || !input.amount) return;
+    if (!input || !input.amount || !input.method) return;
     
     setSubmitStatus("loading");
     
@@ -250,7 +243,6 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
       const newPaid = (order.paid || 0) + totalDeduction;
       const newBalance = Math.max((order.balance || 0) - totalDeduction, 0);
       
-      // If balance is 0 (or close enough for floating point math), mark it paid!
       const newStatus = newBalance <= 0.01 ? "paid" : order.computedStatus;
 
       setLocalOrders(prev => prev.map(o => {
@@ -265,10 +257,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         }
         return o;
     }));
-      // Clear the input fields for this row
       setPaymentInputs(prev => ({ ...prev, [order._id]: {} }));
-      
-      // Notice: We completely deleted reload() here!
     } else {
       setSubmitStatus("error");
       setMessage("Error saving payment!");
@@ -302,22 +291,25 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
     });
 
     if (res.ok) {
-        // -----------------------------------------------------------------
-        // OPTIMISTIC UI ENGINE: BULK PAY
-        // -----------------------------------------------------------------
         let remainingCash = Number(bulkAmount) || 0;
-        let remainingUnlinkedCredit = selectedCMsBal; // from the useMemo above
+        
+        // 🔥 FIX 2: Group explicitly selected UI CMs by Chain / Client ID for Optimistic UI
+        const creditPool: Record<string, number> = {};
+        Array.from(selectedItems).forEach(id => {
+            const o = orders.find(ord => ord._id === id);
+            if (o && o.type === "creditMemo") {
+                const poolKey = o.client.chain || o.client._id;
+                creditPool[poolKey] = (creditPool[poolKey] || 0) + Math.abs(o.balance || o.credits);
+            }
+        });
 
         setLocalOrders(prev => prev.map(o => {
-            // If this record was part of the bulk payment selection
             if (selectedItems.has(o._id)) {
                 
-                // 1. If it's a Credit Memo, just mark it as processed
                 if (o.type === "creditMemo") {
                     return { ...o, computedStatus: "paid", balance: 0, paid: Math.abs(o.credits) };
                 }
 
-                // 2. If it's an Invoice, cascade the payments!
                 const discountAmount = o.total * (bulkDiscount / 100);
                 const newPaymentsToAdd: any[] = [];
 
@@ -325,18 +317,18 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                     newPaymentsToAdd.push({ _id: `temp-disc-${Date.now()}-${o._id}`, type: "discount", amount: discountAmount });
                 }
 
-                // Calculate balance AFTER discount
                 let currentBalance = Math.max((o.balance || 0) - discountAmount, 0);
+                const poolKey = o.client.chain || o.client._id;
 
-                // Apply Unlinked Credits if we have them
-                if (currentBalance > 0 && remainingUnlinkedCredit > 0) {
-                    const applyCredit = Math.min(currentBalance, remainingUnlinkedCredit);
+                // Apply Unlinked Credits from this Client/Chain's pool
+                if (currentBalance > 0 && creditPool[poolKey] > 0) {
+                    const applyCredit = Math.min(currentBalance, creditPool[poolKey]);
                     newPaymentsToAdd.push({ _id: `temp-cm-${Date.now()}-${o._id}`, type: "creditMemo", amount: applyCredit });
-                    remainingUnlinkedCredit -= applyCredit;
+                    creditPool[poolKey] -= applyCredit;
                     currentBalance -= applyCredit;
                 }
 
-                // Apply Cash/Check if we still have funds
+                // Apply Cash/Check
                 if (currentBalance > 0 && remainingCash > 0) {
                     const applyCash = Math.min(currentBalance, remainingCash);
                     newPaymentsToAdd.push({
@@ -370,7 +362,6 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         setSelectedItems(new Set());
         setBulkAmount("");
         setBulkCheckNumber("");
-        // Look ma, no reload()!
     } else {
         setSubmitStatus("error");
         setMessage("Error processing bulk payment");
@@ -397,9 +388,8 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
     return { totalOwed };
   }, [orders]);
 
-  // Bulk Modal Calculations
   const selectedRecords = orders.filter(o => selectedItems.has(o._id));
-  const selectedOrdersBal = selectedRecords.filter(o => o.type === "order").reduce((acc, o) => acc + o.balance, 0);
+  const selectedOrdersBal = selectedRecords.filter(o => o.type === "order" || o.type === "directSale").reduce((acc, o) => acc + o.balance, 0);
   const selectedCMsBal = selectedRecords.filter(o => o.type === "creditMemo").reduce((acc, o) => acc + Math.abs(o.balance), 0);
   const bulkNetTotal = (selectedOrdersBal * (1 - bulkDiscount / 100)) - selectedCMsBal;
 
@@ -429,15 +419,12 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
   useEffect(() => {
     if (loading) {
       setSubmitStatus((prev) => {
-        // Prevent table reloads from overwriting payment Success/Error messages
         if (prev === "success" || prev === "error") return prev;
-        
         setMessage("Fetching records...");
         return "loading";
       });
     } else {
       setSubmitStatus((prev) => {
-        // Only clear the modal if it was specifically showing the loading state
         if (prev === "loading") return null;
         return prev;
       });
@@ -463,11 +450,9 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
     const startIndex = (page - 1) * ITEMS_PER_PAGE;
     return orders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [orders, page]);
+
   return (
-    <div className="p-4 space-y-4 h-full">
-      <h1 className="text-3xl font-bold text-center dark:text-white">Accounting - Orders</h1>
-    
-      <div className="flex flex-col p-4 h-[80vh] w-[90vw] bg-(--secondary) rounded-xl">
+    <div className={`flex flex-col p-2 bg-(--secondary) rounded-xl transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[84vw]" : "md:w-[94vw]"} w-[94vw] h-[75vh] md:h-[86vh]`}>
           <div className="flex justify-end">
             <button
                   onClick={() => {
@@ -555,7 +540,6 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                   onSearch={setSearch} 
                   debounce 
               />
-              {/* The Search Button - Locks in the DB query */}
             
               <button 
                   onClick={() => {
@@ -575,13 +559,12 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
 
         <div className="flex-1 bg-white rounded-xl h-4/5 shadow-xl overflow-auto">
           <table className="w-full text-sm font-mono font-bold">
-            <thead className="bg-(--tertiary) sticky top-0">
+            <thead className="bg-(--tertiary) sticky top-0 z-10">
               <tr className="whitespace-nowrap text-center">
               <th className="p-2 w-10">
                     <input 
                         type="checkbox" 
                         onChange={(e) => {
-                            // Update this to use paginatedOrders!
                             if (e.target.checked) setSelectedItems(new Set(paginatedOrders.map(o => o._id)));
                             else setSelectedItems(new Set());
                         }}
@@ -718,14 +701,15 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                                 },
                                 }))
                             }
-                            className="w-full h-full text-gray-500"
+                            className="w-full h-full text-gray-500 cursor-pointer text-center font-bold outline-none"
                             >
-                            <option value={0}>Discount?</option>
+                            <option value={0}>Disc?</option>
                             <option value={1}>1%</option>
                             <option value={2}>2%</option>
                             </select>
                         </div>
 
+                        {/* 🔥 FIX 1: REMOVED CREDIT MEMO AND DISCOUNT FROM DROPDOWN */}
                         <div className="bg-blue-200 shadow h-10 w-24 rounded-xl">
                             <select
                             value={paymentInputs[o._id]?.method || ""}
@@ -738,13 +722,11 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                                 },
                                 }))
                             }
-                            className="w-full h-full text-gray-500"
+                            className="w-full h-full text-gray-500 font-bold text-center outline-none cursor-pointer"
                             >
                             <option value="">Type</option>
                             <option value="cash">Cash</option>
                             <option value="check">Check</option>
-                            <option value="creditMemo">Credit Memo</option>
-                            <option value="discount">Discount</option>
                             </select>
                         </div>
 
@@ -762,7 +744,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                                 },
                             }))
                             }
-                            className="bg-blue-200 shadow text-gray-500 rounded-xl px-2 w-28 h-10"
+                            className="bg-blue-200 shadow text-gray-700 font-bold rounded-xl px-2 w-28 h-10 outline-none"
                         />
 
                         {paymentInputs[o._id]?.method === "check" && (
@@ -779,13 +761,14 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                                 },
                                 }))
                             }
-                            className="bg-blue-200 shadow text-gray-500 rounded-xl h-10 px-2 w-24"
+                            className="bg-blue-200 shadow text-gray-700 font-bold rounded-xl h-10 px-2 w-24 outline-none"
                             />
                         )}
 
                         <button
+                            disabled={!paymentInputs[o._id]?.method || !paymentInputs[o._id]?.amount}
                             onClick={() => handlePay(o)}
-                            className="bg-green-400 text-green-800 hover:text-white h-10 px-4 py-2 rounded-xl cursor-pointer hover:bg-green-800 transition-all duration:300"
+                            className="bg-green-400 text-green-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed h-10 px-4 py-2 rounded-xl cursor-pointer hover:bg-green-800 transition-all duration:300"
                         >
                             Pay
                         </button>
@@ -877,8 +860,6 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
         </button>
       </div>
         </div>
-      </div>
-
       {/* BULK PAYMENT MODAL */}
       {isBulkModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -893,7 +874,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                                 <span className="text-sm text-gray-500 ml-2">({record.client.name})</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <span className={`font-mono ${record.type === 'creditMemo' ? 'text-red-500' : ''}`}>
+                                <span className={`font-mono font-bold ${record.type === 'creditMemo' ? 'text-red-500' : 'text-gray-700'}`}>
                                     ${Math.abs(record.balance).toFixed(2)}
                                 </span>
                                 <button onClick={() => toggleSelect(record._id)} className="text-white bg-red-500 px-2 py-2 text-sm rounded-xl hover:underline hover:bg-red-300 cursor-pointer transition-all duration-300">
@@ -910,7 +891,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                         <select 
                             value={bulkDiscount} 
                             onChange={(e) => setBulkDiscount(Number(e.target.value))}
-                            className="bg-white p-3 h-10 rounded-xl"
+                            className="bg-white p-3 h-10 rounded-xl cursor-pointer font-bold text-center outline-none"
                         >
                             <option value={0}>0%</option>
                             <option value={1}>1%</option>
@@ -918,8 +899,8 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                         </select>
                     </div>
                     <div className="flex flex-col gap-2 text-right justify-center">
-                        <div className="text-md text-gray-600">Subtotal: ${selectedOrdersBal.toFixed(2)}</div>
-                        <div className="text-md text-red-500">Credits: -${selectedCMsBal.toFixed(2)}</div>
+                        <div className="text-md font-bold text-gray-600">Subtotal: ${selectedOrdersBal.toFixed(2)}</div>
+                        <div className="text-md font-bold text-red-500">Credits: -${selectedCMsBal.toFixed(2)}</div>
                         <div className="text-lg font-bold border-t">New Net: ${Math.max(bulkNetTotal, 0).toFixed(2)}</div>
                     </div>
                 </div>
@@ -928,7 +909,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                     <select 
                         value={bulkMethod} 
                         onChange={(e) => setBulkMethod(e.target.value)} 
-                        className="bg-white p-2 rounded-xl w-1/3"
+                        className="bg-white p-2 rounded-xl w-1/3 cursor-pointer font-bold text-gray-700 outline-none"
                     >
                         <option value="cash">Cash</option>
                         <option value="check">Check</option>
@@ -939,7 +920,7 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                             placeholder="Check #" 
                             value={bulkCheckNumber} 
                             onChange={(e) => setBulkCheckNumber(e.target.value)} 
-                            className="bg-white p-2 rounded-xl w-1/3"
+                            className="bg-white p-2 rounded-xl w-1/3 font-bold outline-none text-gray-700"
                         />
                     )}
                     <input 
@@ -947,15 +928,15 @@ export default function AccountingOrdersTable({userRole}:{userRole: string;}) {
                         placeholder="Amount" 
                         value={bulkAmount} 
                         onChange={(e) => setBulkAmount(e.target.value)} 
-                        className="bg-white p-2 rounded-xl flex-1"
+                        className="bg-white p-2 rounded-xl flex-1 font-bold outline-none text-gray-700"
                     />
                 </div>
 
                 <div className="flex justify-between gap-3 border-t pt-4">
-                    <button onClick={() => setIsBulkModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-xl hover:bg-gray-400 transition-colors cursor-pointer">
+                    <button onClick={() => setIsBulkModalOpen(false)} className="px-4 py-2 bg-gray-300 font-bold rounded-xl hover:bg-gray-400 transition-colors cursor-pointer">
                         Cancel
                     </button>
-                    <button onClick={handleBulkPay} className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors cursor-pointer">
+                    <button onClick={handleBulkPay} disabled={!bulkAmount} className="px-4 py-2 bg-green-600 font-bold disabled:opacity-50 text-white rounded-xl hover:bg-green-700 transition-colors cursor-pointer">
                         Process Payment
                     </button>
                 </div>

@@ -4,6 +4,7 @@
 import { useList } from "@/utils/useList";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { applyPricingLists } from "@/utils/applyPricingLists";
+import { formatCurrency } from "@/utils/format";
 export default function StepAddProducts({
   userRole,
   products,
@@ -12,6 +13,7 @@ export default function StepAddProducts({
   invalidProducts,
   pricingLists,
   selectedClient,
+  outstandingBalance,
 }: {
   userRole: string;
   products: any[];
@@ -20,6 +22,7 @@ export default function StepAddProducts({
   invalidProducts: string[];
   pricingLists: any[];
   selectedClient: any;
+  outstandingBalance?: { total: number, invoices: string[] } | null;
 }) {
   const inventoryInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRefs = useRef<HTMLInputElement[]>([]);
@@ -203,9 +206,39 @@ export default function StepAddProducts({
   
   return (
     <>
-    <div className="space-y-6 flex w-full flex-col">
+    <div className="space-y-2 flex w-full flex-col">
       <h2 className="text-xl font-semibold text-center">Add Products</h2>
 
+      {outstandingBalance && outstandingBalance.total > 0 && (
+        <div className="flex justify-center">
+          <div className="w-[80wv] md:w-1/3 flex items-center justify-between bg-red-100 border border-red-500 text-red-800 p-2 rounded-xl shadow-md text-center text-xs md:text-sm mb-2 font-mono">
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                strokeWidth={1.5} 
+                stroke="currentColor" 
+                className="w-10 h-10 text-yellow-800 bg-yellow-400 border-2 border-yellow-800 p-2 rounded-full"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="flex flex-col flex-wrap">
+             <span className="font-bold uppercase tracking-wider block mb-1">Client Balance Alert</span>
+             <span className="font-bold text-red-600">Client has an outstanding balance of {formatCurrency(outstandingBalance.total)}.</span>
+             </div>
+             <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                strokeWidth={1.5} 
+                stroke="currentColor" 
+                className="w-10 h-10 text-yellow-800 bg-yellow-400 border-2 border-yellow-800 p-2 rounded-full"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+          </div>
+          </div>
+      )}
       {/* Toggle mode */}
       <div className="flex gap-2 justify-center">
         <button

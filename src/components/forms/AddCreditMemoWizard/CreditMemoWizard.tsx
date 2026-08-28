@@ -55,11 +55,20 @@ export default function CreditMemoWizard({
     setProducts(
       existingCreditMemo.products.map((p: any) => ({
         productId: p.product?._id,
-        name: p.product?.name,
+        brandId: p.product?.brand?._id,
         brand: p.product?.brand?.name,
+        name: p.product?.name,
+        sku: p.product?.sku,
+        upc: p.product?.upc,
+        weight: p.product?.weight,
+        unit: p.product?.unit,
+        caseSize: p.product?.caseSize,
         quantity: p.quantity,
         basePrice: p.actualCost,
-        returnReason: p.returnReason,
+        unitPrice: p.actualCost,
+        returnReason: p.returnReason || "",
+        condition: p.condition || "",
+        expirationDate: p.expirationDate || "",
       }))
     );
 

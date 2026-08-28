@@ -9,6 +9,7 @@ import { useList } from "@/utils/useList";
 import { applyPricingLists } from "@/utils/applyPricingLists";
 import SelectPreorderTypeModal from "@/components/modals/SelectPreorderTypeModal";
 import { useRouter } from "next/navigation";
+import { formatCurrency } from "@/utils/format";
 
 type PreorderWizardProps = {
   userRole: any;
@@ -24,6 +25,10 @@ export default function PreorderWizard({
   const router = useRouter();
 
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number; capturedAt: Date } | null>(null);
+
+
+  const [outstandingBalance, setOutstandingBalance] = useState<{ total: number, invoices: string[] } | null>(null);
+  const [showBalanceWarning, setShowBalanceWarning] = useState(false);
 
   useEffect(() => {
     if (!existingPreorder) return;
@@ -55,7 +60,7 @@ export default function PreorderWizard({
   }, [existingPreorder]);
 
   useEffect(() => {
-    if("geolocation" in navigator) {
+    if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
@@ -126,13 +131,41 @@ export default function PreorderWizard({
     );
   }, [pricedProducts]);
 
-  const handleSelectedClient = (client: any) => {
+  const handleSelectedClient = async (client: any) => {
     setSelectedClient(client);
-    setStep(2);
+
+    if (!isEdit) {
+      setSubmitStatus("loading");
+      setMessage("Checking client balance...");
+      
+      try {
+        const res = await fetch(`/api/clients/${client._id}/outstanding-balance`);
+        const data = await res.json();
+        
+        if (data.hasBalance) {
+            setOutstandingBalance({ total: data.total, invoices: data.invoices });
+        } else {
+            setOutstandingBalance(null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch balance:", err);
+        setOutstandingBalance(null);
+      }
+      
+      // Give the snappy UI loading modal half a second to look smooth
+      setTimeout(() => {
+        setSubmitStatus(null);
+        setMessage("");
+        setStep(2);
+      }, 500);
+      
+    } else {
+      setStep(2);
+    }
   }
   // SUBMIT
 
-  const submitPreorder = async () => {
+  const executeSubmit = async () => {
     setSubmitStatus("loading");
 
     const body = {
@@ -188,6 +221,15 @@ export default function PreorderWizard({
     }, 1000);
   };
 
+  const submitPreorder = () => {
+    // If there is a balance, show the warning modal first instead of submitting
+    if (outstandingBalance && outstandingBalance.total > 0 && !isEdit) {
+      setShowBalanceWarning(true);
+    } else {
+      executeSubmit();
+    }
+  };
+
   // NAVIGATION
 
   const validateStep = (step: number) => {
@@ -232,6 +274,7 @@ export default function PreorderWizard({
             invalidProducts={invalidProducts}
             pricingLists={pricingLists}
             selectedClient={selectedClient}
+            outstandingBalance={outstandingBalance}
           />
         )}
 
@@ -270,6 +313,51 @@ export default function PreorderWizard({
             }}
             collection="Preorder"
           />
+        )}
+
+        {showBalanceWarning && outstandingBalance && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-(--secondary) p-2 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4">
+            <div className="flex justify-center">
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                strokeWidth={1.5} 
+                stroke="currentColor" 
+                className="w-20 h-20 text-yellow-800 bg-yellow-400 p-2 rounded-full"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-center text-red-600">Outstanding Balance</h2>
+              <div className="bg-white rounded-xl border border-gray-200">
+              <p className="text-center font-mono text-gray-700">
+                <span className="font-bold capitalize">{selectedClient?.clientName}</span> has an outstanding balance of: <span className="font-bold text-red-600 text-lg">{formatCurrency(outstandingBalance.total)}</span> from the invoice / invoices:
+              </p>
+
+              <div className="bg-red-50 p-2 m-2 rounded-xl text-center font-mono font-bold border border-red-200 text-red-800 max-h-32 overflow-y-auto">
+                {outstandingBalance.invoices.join(", ")}
+              </div>
+
+              <p className="text-center font-bold font-mono">Are you sure you want to make a sale for them again?</p>
+              </div>
+              <div className="flex justify-between mt-2">
+                <button
+                  onClick={() => setShowBalanceWarning(false)}
+                  className="p-2 bg-gray-300 text-gray-800 rounded-xl hover:bg-gray-700 hover:text-white font-bold transition-colors cursor-pointer"
+                >
+                  No, Go Back
+                </button>
+                <button
+                  onClick={() => { setShowBalanceWarning(false); executeSubmit(); }}
+                  className="p-2 bg-red-400 text-red-800 hover:text-white rounded-xl hover:bg-red-800 font-bold transition-colors cursor-pointer shadow-xl"
+                >
+                  Yes, Make Sale
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       <div className="flex w-full justify-between">

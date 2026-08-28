@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { SingleDatePicker } from "../ui/SingleDatePicker";
 
 export default function ReturnReasonModal({
@@ -16,12 +16,26 @@ export default function ReturnReasonModal({
     products.map((p) => ({
       ...p,
       returnReason: p.returnReason || "credit memo",
-      condition: p.condition || "", // Empty means they haven't chosen damaged/expired yet
+      condition: p.condition || "", 
       expirationDate: p.expirationDate
-        ? new Date(p.expirationDate).toISOString().split('T')[0] // Format for HTML date input
+        ? new Date(p.expirationDate).toISOString().split('T')[0] 
         : "",
     }))
   );
+
+  // SAFEGUARD: Force React to strictly sync the incoming edit data
+  useEffect(() => {
+    setLocalProducts(
+      products.map((p) => ({
+        ...p,
+        returnReason: p.returnReason || "credit memo",
+        condition: p.condition || "",
+        expirationDate: p.expirationDate
+          ? new Date(p.expirationDate).toISOString().split('T')[0]
+          : "",
+      }))
+    );
+  }, [products]);
 
   const updateField = (productId: string, field: string, value: string) => {
     setLocalProducts((prev) =>
@@ -127,7 +141,7 @@ export default function ReturnReasonModal({
                     <select
                       value={p.returnReason || ""}
                       onChange={(e) => updateField(p.productId, "returnReason", e.target.value)}
-                      className="bg-gray-100 h-10 rounded-xl p-2 text-sm w-full sm:w-auto"
+                      className="bg-gray-100 h-10 rounded-xl p-2 text-sm w-full sm:w-auto outline-none cursor-pointer"
                     >
                       <option value="credit memo">Credit Memo</option>
                       <option value="good return">Good Return</option>
@@ -141,7 +155,7 @@ export default function ReturnReasonModal({
                       <select
                         value={p.condition || ""}
                         onChange={(e) => updateField(p.productId, "condition", e.target.value)}
-                        className={`rounded-xl h-10 p-2 text-sm w-full sm:w-auto ${!p.condition ? 'bg-red-100' : 'bg-gray-100'}`}
+                        className={`rounded-xl h-10 p-2 text-sm w-full sm:w-auto outline-none cursor-pointer ${!p.condition ? 'bg-red-100' : 'bg-gray-100'}`}
                       >
                         <option value="" disabled>Condition...</option>
                         <option value="damaged">Damaged</option>
@@ -170,7 +184,7 @@ export default function ReturnReasonModal({
         <div className="flex justify-between gap-3 pt-2">
           <button
             onClick={onCancel}
-            className="px-6 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 font-bold"
+            className="px-6 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 font-bold cursor-pointer transition-colors"
           >
             Cancel
           </button>
@@ -178,7 +192,7 @@ export default function ReturnReasonModal({
             disabled={!allValid}
             onClick={() => onConfirm(localProducts)}
             className={`px-6 py-2 rounded-xl text-white font-bold transition-colors ${allValid
-              ? "bg-blue-600 hover:bg-blue-700"
+              ? "bg-blue-600 hover:bg-blue-700 cursor-pointer"
               : "bg-blue-200 cursor-not-allowed"
               }`}
           >

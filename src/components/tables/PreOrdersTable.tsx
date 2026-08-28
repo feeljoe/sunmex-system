@@ -274,7 +274,35 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
       <div className='flex flex-col w-full h-full bg-(--secondary) shadow-xl rounded-xl p-2 overflow-auto'>
         {userRole === "admin" &&
           <>
-            <div className="flex justify-end mb-2">
+          <div className="flex flex-col items-center md:flex-row md:justify-between mb-4 gap-2">
+          {userRole === "admin" && (
+            <div className="flex w-full md:w-auto bg-white rounded-xl justify-center shadow-xl">
+              <DateRangePicker
+                fromDate={draftFrom}
+                toDate={draftTo}
+                onChange={(from, to) => {
+                  setDraftFrom(from);
+                  setDraftTo(to);
+                  // ONLY fire the API if 'to' is valid and it actually changed!
+                  if (to && (from !== apiDates.from || to !== apiDates.to)) {
+                    setApiDates({ from, to });
+                    setPage(1);
+                  }
+                }}
+              />
+            </div>
+          )}
+          <div className="flex gap-2 w-full">
+            <SearchBar
+              placeholder="Search by client or number..."
+              onSearch={(val) => {
+                if (val !== search) { setSearch(val); setPage(1); }
+              }}
+              debounce
+            />
+            <RefreshButton onRefresh={() => reload()} />
+          </div>
+        
               <button
                 onClick={() => setShowFilters((prev) => !prev)}
                 className={`cursor-pointer flex gap-2 p-2 ${showFilters ? "bg-yellow-400 text-yellow-800" : "bg-yellow-800 text-white"} hover:bg-yellow-800 hover:text-white rounded-xl text-xl font-bold transition-colors duration:300`}
@@ -282,7 +310,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-5 md:size-6">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
                 </svg>
-                <span className="text-sm md:text-[16px]">{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                <span className="text-sm md:text-[16px] whitespace-nowrap">{showFilters ? "Hide Filters" : "Show Filters"}</span>
               </button>
             </div>
             {showFilters && (
@@ -314,35 +342,6 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             )}
           </>
         }
-        <div className="flex flex-col items-center md:flex-row md:justify-between mb-4 gap-2">
-          {userRole === "admin" && (
-            <div className="flex w-full md:w-auto bg-white rounded-xl justify-center shadow-xl">
-              <DateRangePicker
-                fromDate={draftFrom}
-                toDate={draftTo}
-                onChange={(from, to) => {
-                  setDraftFrom(from);
-                  setDraftTo(to);
-                  // ONLY fire the API if 'to' is valid and it actually changed!
-                  if (to && to !== apiDates.to) {
-                    setApiDates({ from, to });
-                    setPage(1);
-                  }
-                }}
-              />
-            </div>
-          )}
-          <div className="flex gap-2 w-full">
-            <SearchBar
-              placeholder="Search by client or number..."
-              onSearch={(val) => {
-                if (val !== search) { setSearch(val); setPage(1); }
-              }}
-              debounce
-            />
-            <RefreshButton onRefresh={() => reload()} />
-          </div>
-        </div>
         {showFilters && (
           <div className="flex whitespace-nowrap overflow-auto gap-2 mb-3">
             {userRole === "admin" && (
