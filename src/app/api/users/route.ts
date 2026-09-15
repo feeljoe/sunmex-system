@@ -11,7 +11,14 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit")) || 25, 100);
     const search = searchParams.get("search")?.trim() || "";
 
+    const userRole = searchParams.get("userRole")?.trim() || "";
+
     const query: any= {};
+
+    if (userRole) {
+      query.userRole = userRole;
+    }
+    
     if(search){
           query.$or = [
             {firstName: {$regex: search, $options: "i"}},

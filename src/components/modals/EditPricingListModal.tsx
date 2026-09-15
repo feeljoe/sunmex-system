@@ -1,8 +1,8 @@
 "use client";
 
+import { formatCurrency } from "@/utils/format";
 import { useEffect, useRef, useState } from "react";
-
-type ClientMode = "clients" | "chains";
+import AsyncSearchSelect from "../ui/AsyncSearchSelect"; // 🔥 IMPORT NEW COMPONENT
 
 interface Props {
   open: boolean;
@@ -20,16 +20,11 @@ export function EditPricingListModal({
   const normalizeIds = (arr: any[] = []) =>
     arr.map((x) => (typeof x === "string" ? x : x._id));
 
-  const [clientMode, setClientMode] = useState<ClientMode>(
-    pricingList.chainsAssigned?.length > 0 ? "chains" : "clients"
-  );
-
   /* ---------------- BASIC INFO ---------------- */
   const [name, setName] = useState(pricingList.name || "");
   const [pricing, setPricing] = useState<number | "">(pricingList.pricing ?? "");
 
   /* --- ASSIGNMENTS WITH INDIVIDUAL PRICING --- */
-  // We store an array of objects: { id, price } where price is "" if relying on global
   const [products, setProducts] = useState<{ id: string; price: number | "" }[]>(() => {
     const ids = normalizeIds(pricingList.productIds);
     return ids.map((id) => {
@@ -69,18 +64,6 @@ export function EditPricingListModal({
   });
 
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
-
-  /* ---------------- SEARCH STATES ---------------- */
-  const [searchProduct, setSearchProduct] = useState("");
-  const [searchBrand, setSearchBrand] = useState("");
-  const [searchClient, setSearchClient] = useState("");
-  const [searchChain, setSearchChain] = useState("");
-
-  const [productResults, setProductResults] = useState<any[]>([]);
-  const [brandResults, setBrandResults] = useState<any[]>([]);
-  const [clientResults, setClientResults] = useState<any[]>([]);
-  const [chainResults, setChainResults] = useState<any[]>([]);
-
   const savingRef = useRef(false);
 
   /* --------------- INITIAL NAME MAP --------------- */
@@ -94,8 +77,15 @@ export function EditPricingListModal({
           const data = await res.json();
           const items = data.items || data.products || data.clients || data.brands || data.chains || [];
           const match = items.find((it: any) => it._id === id);
-          if (match) map[id] = match[nameKey] || match.product?.name || match.clientName;
-          else map[id] = "Unknown";
+          if (match) {
+            if (endpoint === "/api/products") {
+              map[id] = `${match.brand?.name?.toLowerCase() || match.product?.brand?.name?.toLowerCase() || ""} ${match.name?.toLowerCase() || match.product?.name?.toLowerCase() || ""} ${match.weight || match.product?.weight || ""}${match.unit?.toUpperCase() || match.product?.unit?.toUpperCase() || ""}`.trim();
+            } else {
+              map[id] = match[nameKey] || match.product?.name || match.clientName;
+            }
+          } else {
+            map[id] = "Unknown";
+          }
         }
       };
 
@@ -121,64 +111,25 @@ export function EditPricingListModal({
     hydrateMissingIds();
   }, []);
 
-  /* ---------------- SEARCH EFFECTS ---------------- */
-  useEffect(() => {
-    if (!searchProduct) return setProductResults([]);
-    const timeout = setTimeout(async () => {
-      const res = await fetch(`/api/products?search=${searchProduct}`);
-      const data = await res.json();
-      setProductResults(data.items || []);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchProduct]);
-
-  useEffect(() => {
-    if (!searchBrand) return setBrandResults([]);
-    const timeout = setTimeout(async () => {
-      const res = await fetch(`/api/brands?search=${searchBrand}`);
-      const data = await res.json();
-      setBrandResults(data.items || []);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchBrand]);
-
-  useEffect(() => {
-    if (!searchClient) return setClientResults([]);
-    const endpoint = "/api/clients";
-    const timeout = setTimeout(async () => {
-      const res = await fetch(`${endpoint}?search=${searchClient}`);
-      const data = await res.json();
-      setClientResults(data.items || []);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchClient]);
-
-  useEffect(() => {
-    if (!searchChain) return setChainResults([]);
-    const endpoint = "/api/chains";
-    const timeout = setTimeout(async () => {
-      const res = await fetch(`${endpoint}?search=${searchChain}`);
-      const data = await res.json();
-      setChainResults(data.items || []);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchChain]);
   /* -------------- ADD ITEM -------------- */
   const addItem = (item: any, type: "product" | "brand" | "client" | "chain") => {
-    setNameMap((m) => ({ ...m, [item._id]: item.name || item.clientName || item.product?.name }));
+    let displayName = "";
+    if (type === "product") {
+      displayName = `${item.name?.toLowerCase() || item.product?.name?.toLowerCase() || ""} ${item.weight || item.product?.weight || ""}${item.unit?.toUpperCase() || item.product?.unit?.toUpperCase() || ""}`.trim();
+    } else {
+      displayName = item.name || item.clientName || item.product?.name;
+    }
+
+    setNameMap((m) => ({ ...m, [item._id]: displayName }));
 
     if (type === "product") {
       setProducts((prev) => prev.find((p) => p.id === item._id) ? prev : [...prev, { id: item._id, price: "" }]);
-      setSearchProduct("");
     } else if (type === "brand") {
       setBrands((prev) => prev.find((b) => b.id === item._id) ? prev : [...prev, { id: item._id, price: "" }]);
-      setSearchBrand("");
     } else if (type === "client"){
-      setClientsAssigned((c) => (c.includes(item._id) ? c : [...c, item._id]));
-      setSearchClient("");
+      setClientsAssigned((prev) => prev.find((c) => c.id === item._id) ? prev : [...prev, { id: item._id, price: "" }]);
     } else {
-      setChainsAssigned((c) => (c.includes(item._id) ? c : [...c, item._id]));
-      setSearchChain("");
+      setChainsAssigned((prev) => prev.find((c) => c.id === item._id) ? prev : [...prev, { id: item._id, price: "" }]);
     }
   };
 
@@ -191,7 +142,7 @@ export function EditPricingListModal({
       setBrands((prev) => prev.map((b) => (b.id === id ? { ...b, price: numVal } : b)));
     } else if (type === "chain") {
       setChainsAssigned((prev) => prev.map((ch) => (ch.id === id ? { ...ch, price: numVal} : ch)));
-    }else {
+    } else {
       setClientsAssigned((prev) => prev.map((c) => (c.id === id ? { ...c, price: numVal} : c)));
     }
   };
@@ -201,7 +152,6 @@ export function EditPricingListModal({
     if (savingRef.current) return;
     savingRef.current = true;
 
-    // Separate pure IDs (for backwards compatibility) and specific overrides
     const productIds = products.map((p) => p.id);
     const productPrices = products.filter((p) => p.price !== "").map((p) => ({ product: p.id, price: p.price }));
     
@@ -210,6 +160,7 @@ export function EditPricingListModal({
 
     const clientIds = clientsAssigned.map((c) => c.id);
     const clientPrices = clientsAssigned.filter((c) => c.price !== "").map((c) => ({ client: c.id, price: c.price }));
+    
     const chainIds = chainsAssigned.map((c) => c.id);
     const chainPrices = chainsAssigned.filter((c) => c.price !== "").map((c) => ({ chain: c.id, price: c.price }));
 
@@ -221,10 +172,10 @@ export function EditPricingListModal({
         pricing: Number(pricing) || 0,
         productIds,
         brandIds,
-        productPrices, // Specific overrides
-        brandPrices,   // Specific overrides
-        clientsAssigned,
-        chainsAssigned,
+        productPrices, 
+        brandPrices,   
+        clientsAssigned: clientIds,
+        chainsAssigned: chainIds,
         clientPrices,
         chainPrices,
       }),
@@ -238,72 +189,56 @@ export function EditPricingListModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-(--secondary) rounded-2xl shadow-2xl w-full max-w-4xl p-6 flex flex-col max-h-[90vh]">
+    <div className="fixed font-mono inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-(--secondary) rounded-2xl shadow-2xl w-[98vw] md:w-full max-w-6xl overflow-hidden flex flex-col max-h-[85vh] md:max-h-[90vh]">
         
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Edit Pricing List</h2>
-          <button onClick={onClose} className="text-2xl">✕</button>
+        <div className="flex justify-between items-center mb-4 p-2 bg-(--tertiary)">
+          <h2 className="text-sm lg:text-2xl font-semibold">
+            Edit Pricing List
+          </h2>
+          <button onClick={onClose} className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-300 hover:text-red-800 cursor-pointer transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div className="overflow-y-auto pr-2 space-y-6">
+        <div className="overflow-y-auto p-2 space-y-2">
           {/* BASIC INFO */}
-          <div className="grid grid-cols lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols lg:grid-cols-2 gap-2">
             <div>
-              <label className="text-sm font-medium">Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white shadow-sm rounded-xl p-3 border"
-              />
+              <span className="text-sm md:text-[16px] font-medium capitalize">Pricing List Name (current: {pricingList.name?.toLowerCase()})</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white shadow-xl rounded-xl p-2 outline-none font-medium" />
             </div>
             <div>
-              <label className="text-sm font-medium">Global Pricing ($)</label>
-              <input
-                type="number"
-                value={pricing}
-                onChange={(e) => setPricing(e.target.value ? Number(e.target.value) : "")}
-                placeholder="Baseline Price"
-                className="w-full bg-white shadow-sm rounded-xl p-3 border"
-              />
+              <label className="text-sm md:text-[16px] font-medium">Global Pricing (current: {formatCurrency(pricingList.pricing)})</label>
+              <input type="number" value={pricing} onChange={(e) => setPricing(e.target.value ? Number(e.target.value) : "")} placeholder="Baseline Price" className="w-full bg-white shadow-xl rounded-xl p-2 outline-none font-medium" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {/* ---------------- BRANDS ---------------- */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-xl border">
-              <label className="font-semibold text-lg">Brands</label>
-              <input
-                value={searchBrand}
-                onChange={(e) => setSearchBrand(e.target.value)}
-                placeholder="Search Brands..."
-                className="w-full bg-white shadow-sm rounded-xl p-3 border"
+            <div className="space-y-2 shadow-xl bg-blue-100 p-2 rounded-xl text-center">
+              <label className="font-semibold text-sm md:text-[16px]">Brands</label>
+              <AsyncSearchSelect
+                 endpoint="/api/brands"
+                 placeholder="Search Brands..."
+                 onChange={(item) => addItem(item, "brand")}
+                 clearOnSelect={true}
+                 getOptionLabel={(opt) => opt.name}
               />
-              {searchBrand && brandResults.length > 0 && (
-                <div className="bg-white rounded-xl shadow border max-h-40 overflow-y-auto mb-2">
-                  {brandResults.map((item) => (
-                    <button key={item._id} className="w-full text-left p-3 hover:bg-gray-100" onClick={() => addItem(item, "brand")}>
-                      {item.name}
-                    </button>
-                  ))}
-                </div>
-              )}
               
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {brands.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between bg-white p-2 rounded-lg border shadow-sm">
-                    <span className="font-medium truncate w-1/2">{nameMap[b.id]}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">$</span>
-                      <input
-                        type="number"
-                        placeholder={String(pricing || "0")}
-                        value={b.price}
-                        onChange={(e) => updatePrice(b.id, e.target.value, "brand")}
-                        className="w-20 p-1 border rounded-md text-right text-sm"
-                      />
-                      <button onClick={() => setBrands((prev) => prev.filter((x) => x.id !== b.id))} className="text-red-500 hover:text-red-700 ml-2">✕</button>
+                  <div key={b.id} className="flex items-center justify-between p-2 rounded-xl">
+                    <span className="text-sm md:text-[16px] font-medium truncate w-full text-left bg-white rounded-xl p-2 capitalize">{nameMap[b.id]?.toLowerCase()}</span>
+                    <div className="flex items-center justify-between w-1/2">
+                      <div className="text-sm md:text-[16px] flex gap-2 items-center ml-2 bg-white p-1 rounded-xl">
+                      <span className="">$</span>
+                      <input type="number" inputMode="decimal" placeholder={String(pricing || "0")} value={b.price} onChange={(e) => updatePrice(b.id, e.target.value, "brand")} className="w-20 p-1 text-right text-sm outline-none" />
+                      </div>
+                      <button onClick={() => setBrands((prev) => prev.filter((x) => x.id !== b.id))} className="text-red-800 bg-red-400 hover:text-white hover:bg-red-800 transition-colors px-3 py-1 text-xl rounded-full cursor-pointer">✕</button>
                     </div>
                   </div>
                 ))}
@@ -311,38 +246,26 @@ export function EditPricingListModal({
             </div>
 
             {/* ---------------- PRODUCTS ---------------- */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-xl border">
-              <label className="font-semibold text-lg">Products</label>
-              <input
-                value={searchProduct}
-                onChange={(e) => setSearchProduct(e.target.value)}
-                placeholder="Search Products..."
-                className="w-full bg-white shadow-sm rounded-xl p-3 border"
+            <div className="space-y-2 shadow-xl bg-blue-100 p-2 rounded-xl text-center">
+              <label className="font-semibold text-sm md:text-[16px]">Products</label>
+              <AsyncSearchSelect
+                 endpoint="/api/products"
+                 placeholder="Search Products..."
+                 onChange={(item) => addItem(item, "product")}
+                 clearOnSelect={true}
+                 getOptionLabel={(opt) => `${opt.brand?.name?.toLowerCase() || opt.product?.brand?.name?.toLowerCase() || ""} ${opt.name?.toLowerCase() || opt.product?.name?.toLowerCase() || ""} ${opt.weight || opt.product?.weight || ""}${opt.unit?.toUpperCase() || opt.product?.unit?.toUpperCase() || ""}`.trim()}
               />
-              {searchProduct && productResults.length > 0 && (
-                <div className="bg-white rounded-xl shadow border max-h-40 overflow-y-auto mb-2">
-                  {productResults.map((item) => (
-                    <button key={item._id} className="w-full text-left p-3 hover:bg-gray-100" onClick={() => addItem(item, "product")}>
-                      {item.name || item.product?.name}
-                    </button>
-                  ))}
-                </div>
-              )}
 
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {products.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-lg border shadow-sm">
-                    <span className="font-medium truncate w-1/2">{nameMap[p.id]}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">$</span>
-                      <input
-                        type="number"
-                        placeholder={String(pricing || "0")}
-                        value={p.price}
-                        onChange={(e) => updatePrice(p.id, e.target.value, "product")}
-                        className="w-20 p-1 border rounded-md text-right text-sm"
-                      />
-                      <button onClick={() => setProducts((prev) => prev.filter((x) => x.id !== p.id))} className="text-red-500 hover:text-red-700 ml-2">✕</button>
+                  <div key={p.id} className="flex items-center justify-between p-2 rounded-xl">
+                    <span className="text-sm md:text-[16px] font-medium truncate w-full text-left bg-white rounded-xl p-2 capitalize">{nameMap[p.id]?.toLowerCase()}</span>
+                    <div className="flex items-center justify-between w-1/2">
+                    <div className="text-sm md:text-[16px] flex gap-2 items-center ml-2 bg-white p-1 rounded-xl">
+                      <span className="">$</span>
+                      <input type="number" inputMode="decimal" placeholder={String(pricing || "0")} value={p.price} onChange={(e) => updatePrice(p.id, e.target.value, "product")} className="w-20 p-1 text-right text-sm outline-none" />
+                      </div>
+                      <button onClick={() => setProducts((prev) => prev.filter((x) => x.id !== p.id))} className="text-red-800 bg-red-400 hover:text-white hover:bg-red-800 transition-colors px-3 py-1 text-xl rounded-full cursor-pointer">✕</button>
                     </div>
                   </div>
                 ))}
@@ -350,91 +273,69 @@ export function EditPricingListModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-  {/* ---------------- CHAINS ---------------- */}
-  <div className="space-y-2 bg-gray-50 p-4 rounded-xl border">
-    <label className="font-semibold text-lg">Chains</label>
-    <input
-      value={searchChain}
-      onChange={(e) => setSearchChain(e.target.value)}
-      placeholder="Search Chains..."
-      className="w-full bg-white shadow-sm rounded-xl p-3 border"
-    />
-    {searchChain && chainResults.length > 0 && (
-      <div className="bg-white rounded-xl shadow border max-h-40 overflow-y-auto mb-2">
-        {chainResults.map((item) => (
-          <button key={item._id} className="w-full text-left p-3 hover:bg-gray-100" onClick={() => addItem(item, "chain")}>
-            {item.name}
-          </button>
-        ))}
-      </div>
-    )}
-    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-      {chainsAssigned.map((c) => (
-        <div key={c.id} className="flex items-center justify-between bg-white p-2 rounded-lg border shadow-sm">
-          <span className="font-medium truncate w-1/2">{nameMap[c.id]}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">$</span>
-            <input
-              type="number"
-              placeholder={String(pricing || "0")}
-              value={c.price}
-              onChange={(e) => updatePrice(c.id, e.target.value, "chain")} // Ensure updatePrice handles "client" and "chain" types!
-              className="w-20 p-1 border rounded-md text-right text-sm"
-            />
-            <button onClick={() => setChainsAssigned((prev) => prev.filter((x) => x.id !== c.id))} className="text-red-500 hover:text-red-700 ml-2">✕</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
+            {/* ---------------- CHAINS ---------------- */}
+            <div className="space-y-2 shadow-xl bg-blue-100 p-2 rounded-xl text-center">
+              <label className="font-semibold text-sm md:text-[16px]">Chains</label>
+              <AsyncSearchSelect
+                 endpoint="/api/chains"
+                 placeholder="Search Chains..."
+                 onChange={(item) => addItem(item, "chain")}
+                 clearOnSelect={true}
+                 getOptionLabel={(opt) => opt.name}
+              />
 
-  {/* ---------------- CLIENTS ---------------- */}
-  <div className="space-y-2 bg-gray-50 p-4 rounded-xl border">
-    <label className="font-semibold text-lg">Clients</label>
-    <input
-      value={searchClient}
-      onChange={(e) => setSearchClient(e.target.value)}
-      placeholder="Search Clients..."
-      className="w-full bg-white shadow-sm rounded-xl p-3 border"
-    />
-    {searchClient && clientResults.length > 0 && (
-      <div className="bg-white rounded-xl shadow border max-h-40 overflow-y-auto mb-2">
-        {clientResults.map((item) => (
-          <button key={item._id} className="w-full text-left p-3 hover:bg-gray-100" onClick={() => addItem(item, "client")}>
-            {item.clientName}
-          </button>
-        ))}
-      </div>
-    )}
-    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-      {clientsAssigned.map((c) => (
-        <div key={c.id} className="flex items-center justify-between bg-white p-2 rounded-lg border shadow-sm">
-          <span className="font-medium truncate w-1/2">{nameMap[c.id]}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">$</span>
-            <input
-              type="number"
-              placeholder={String(pricing || "0")}
-              value={c.price}
-              onChange={(e) => updatePrice(c.id, e.target.value, "client")}
-              className="w-20 p-1 border rounded-md text-right text-sm"
-            />
-            <button onClick={() => setClientsAssigned((prev) => prev.filter((x) => x.id !== c.id))} className="text-red-500 hover:text-red-700 ml-2">✕</button>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {chainsAssigned.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between p-2 rounded-xl">
+                  <span className="text-sm md:text-[16px] font-medium truncate w-full text-left bg-white rounded-xl p-2 capitalize">{nameMap[c.id]?.toLowerCase()}</span>
+                  <div className="flex items-center justify-between w-1/2">
+                  <div className="text-sm md:text-[16px] flex gap-2 items-center ml-2 bg-white p-1 rounded-xl">
+                      <span className="">$</span>
+                      <input type="number" inputMode="decimal" placeholder={String(pricing || "0")} value={c.price} onChange={(e) => updatePrice(c.id, e.target.value, "chain")} className="w-20 p-1 text-right text-sm outline-none" />
+                      </div>
+                      <button onClick={() => setChainsAssigned((prev) => prev.filter((x) => x.id !== c.id))} className="text-red-800 bg-red-400 hover:text-white hover:bg-red-800 transition-colors px-3 py-1 text-xl rounded-full cursor-pointer">✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ---------------- CLIENTS ---------------- */}
+            <div className="space-y-2 shadow-xl bg-blue-100 p-2 rounded-xl text-center">
+              <label className="font-semibold text-lg">Clients</label>
+              <AsyncSearchSelect
+                 endpoint="/api/clients"
+                 placeholder="Search Clients..."
+                 onChange={(item) => addItem(item, "client")}
+                 clearOnSelect={true}
+                 getOptionLabel={(opt) => opt.clientName}
+              />
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {clientsAssigned.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between p-2 rounded-xl">
+                  <span className="text-sm md:text-[16px] font-medium truncate w-full text-left bg-white rounded-xl p-2 capitalize">{nameMap[c.id]?.toLowerCase()}</span>
+                  <div className="flex items-center justify-between w-1/2">
+                  <div className="text-sm md:text-[16px] flex gap-2 items-center ml-2 bg-white p-1 rounded-xl">
+                      <span className="">$</span>
+                      <input type="number" inputMode="decimal" placeholder={String(pricing || "0")} value={c.price} onChange={(e) => updatePrice(c.id, e.target.value, "client")} className="w-20 p-1 text-right text-sm outline-none" />
+                      </div>
+                      <button onClick={() => setClientsAssigned((prev) => prev.filter((x) => x.id !== c.id))} className="text-red-800 bg-red-400 hover:text-white hover:bg-red-800 transition-colors px-3 py-1 text-xl rounded-full cursor-pointer">✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</div>
         </div>
 
         {/* ---------------- ACTIONS ---------------- */}
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-          <button onClick={onClose} className="px-4 py-2 border rounded-xl hover:bg-gray-50">
+        <div className="flex justify-between p-2">
+          <button onClick={onClose} className="p-2 bg-gray-300 text-gray-700 hover:text-white rounded-xl hover:bg-gray-700 cursor-pointer transition-colors font-bold shadow-xl">
             Cancel
           </button>
-          <button onClick={save} className="px-6 py-2 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700">
+          <button onClick={save} className="p-2 bg-blue-400 text-blue-800 hover:text-white rounded-xl shadow-xl hover:bg-blue-800 cursor-pointer transition-colors font-bold">
             Save
           </button>
         </div>

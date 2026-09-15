@@ -203,7 +203,10 @@ export async function POST(req: Request) {
     if (user?.user.role === "vendor") {
       const route = await Route.findOne({
         type: "vendor",
-        user: user.user.id,
+        $or: [
+          { user: user.user.id },
+          { tempUsers: user.user.id }
+        ],
         clients: body.client,
       });
 

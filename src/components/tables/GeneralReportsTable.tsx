@@ -344,7 +344,7 @@ export function GeneralReportsTable({userRole}:{userRole: string | undefined}){
             <div className="flex justify-between items-center mt-4">
             <div className="flex w-full justify-end font-mono font-bold items-center gap-4">
         <span>
-          Showing {items.length} of {total} products
+          Showing {items.length} of {total} Invoices
         </span>
         <button
           disabled={page === 1}

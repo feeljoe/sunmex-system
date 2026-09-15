@@ -69,10 +69,34 @@ const MetricLineCard = ({ title, current, previous, dataKey, prevDataKey, isCurr
     );
 };
 
+const AOVCard = ({ title, current, previous, dataKey, prevDataKey, isCurrency = false, inverseTrend = false, color = "#3b82f6", chartData }: any) => {
+    let rawDiff = current - previous;
+    let percent = previous === 0 ? (current > 0 ? 100 : 0) : Math.round((rawDiff / previous) * 100);
+    let isGood = inverseTrend ? percent <= 0 : percent >= 0;
+    const sign = rawDiff > 0 ? arrowUp : rawDiff < 0 ? arrowDown : noChange;
+
+    return (
+        <div className="bg-white rounded-xl shadow-xl p-4 flex flex-col justify-between h-auto">
+            <div className="flex flex-col justify-between items-start">
+                <h3 className="text-gray-500 font-bold uppercase text-[14px] tracking-wider mb-1">{title}</h3>
+                <div className="w-full h-48 flex flex-col justify-center items-center gap-4">
+                <span className={`text-4xl font-bold`}>{isCurrency ? formatCurrency(current) : current}</span>
+                <div className={`flex gap-2 font-bold p-2 rounded-xl text-sm ${(isGood || percent === 0) ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                        <span className="flex items-center">{sign} {isCurrency ? formatCurrency(Math.abs(rawDiff)) : Math.abs(rawDiff)}</span>
+                        <span className="flex items-center">({Math.abs(percent)}%)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN EXPORT ---
 export default function DashboardClient({ userRole }: { userRole: string }) {
     const { sidebarOpen } = useSidebar();
     const isAdmin = userRole === "admin";
+
+    const [isDataRequested, setIsDataRequested] = useState(false);
 
     const [viewMode, setViewMode] = useState<"all" | "vendors" | "drivers" | "warehouse">("all");
 
@@ -96,20 +120,23 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
     const [driversList, setDriversList] = useState<any[]>([]);
     const [warehouseList, setWarehouseList] = useState<any[]>([]);
     const [data, setData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<"loading" | "error" | "success" | "info" | null>(null);
-    const [showFilters, setShowFilters] = useState(true);
 
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
-            const handleResize = () => setIsMobile(window.innerWidth < 768);
+            const handleResize = () => {
+                setIsMobile(window.innerWidth < 768);
+            };
             handleResize();
             window.addEventListener("resize", handleResize);
             return () => window.removeEventListener("resize", handleResize);
         }
     }, []);
+
+    const [showFilters, setShowFilters] = useState(true);
 
     useEffect(() => {
         if (isAdmin) {
@@ -133,7 +160,7 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
         const now = DateTime.now().setZone("America/Phoenix");
         const start = DateTime.fromISO(fromDate, { zone: "America/Phoenix" }).startOf("day");
         const end = DateTime.fromISO(toDate, { zone: "America/Phoenix" }).endOf("day");
-        
+
         const effectiveEnd = end > now ? now : end;
         const elapsedMs = effectiveEnd.diff(start).milliseconds;
         const diffDays = Math.ceil(end.diff(start, "days").days);
@@ -141,7 +168,7 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
         let pStart, pEnd;
         // Fix for Sunday bug: Force EXACT 7 day shift for standard week comparisons
         if (diffDays <= 7) {
-            pStart = start.minus({ days: 7 }); 
+            pStart = start.minus({ days: 7 });
         } else if (diffDays <= 31) {
             pStart = start.minus({ months: 1 });
         } else {
@@ -165,7 +192,11 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
         }
     }, [fromDate, toDate, vendorId, driverId, warehouseId]);
 
-    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+    useEffect(() => {
+        if (isDataRequested) {
+            fetchDashboard();
+        }
+    }, [fetchDashboard, isDataRequested]);
 
     const groupedChartData = useMemo(() => {
         if (!data?.metrics?.chartData || !fromDate || !toDate) return [];
@@ -233,7 +264,7 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
         const target = Number(targetStr);
         const duration = type === "today" ? (stats.durationTodayMin || 0) : type === "period" ? (stats.durationPeriodMin || 0) : (stats.durationPrevMin || 0);
         const revenue = type === "today" ? (stats.revenueToday || 0) : type === "period" ? (stats.revenuePeriod ?? stats.rev ?? 0) : (stats.revenuePrev ?? stats.prevRev ?? 0);
-        
+
         if (!revenue || revenue === 0) return 0;
         return (duration / revenue) * target;
     };
@@ -275,20 +306,51 @@ export default function DashboardClient({ userRole }: { userRole: string }) {
                         <select value={warehouseId} onChange={(e) => { setWarehouseId(e.target.value); setVendorId(""); setDriverId(""); setViewMode("warehouse"); }} className="rounded-xl p-2 bg-white font-semibold outline-none shadow-sm cursor-pointer"><option value="">All Warehouse</option>{warehouseList.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}</select>
                     </div>
                 )}
-                <div className="flex gap-2 w-full md:w-1/3 justify-end mt-2 md:mt-0">
-                    <RefreshButton onRefresh={fetchDashboard} loading={loading} />
-                    <button onClick={() => setShowFilters(!showFilters)} className={`cursor-pointer md:h-10 flex gap-2 p-2 ${showFilters ? "bg-yellow-400 text-yellow-900" : "bg-yellow-900 text-white"} hover:text-white hover:bg-yellow-900 rounded-xl text-xs font-bold items-center`}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" /></svg><span>{showFilters ? "Hide Filters" : "Show Filters"}</span></button>
+                <div className={`flex gap-2 w-full md:w-1/3 justify-end ${showFilters ? "mt-2" : ""} md:mt-0`}>
+                    <RefreshButton onRefresh={() => {
+                        if (!isDataRequested) setIsDataRequested(true);
+                        else fetchDashboard();
+                    }} loading={loading} />
+                    <button onClick={() => setShowFilters(!showFilters)} className={`cursor-pointer md:h-10 flex gap-2 p-2 ${showFilters ? "bg-yellow-400 text-yellow-900" : "bg-yellow-900 text-white"} hover:text-white hover:bg-yellow-900 rounded-xl text-xs font-bold items-center`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                        </svg>
+                        <span>{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                    </button>
                 </div>
             </div>
 
-            {loading && !data ? (<div className="flex h-64 items-center justify-center font-bold text-blue-500 animate-pulse">Loading Analytics...</div>) : (
+            {!isDataRequested ? (
+                <div className="flex flex-col h-full min-h-[400px] items-center justify-center">
+                    <div className="flex flex-col items-center gap-2 p-6 rounded-xl shadow-xl bg-(--secondary)">
+                        <div className="bg-blue-50 p-4 rounded-full shadow-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-14 text-blue-600">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                            </svg>
+                        </div>
+                        <div className="text-center">
+                            <h2 className="text-2xl font-bold font-mono text-gray-800 mb-2">Analytics Ready</h2>
+                            <p className="text-[16px] font-mono text-justify max-w-md mx-auto">
+                                To see the dashboard data, calculate revenue, check route performance and product trends, Click below to start loading the info.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setIsDataRequested(true)}
+                            className="mt-2 p-2 bg-blue-400 text-blue-800 font-bold font-mono rounded-xl shadow-xl hover:bg-blue-800 hover:text-white hover:-translate-y-1 hover:scale-150 transition-all duration-300 cursor-pointer"
+                        >
+                            Load Analytics Data
+                        </button>
+                    </div>
+                </div>
+            ) : loading && !data ? (<div className="flex h-64 items-center justify-center font-bold text-blue-500 animate-pulse">Loading Analytics...</div>) : (
                 <>
                     {/* 1. LINE GRAPHS METRICS */}
                     {showMetrics && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                             <MetricLineCard title="Total Revenue" current={data?.metrics?.sales?.current} previous={data?.metrics?.sales?.previous} dataKey="revenue" prevDataKey="prevRevenue" isCurrency color="#10b981" chartData={groupedChartData} />
                             <MetricLineCard title="Total Refunded" current={data?.metrics?.credits?.current} previous={data?.metrics?.credits?.previous} dataKey="refunds" prevDataKey="prevRefunds" isCurrency inverseTrend color="#ef4444" chartData={groupedChartData} />
-                            <MetricLineCard title="Average Order Value" current={data?.metrics?.aov?.current} previous={data?.metrics?.aov?.previous} dataKey="aov" prevDataKey="prevAov" isCurrency color="#8b5cf6" chartData={groupedChartData} />
+                            
+                            <AOVCard title="Average Order Value" current={data?.metrics?.aov?.current} previous={data?.metrics?.aov?.previous} dataKey="aov" prevDataKey="prevAov" isCurrency color="#8b5cf6" chartData={groupedChartData} />
                             <MetricLineCard title="Delivered Orders" current={data?.metrics?.ordersDelivered?.current} previous={data?.metrics?.ordersDelivered?.previous} dataKey="orders" prevDataKey="prevOrders" color="#3b82f6" chartData={groupedChartData} />
                         </div>
                     )}

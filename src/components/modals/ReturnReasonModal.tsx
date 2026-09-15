@@ -37,10 +37,10 @@ export default function ReturnReasonModal({
     );
   }, [products]);
 
-  const updateField = (productId: string, field: string, value: string) => {
+  const updateField = (lineId: string, field: string, value: string) => {
     setLocalProducts((prev) =>
       prev.map((p) => {
-        if (p.productId === productId) {
+        if (p.lineId === lineId) {
           const updated = { ...p, [field]: value };
 
           // Smart reset logic when they change the main reason
@@ -122,7 +122,7 @@ export default function ReturnReasonModal({
             .filter((p) => p.quantity > 0)
             .map((p) => (
               <div
-                key={p.productId}
+                key={p.lineId}
                 className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-2 rounded-xl shadow-xl"
               >
                 <div className="sm:w-1/3">
@@ -140,7 +140,7 @@ export default function ReturnReasonModal({
                     <span className="text-[10px] text-gray-500 font-bold uppercase mb-1">Return reason</span>
                     <select
                       value={p.returnReason || ""}
-                      onChange={(e) => updateField(p.productId, "returnReason", e.target.value)}
+                      onChange={(e) => updateField(p.lineId, "returnReason", e.target.value)}
                       className="bg-gray-100 h-10 rounded-xl p-2 text-sm w-full sm:w-auto outline-none cursor-pointer"
                     >
                       <option value="credit memo">Credit Memo</option>
@@ -154,7 +154,7 @@ export default function ReturnReasonModal({
                       <span className="text-[10px] text-gray-500 font-bold uppercase mb-1">Condition</span>
                       <select
                         value={p.condition || ""}
-                        onChange={(e) => updateField(p.productId, "condition", e.target.value)}
+                        onChange={(e) => updateField(p.lineId, "condition", e.target.value)}
                         className={`rounded-xl h-10 p-2 text-sm w-full sm:w-auto outline-none cursor-pointer ${!p.condition ? 'bg-red-100' : 'bg-gray-100'}`}
                       >
                         <option value="" disabled>Condition...</option>
@@ -170,7 +170,7 @@ export default function ReturnReasonModal({
                       <span className="text-[10px] text-gray-500 font-bold uppercase mb-1">Exp. Date</span>
                       <SingleDatePicker
                         value={p.expirationDate || ""}
-                        onChange={(val) => updateField(p.productId, "expirationDate", val)}
+                        onChange={(val) => updateField(p.lineId, "expirationDate", val)}
                         hasError={!p.expirationDate}
                         reason={p.returnReason}
                       />

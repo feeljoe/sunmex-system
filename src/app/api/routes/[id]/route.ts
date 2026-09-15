@@ -19,7 +19,8 @@ export async function GET(
           path: "brand",
         },
       })
-      .populate("user");
+      .populate("user")
+      .populate("tempUsers");
 
     if (!route) {
       return NextResponse.json(
@@ -48,7 +49,7 @@ export async function PATCH(
 
     const { id } = await context.params;
     const body = await req.json();
-    const { code, type, user, clients } = body;
+    const { code, type, user, tempUsers, active, clients } = body;
 
     const route = await Route.findById(id);
     if (!route) {
@@ -94,17 +95,18 @@ export async function PATCH(
 
     route.code = code;
     route.type = type;
-
-    // user → always stored as array in your schema
     route.user = user || null;
 
-    // only vendor routes have clients
+    route.tempUsers = tempUsers || [];
+    if (active !== undefined) route.active = active;
+
     route.clients = type === "vendor" ? clients : [];
 
     await route.save();
 
     const updatedRoute = await Route.findById(route._id)
       .populate("user")
+      .populate("tempUsers")
       .populate("clients");
 
     return NextResponse.json(updatedRoute);
@@ -112,33 +114,6 @@ export async function PATCH(
     console.error("PATCH route error:", err);
     return NextResponse.json(
       { error: "Failed to update route" },
-      { status: 500 }
-    );
-  }
-}
-
-/* ---------------- DELETE (optional) ---------------- */
-export async function DELETE(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }>}
-) {
-  try {
-    await connectToDatabase();
-
-    const { id } = await context.params;
-    const route = await Route.findByIdAndDelete(id);
-    if (!route) {
-      return NextResponse.json(
-        { error: "Route not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("DELETE route error:", err);
-    return NextResponse.json(
-      { error: "Failed to delete route" },
       { status: 500 }
     );
   }

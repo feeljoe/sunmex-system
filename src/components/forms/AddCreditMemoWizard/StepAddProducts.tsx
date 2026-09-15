@@ -32,11 +32,10 @@ export default function StepAddProducts({
   } = useList('/api/products', {
     search: productSearch || undefined,
   });
+
   const availableProducts = useMemo(() => {
-    return (productsCatalog || []).filter(
-      (p: any) => !products.some((sp) => sp.productId === p._id)
-    );
-  }, [productsCatalog, products]);
+    return (productsCatalog || []);
+  }, [productsCatalog]);
 
   const addProduct = (product: any) => {
     const rawProduct = {
@@ -51,6 +50,7 @@ export default function StepAddProducts({
 
     setProducts((prev) => [
       {
+        lineId: Math.random().toString(36).substring(2, 9),
         productId: product._id,
         brandId: product.brand?._id,
         brand: product.brand?.name,
@@ -68,18 +68,18 @@ export default function StepAddProducts({
     ]);
   };
 
-  const updateQty = (productId: string, qty: number) => {
+  const updateQty = (lineId: string, qty: number) => {
     setProducts((prev) =>
       prev.map((p) =>
-        p.productId === productId
+        p.lineId === lineId
           ? { ...p, quantity: Math.max(0, qty) }
           : p
       )
     );
   };
 
-  const removeProduct=(productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.productId !== productId));
+  const removeProduct=(lineId: string) => {
+    setProducts((prev) => prev.filter((p) => p.lineId !== lineId));
   };
   
   return (
@@ -168,7 +168,7 @@ export default function StepAddProducts({
     {/* Selected products list */}
     {products.map((p, i) => (
       <div 
-        key={p.productId} 
+        key={p.lineId} 
         className="flex bg-white rounded-xl p-2 gap-2 mt-2 justify-between"
       >
         <div className={`${userRole === "admin" ? "text-md": "text-sm"}`}>
@@ -183,7 +183,7 @@ export default function StepAddProducts({
           inputMode="numeric"
           min={0}
           value={p.quantity}
-          onChange={(e) => updateQty(p.productId, Math.round(Number(e.target.value) || 0))}
+          onChange={(e) => updateQty(p.lineId, Math.round(Number(e.target.value) || 0))}
           onKeyDown={(e) => {
             if(e.key === "Enter"){
               e.preventDefault();
@@ -200,7 +200,7 @@ export default function StepAddProducts({
                   onChange={(e) =>
                     setProducts(prev =>
                       prev.map(prod =>
-                        prod._id === p._id
+                        prod.lineId === p.lineId
                           ? { ...prod, unitPrice: Number(e.target.value) }
                           : prod
                       )
@@ -210,7 +210,7 @@ export default function StepAddProducts({
                 />
               )}
         <button
-          onClick={() => removeProduct(p.productId)}
+          onClick={() => removeProduct(p.lineId)}
           className="bg-red-500 text-white px-2 py-2 rounded-xl shadow-xl"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">

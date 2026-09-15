@@ -54,6 +54,7 @@ export default function CreditMemoWizard({
 
     setProducts(
       existingCreditMemo.products.map((p: any) => ({
+        lineId: Math.random().toString(36).substring(2, 9),
         productId: p.product?._id,
         brandId: p.product?.brand?._id,
         brand: p.product?.brand?.name,

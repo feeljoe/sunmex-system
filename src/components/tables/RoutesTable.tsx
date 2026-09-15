@@ -10,12 +10,23 @@ export function RouteList() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState("");
-  const { items: routes, total, reload } = useList("/api/routes", {
+  const { items: routes, total, reload, loading } = useList("/api/routes", {
     page,
     limit,
     search
   });
   const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
+
+  useEffect(() => {
+    if (loading) {
+      setSubmitStatus("loading");
+    } else {
+      setSubmitStatus((prev) => {
+        if (prev === "loading") return null;
+        return prev;
+      });
+    }
+  }, [loading]);
 
   useEffect(() => {
     setPage(1);
@@ -67,6 +78,7 @@ export function RouteList() {
             <th className="p-2">Code</th>
             <th className="p-2">Type</th>
             <th className="p-2">Users</th>
+            <th className="p-2">Temp Users</th>
             <th className="p-2">Clients</th>
             <th className="p-2 text-right">Edit</th>
           </tr>
@@ -84,6 +96,20 @@ export function RouteList() {
               <td className="p-2">{r.code}</td>
               <td className="p-2 capitalize">{r.type}</td>
               <td className="p-2">{r.user?.firstName ?? "-"} {r.user?.lastName ?? "-"}</td>
+              <td className="p-2 capitalize">
+                {r.tempUsers?.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span>{r.tempUsers[0].firstName} {r.tempUsers[0].lastName}</span>
+                    {r.tempUsers.length > 1 && (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-bold">
+                        +{r.tempUsers.length - 1} more
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span>-</span>
+                )}
+              </td>
               <td className="p-2">
                 {r.type === "vendor" ? r.clients?.length ?? 0 : "-"}
               </td>

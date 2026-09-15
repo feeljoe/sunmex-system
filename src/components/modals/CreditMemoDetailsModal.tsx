@@ -48,7 +48,11 @@ export default function CreditMemoDetailsModal({
   };
 
   const formatDate = (v?: string) =>
-    v ? new Date(v).toLocaleDateString() : "-";
+    v ? new Date(v).toLocaleDateString("en-US", {
+      day:"2-digit",
+      month:"2-digit",
+      year:"numeric"
+    }) : "-";
 
   const formatTime = (v?: string) =>
     v
@@ -62,7 +66,7 @@ export default function CreditMemoDetailsModal({
   const router = useRouter();
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className={`bg-(--secondary) font-mono rounded-xl shadow-xl ${userRole === "admin" ? "w-full lg:max-w-5xl" : "w-[95vw]"} max-h-[90vh] overflow-auto`}>
+      <div className={`bg-(--secondary) font-mono rounded-xl shadow-xl ${userRole === "admin" ? "w-full lg:max-w-6xl" : "w-[95vw]"} max-h-[90vh] overflow-auto`}>
 
         {/* HEADER */}
         <div className="flex p-2 bg-(--tertiary) justify-between items-center mb-2">
@@ -83,7 +87,7 @@ export default function CreditMemoDetailsModal({
         <h2 className={`font-semibold text-center ${userRole === "admin" ? "text-xl" : "text-md"}`}>
           {creditMemo.client?.clientName}
         </h2>
-        <h3 className={`text-center mb-4 ${userRole !== "admin" ? "text-xs" : ""}`}>Address: {creditMemo.client?.billingAddress?.addressLine}, {creditMemo.client?.billingAddress?.city}, {creditMemo.client?.billingAddress?.state}, {creditMemo.client?.billingAddress?.country}, {creditMemo.client?.billingAddress?.zipCode} </h3>
+        <h3 className={`text-center mb-4 ${userRole !== "admin" ? "text-xs" : ""}`}>{creditMemo.client?.billingAddress?.addressLine}, {creditMemo.client?.billingAddress?.city}, {creditMemo.client?.billingAddress?.state}, {creditMemo.client?.billingAddress?.zipCode} </h3>
 
 
         {/* HEADER INFO */}
@@ -157,6 +161,7 @@ export default function CreditMemoDetailsModal({
                 
                 <th className="p-2 text-center">Cost</th>
                 <th className="px-4 py-2 text-center">Reason</th>
+                <th colSpan={2} className="px-4 py-2 text-center">Condition & Exp. Date</th>
               </tr>
             </thead>
             <tbody className="bg-white">
@@ -199,6 +204,25 @@ export default function CreditMemoDetailsModal({
                     <td className="p-2 text-center capitalize whitespace-nowrap">
                       <span className={`px-1 py-2 font-bold rounded-xl ${p.returnReason === "credit memo" ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{p.returnReason}</span>
                     </td>
+                    {(p.condition && p.expirationDate) ? (
+                      <>
+                        <td className="p-2 text-center capitalize whitespace-nowrap">
+                          <span className={`px-1 py-2 font-bold rounded-xl ${(p.condition === "damaged" || p.condition === "expired") ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{p.condition}</span>
+                        </td>
+                        <td className="p-2 text-center capitalize whitespace-nowrap">
+                          <span className={`px-1 py-2 font-bold rounded-xl ${(p.condition === "damaged" || p.condition === "expired") ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{formatDate(p.expirationDate)}</span>
+                        </td>
+                      </>
+                    ): p.condition ? (
+                      <td colSpan={2} className="p-2 text-center capitalize whitespace-nowrap">
+                          <span className={`px-1 py-2 font-bold rounded-xl ${(p.condition === "damaged" || p.condition === "expired") ? "bg-red-400 text-red-800" : "bg-green-400 text-green-800"}`}>{p.condition}</span>
+                        </td>
+                    ): (
+                      <td colSpan={2} className="p-2 text-center capitalize whitespace-nowrap">
+                          -
+                      </td>
+                    )}
+                    
                   </tr>
                 );
               }

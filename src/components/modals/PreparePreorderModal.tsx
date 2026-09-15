@@ -14,7 +14,7 @@ export default function PrepareOrderModal({
         preorder.products.map((p: any) => ({
             ...p,
             pickedQuantity: p.pickedQuantity ?? 0,
-            differenceReason: p.deviationReason || null,
+            differenceReason: p.differenceReason || p.deviationReason || null,
             adjusted: false,
         }))
     );
@@ -242,8 +242,9 @@ export default function PrepareOrderModal({
                 status={submitStatus} 
                 message={message} 
                 onClose={() => {
+                    const wasSuccess = submitStatus.includes("success");
                     setSubmitStatus(null); 
-                    onCompleted();
+                    if (wasSuccess) onCompleted();
                 }} 
                 collection="Preparation" 
             />

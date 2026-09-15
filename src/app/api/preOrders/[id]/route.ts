@@ -6,48 +6,22 @@ import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ id: string }>}
-) {
-  try{
-    await connectToDatabase();
-    const { id } = await context.params;
-    
-    if (!id) {
-      return NextResponse.json(
-        { error: "Preorder ID is required" },
-        { status: 400 }
-      );
-    }
-    const preorder = await PreOrder.findById(id);
-    // 🔁 revert inventory
-  for (const item of preorder.products) {
-    await ProductInventory.findByIdAndUpdate(item.inventoryId, {
-      $inc: {
-        currentInventory: item.quantity,
-        preSavedInventory: -item.quantity,
-      },
-    });
+// This calculates exactly how many items this specific order line is holding in each inventory bucket!
+const calculateState = (status: string, qty: number, picked: number, delivered: number) => {
+  const effectiveQty = Math.max(qty, picked); 
+  const preSaved = effectiveQty - picked;
+  
+  let onRoute = 0;
+  if (status === "ready") {
+      onRoute = picked;
+  } else if (status === "delivered") {
+      onRoute = Math.max(0, picked - delivered);
   }
-
-   const deleted = await PreOrder.findByIdAndDelete(id);
-   if (!deleted) {
-    return NextResponse.json(
-      { error: "Preorder not found" },
-      { status: 404 }
-    );
-  }
-
-  return NextResponse.json({ ok: true });
-} catch (err: any) {
-  console.error("DELETE PREORDER ERROR:", err);
-  return NextResponse.json(
-    { error: err.message || "Failed to delete preorder" },
-    { status: 500 }
-  );
-}
-}
+  
+  const current = -effectiveQty;
+  
+  return { current, preSaved, onRoute };
+};
 
 export async function PATCH(
   req: Request,
@@ -83,14 +57,14 @@ export async function PATCH(
     const oldQtyMap = new Map<string, number>();
     const oldPickedMap = new Map<string, number>();
     const oldDeliveredMap = new Map<string, number>();
-    const oldReasonMap = new Map<string, string>();
+    const oldReasonMap = new Map<string, string>(); 
 
     preorder.products.forEach((p: any) => {
       const idStr = getIdsString(p.productInventory);
       oldQtyMap.set(idStr, p.quantity);
       oldPickedMap.set(idStr, p.pickedQuantity ?? 0);
       oldDeliveredMap.set(idStr, p.deliveredQuantity ?? 0);
-      oldReasonMap.set(idStr, p.deviationReason);
+      oldReasonMap.set(idStr, p.deviationReason ?? "");
     });
 
     // -----------------------------
@@ -124,7 +98,9 @@ export async function PATCH(
     const failedItems: any[] = [];
     const inventoryDocs = new Map<string, any>();
 
+    // -----------------------------
     // PREVALIDATION
+    // -----------------------------
     for (const inventoryId of allIds) {
       const inventory = await ProductInventory.findById(inventoryId).populate("product").session(session);
       inventoryDocs.set(inventoryId, inventory);
@@ -140,41 +116,41 @@ export async function PATCH(
       const newPicked = newPickedMap.get(inventoryId) || 0;
       const oldDelivered = oldDeliveredMap.get(inventoryId) || 0;
       const newDelivered = newDeliveredMap.get(inventoryId) || 0;
-
-      const qtyDiff = newQty - oldQty;
-      const pickedDiff = newPicked - oldPicked;
-      const deliveredDiff = newDelivered - oldDelivered;
+      const newReason = newReasonMap.get(inventoryId) || null;
 
       // RULE CHECKS
-
-      // 1. RULE CHECK: Ordered Quantity
-      if(qtyDiff > 0 && inventory.currentInventory < qtyDiff){
-        failedItems.push({ inventoryId, name: inventory.product?.name, type: "quantity", message: "Not enough inventory", requested: qtyDiff, available: inventory.currentInventory });
-      }
-
-      // 2. RULE CHECKS: Picked Quantity (Only applies if ready or delivered)
       if (preorder.status === "ready" || preorder.status === "delivered") {
           if(newPicked > newQty){
             failedItems.push({ inventoryId, name: inventory.product?.name, type: "picked", message: "Picked quantity exceeds ordered quantity" });
           }
-          const projectedPreSaved = inventory.preSavedInventory + qtyDiff;
-          if(pickedDiff > 0 && projectedPreSaved < pickedDiff) {
-            failedItems.push({ inventoryId, name: inventory.product?.name, type: "picked", message: "Not enough reserved inventory to pick", requested: pickedDiff, available: projectedPreSaved });
-          }
       }
 
-      // 3. RULE CHECKS: Delivered Quantity & Reasons (Only applies if delivered)
       if (preorder.status === "delivered") {
           if(newDelivered > newPicked) {
             failedItems.push({ inventoryId, name: inventory.product?.name, type: "delivered", message: "Delivered exceeds picked quantity" });
           }
-          const projectedOnRoute = inventory.onRouteInventory + pickedDiff;
-          if(deliveredDiff > 0 && projectedOnRoute < deliveredDiff){
-            failedItems.push({ inventoryId, name: inventory.product?.name, type: "delivered", message: "Not enough on-route inventory to deliver", requested: deliveredDiff, available: projectedOnRoute });
-          }
-          if (newPicked > newDelivered && !newReasonMap.get(inventoryId)) {
+          if (newPicked > newDelivered && !newReason) {
             failedItems.push({ inventoryId, name: inventory.product?.name, type: "reason", message: "A deviation reason is required because Picked exceeds Delivered." });
           }
+      }
+      
+      // Calculate exactly how much this item's footprint changes in the database
+      const oldState = calculateState(preorder.status, oldQty, oldPicked, oldDelivered);
+      const newState = calculateState(preorder.status, newQty, newPicked, newDelivered);
+
+      const deltaCurrent = newState.current - oldState.current;
+      const deltaPreSaved = newState.preSaved - oldState.preSaved;
+      const deltaOnRoute = newState.onRoute - oldState.onRoute;
+
+      // Make sure our changes won't push the physical database below 0!
+      if (inventory.currentInventory + deltaCurrent < 0) {
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "quantity", message: "Not enough current inventory", requested: Math.abs(deltaCurrent), available: inventory.currentInventory });
+      }
+      if (inventory.preSavedInventory + deltaPreSaved < 0) {
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "picked", message: "Not enough reserved inventory to pick.", requested: Math.abs(deltaPreSaved), available: inventory.preSavedInventory });
+      }
+      if (inventory.onRouteInventory + deltaOnRoute < 0) {
+        failedItems.push({ inventoryId, name: inventory.product?.name, type: "delivered", message: "Not enough on-route inventory to deliver.", requested: Math.abs(deltaOnRoute), available: inventory.onRouteInventory });
       }
     }
 
@@ -195,51 +171,13 @@ export async function PATCH(
       const oldDelivered = oldDeliveredMap.get(inventoryId) || 0;
       const newDelivered = newDeliveredMap.get(inventoryId) || 0;
 
-      const qtyDiff = newQty - oldQty;
-      const pickedDiff = newPicked - oldPicked;
-      const deliveredDiff = newDelivered - oldDelivered;
+      const oldState = calculateState(preorder.status, oldQty, oldPicked, oldDelivered);
+      const newState = calculateState(preorder.status, newQty, newPicked, newDelivered);
 
-      // QTY: CURRENT <--> PRESAVED (Always applies)
-      if(qtyDiff !== 0){
-        inventory.currentInventory -= qtyDiff;
-        inventory.preSavedInventory += qtyDiff;
-      }
-
-      if (preorder.status !== "delivered") {
-        // --- PENDING / ASSIGNED / READY ---
-        if(pickedDiff !== 0){
-          inventory.preSavedInventory -= pickedDiff;
-          inventory.onRouteInventory += pickedDiff;
-        }
-        // deliveredDiff is guaranteed to be 0 here due to sanitization
-      } else {
-        // --- DELIVERED STATUS ---
-        if (pickedDiff !== 0) {
-          inventory.preSavedInventory -= pickedDiff;
-          inventory.currentInventory -= pickedDiff;
-        }
-
-        // DELIVERED: ONROUTE --> OUT
-        if(deliveredDiff !== 0){
-          inventory.onRouteInventory -= deliveredDiff;
-        }
-
-        // 2. Safely Swap Deviations
-        const oldDeviation = oldPicked - oldDelivered;
-        const oldReason = oldReasonMap.get(inventoryId);
-        const newDeviation = newPicked - newDelivered;
-        const newReason = newReasonMap.get(inventoryId);
-
-        if (oldDeviation > 0 && oldReason) {
-            if (oldReason === "returned") inventory.currentInventory -= oldDeviation;
-            else inventory.inactiveInventory -= oldDeviation;
-        }
-        
-        if (newDeviation > 0 && newReason) {
-            if (newReason === "returned") inventory.currentInventory += newDeviation;
-            else inventory.inactiveInventory += newDeviation;
-        }
-      }
+      // Apply the mathematical differences directly! No more inactiveInventory bleeding!
+      inventory.currentInventory += (newState.current - oldState.current);
+      inventory.preSavedInventory += (newState.preSaved - oldState.preSaved);
+      inventory.onRouteInventory += (newState.onRoute - oldState.onRoute);
 
       await inventory.save({session});
     }

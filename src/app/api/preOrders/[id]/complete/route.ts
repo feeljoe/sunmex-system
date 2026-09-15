@@ -37,14 +37,27 @@ export async function PATCH(
 
       if (!line) continue;
 
-      const inventory = await ProductInventory.findById(inventoryId).session(session);
+      const inventory = await ProductInventory.findById(inventoryId)
+        .populate({
+          path : "product",
+          populate: { path: "brand" }
+        })
+        .session(session);
+      
       if (!inventory) throw new Error("Inventory record not found");
 
+      const prodDetails = inventory.product;
+      const brandName = prodDetails.brand?.name || "";
+      const prodName = prodDetails.name || "";
+      const weight = prodDetails.weight || "";
+      const unit = prodDetails.unit || "";
+      const displayName = `${brandName} ${prodName} ${weight}${unit}`.trim();
+      
       const orderedQty = Math.round(Number(line.quantity || 0));
       const pickedQty = Math.round(Number(update.pickedQuantity || 0)); 
       const diffQty = orderedQty - pickedQty;
 
-      if (pickedQty > orderedQty) throw new Error("Picked quantity cannot exceed ordered quantity");
+      if (pickedQty > orderedQty) throw new Error(`Picked quantity cannot exceed ordered quantity for ${displayName}`);
 
       // ====== PARTIAL SAVE LOGIC ======
       if (isPartial) {
@@ -54,21 +67,25 @@ export async function PATCH(
       }
 
       // ====== FULL COMPLETE LOGIC ======
-      if (inventory.preSavedInventory < orderedQty) {
-        throw new Error(`Insufficient presaved inventory for product ${inventoryId}`);
-      }
+      if (inventory.preSavedInventory < pickedQty) {
+         throw new Error(`Insufficient presaved inventory for product ${displayName} (System only has ${inventory.preSavedInventory} reserved).`);
+        }
 
-      // Move Inventory
+        // Move Inventory
       if (pickedQty > 0) {
         inventory.preSavedInventory -= pickedQty;
         inventory.onRouteInventory += pickedQty;
       }
-
       if (diffQty > 0) {
         if (!update.authorizedBy || !update.differenceReason) {
-            throw new Error(`Shortage requires a reason and authorization.`);
+            throw new Error(`Shortage for products requires a reason and authorization.`);
         }
-        inventory.preSavedInventory -= diffQty;
+
+        if(inventory.preSavedInventory > 0){
+          const deductable = Math.min(inventory.preSavedInventory, diffQty);
+          inventory.preSavedInventory -= deductable;
+        }
+        
         inventory.inactiveInventory = (inventory.inactiveInventory || 0) + diffQty;
 
         await InventoryReview.create([{

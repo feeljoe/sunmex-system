@@ -592,7 +592,6 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
           bulkMode={selectedIds.length > 0}
           creditMemoIds={selectedIds.length > 0 ? selectedIds : undefined}
           creditMemoId={selectedCreditMemo?._id}
-          clientName={selectedClient?.clientName ?? ""}
           currentRouteId={selectedCreditMemo?.routeAssigned?._id ?? selectedCreditMemo?.routeAssigned}
           onClose={() => {
             setAssignRouteModalOpen(false);

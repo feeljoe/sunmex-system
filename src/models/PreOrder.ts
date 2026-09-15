@@ -28,6 +28,8 @@ const PreorderSchema = new Schema(
     status: { type: String, enum: ["pending", "assigned", "ready", "delivered", "cancelled"], default: "pending" },
     createdAt: { type: Date, default: Date.now },
     routeAssigned: { type: Schema.Types.ObjectId, ref: "Route" },
+    warehouseAssigned: { type: Schema.Types.ObjectId, ref: "User"},
+    position: {type: Number, default: 0},
     assembledBy: { type: Schema.Types.ObjectId, ref: "User" },
     assembledAt: { type: Date },
     deliveryDate: {

@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     const [items, total] = await Promise.all([
       Route.find(query)
       .populate("user")
+      .populate("tempUsers")
       .populate("clients")
       .populate({path: "inventory", populate: {path: "product", populate: { path: "brand"}}})
       .sort({code: 1})
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
     code: body.code,
     type: body.type,
     user: body.user,
+    tempUsers: body.tempUsers || [],
     clients: body.type === "vendor" ? body.clients || [] : [],
   });
 

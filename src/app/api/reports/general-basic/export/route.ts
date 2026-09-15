@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import mongoose from "mongoose";
+import { DateTime } from "luxon";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,17 +13,21 @@ export async function GET(req: NextRequest) {
     const db = mongoose.connection.db;
     if (!db) throw new Error("DB not ready");
 
-    // Only pull delivered invoices
     const matchInvoices: any = { status: "delivered" };
-
-    const parseLocalDate = (dateStr: string) => new Date(dateStr + "T00:00:00");
     
+    // Matcher for Standalone Credit Memos
+    const matchStandaloneCMs: any = { 
+        status: "received",
+        preorder: null,
+        directSale: null
+    };
+
     if (fromDate && toDate) {
-      const from = parseLocalDate(fromDate);
-      const to = parseLocalDate(toDate);
-      from.setHours(0, 0, 0, 0);
-      to.setHours(23, 59, 59, 999);
+      const from = DateTime.fromISO(fromDate, { zone: "America/Phoenix" }).startOf("day").toUTC().toJSDate();
+      const to = DateTime.fromISO(toDate, { zone: "America/Phoenix" }).endOf("day").toUTC().toJSDate();
+      
       matchInvoices.deliveredAt = { $gte: from, $lte: to };
+      matchStandaloneCMs.returnedAt = { $gte: from, $lte: to }; // CMs use returnedAt
     }
 
     // --------------------
@@ -30,12 +35,10 @@ export async function GET(req: NextRequest) {
     // --------------------
     const preorderPipeline = [
       { $match: matchInvoices },
-      // Get the Client Name
       { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "clientData" } },
       { $unwind: { path: "$clientData", preserveNullAndEmptyArrays: true } },
       { $lookup: { from: "chains", localField: "clientData.chain", foreignField: "_id", as: "chainData" } },
       { $unwind: { path: "$chainData", preserveNullAndEmptyArrays: true } },
-      // Find all Credit Memos linked to this PreOrder ID
       { $lookup: {
           from: "creditmemos",
           let: { invoiceId: "$_id" },
@@ -53,13 +56,14 @@ export async function GET(req: NextRequest) {
       }},
       {
         $project: {
+          type: "preorder", // Tag it for the formatter
           number: 1,
           clientName: "$clientData.clientName",
           chainName: "$chainData.name",
           deliveredAt: 1,
           total: 1,
           paymentStatus: 1,
-          linkedCms: 1 // We pass the raw array of CMs to calculate safely in JavaScript
+          linkedCms: 1 
         }
       }
     ];
@@ -73,8 +77,6 @@ export async function GET(req: NextRequest) {
       { $unwind: { path: "$clientData", preserveNullAndEmptyArrays: true } },
       { $lookup: { from: "chains", localField: "clientData.chain", foreignField: "_id", as: "chainData" } },
       { $unwind: { path: "$chainData", preserveNullAndEmptyArrays: true } },
-      
-      // Find all Credit Memos linked to this Direct Sale ID
       { $lookup: {
           from: "creditmemos",
           let: { invoiceId: "$_id" },
@@ -92,6 +94,7 @@ export async function GET(req: NextRequest) {
       }},
       {
         $project: {
+          type: "directSale", // Tag it for the formatter
           number: 1,
           clientName: "$clientData.clientName",
           chainName: "$chainData.name",
@@ -99,6 +102,27 @@ export async function GET(req: NextRequest) {
           total: 1,
           paymentStatus: 1,
           linkedCms: 1
+        }
+      }
+    ];
+
+    // --------------------
+    // STANDALONE CREDIT MEMOS PIPELINE
+    // --------------------
+    const standaloneCmPipeline = [
+      { $match: matchStandaloneCMs },
+      { $lookup: { from: "clients", localField: "client", foreignField: "_id", as: "clientData" } },
+      { $unwind: { path: "$clientData", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "chains", localField: "clientData.chain", foreignField: "_id", as: "chainData" } },
+      { $unwind: { path: "$chainData", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          type: "standaloneCM", // Tag it for the formatter
+          number: 1,
+          clientName: "$clientData.clientName",
+          chainName: "$chainData.name",
+          returnedAt: 1, // CMs use returnedAt
+          total: 1
         }
       }
     ];
@@ -115,41 +139,58 @@ export async function GET(req: NextRequest) {
     ];
 
     const formatRowToCSV = (r: any, headersList: string[]) => {
-      // Safely sum up the total of all attached credit memos (ensuring we treat them as positive deductions)
-      const cmTotal = r.linkedCms?.reduce((sum: number, cm: any) => sum + Math.abs(cm.total || 0), 0) || 0;
-      const invoiceTotal = Number(r.total || 0);
-      const balance = Math.max(invoiceTotal - cmTotal, 0);
+      let invoiceTotal = 0;
+      let cmTotal = 0;
+      let balance = 0;
+      let dateVal = r.deliveredAt;
+
+      // Handle Standalone Credit Memos
+      if (r.type === "standaloneCM") {
+        cmTotal = Math.abs(r.total || 0);
+        balance = -cmTotal; // Outputs as a negative balance to deduct from the whole sheet
+        dateVal = r.returnedAt;
+      } 
+      // Handle Normal Invoices (Preorders & Direct Sales)
+      else {
+        cmTotal = r.linkedCms?.reduce((sum: number, cm: any) => sum + Math.abs(cm.total || 0), 0) || 0;
+        invoiceTotal = Number(r.total || 0);
+        balance = Math.max(invoiceTotal - cmTotal, 0);
+      }
 
       const mappedObj: Record<string, any> = {
         "Invoice Number": r.number || "-",
         "Chain" : r.chainName?.toUpperCase() || "-",
         "Client Name": r.clientName?.toUpperCase() || "-",
-        "Delivery Date": r.deliveredAt ? new Date(r.deliveredAt).toLocaleDateString() : "-",
+        "Delivery Date": dateVal ? new Date(dateVal).toLocaleDateString() : "-",
         "Invoice Total": invoiceTotal.toFixed(2),
         "Credit Memo Total": cmTotal.toFixed(2),
         "Total Balance": balance.toFixed(2),
-        "Payment Status": (r.paymentStatus || "pending").toUpperCase()
+        "Payment Status": (r.paymentStatus || (r.type === "standaloneCM" ? "credit" : "pending")).toUpperCase()
       };
 
       return headersList.map(h => `"${String(mappedObj[h] ?? "").replace(/"/g, '""')}"`).join(",");
     };
 
-    // THE STREAMING ENGINE
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        // Enqueue the headers (with the correctly closed quotes!)
         controller.enqueue(encoder.encode(headers.map(h => `"${h}"`).join(",") + "\n"));
 
-        // Stream PreOrders
+        // 1. Stream Preorders
         const poCursor = db.collection("preorders").aggregate(preorderPipeline);
         for await (const doc of poCursor) {
           controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
         }
 
-        // Stream Direct Sales
+        // 2. Stream Direct Sales
         const dsCursor = db.collection("directsales").aggregate(directSalePipeline);
         for await (const doc of dsCursor) {
+          controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
+        }
+
+        // 3. Stream Standalone Credit Memos
+        const cmCursor = db.collection("creditmemos").aggregate(standaloneCmPipeline);
+        for await (const doc of cmCursor) {
           controller.enqueue(encoder.encode(formatRowToCSV(doc, headers) + "\n"));
         }
 

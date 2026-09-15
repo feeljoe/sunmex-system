@@ -35,7 +35,7 @@ export default function StepConfirm({
         {products
           .filter(p => p.quantity > 0)
           .map(p => (
-            <li key={p.productId} className="flex border-b justify-between py-3">
+            <li key={p.lineId} className="flex border-b justify-between py-3">
               <div className="flex flex-col items-center w-full">
               <span className="text-left capitalize text-sm w-full"><span className="capitalize">{p.brand && (<span className="font-bold">{p.brand} </span>)}{p.name?.toLowerCase()} {p.weight && p.unit && (<span>{p.weight}{p.unit?.toUpperCase()}</span>)} </span></span>
               <span className="text-left text-gray-400 text-xs w-full">(SKU: {p.sku})</span>

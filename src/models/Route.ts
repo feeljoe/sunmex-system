@@ -34,7 +34,12 @@ const RouteSchema = new Schema(
         type: Schema.Types.ObjectId,
         ref: "User",
     },
-
+    tempUsers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      }
+    ],
     clients: [
       {
         type: Schema.Types.ObjectId,

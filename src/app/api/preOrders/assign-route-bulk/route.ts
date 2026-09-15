@@ -26,6 +26,7 @@ export async function PATCH(req: Request) {
   try {
     const {
       routeId,
+      warehouseId,
       preorderIds = [],
       creditMemoIds = [],
       deliveryDate,
@@ -66,8 +67,16 @@ export async function PATCH(req: Request) {
             ? preorder.status
             : "assigned";
 
+        const positionIndex = preorderIds.indexOf(preorder._id.toString());
+
         preorder.routeAssigned = route._id;
         preorder.status = newStatus;
+        preorder.position = positionIndex !== -1 ? positionIndex : 0;
+
+        if (warehouseId) {
+          preorder.warehouseAssigned = warehouseId;
+        }
+        
         preorder.updatedBy = session?.user.id;
         preorder.updatedAt = new Date();
 

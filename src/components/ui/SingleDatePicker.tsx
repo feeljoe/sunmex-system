@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Props = {
+    text?: string;
     value: string;
     onChange: (val: string) => void;
     hasError?: boolean;
@@ -40,7 +41,7 @@ function formatDisplayDate(iso: string) {
     return `${m}-${d}-${y}`;
 }
 
-export function SingleDatePicker({ value, onChange, hasError, reason }: Props) {
+export function SingleDatePicker({ text, value, onChange, hasError, reason }: Props) {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(startOfMonth(parseISO(value)));
@@ -99,14 +100,14 @@ export function SingleDatePicker({ value, onChange, hasError, reason }: Props) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         onClick={(e) => e.stopPropagation()} // Prevent clicking the calendar from closing it
-                        className="bg-(--tertiary) shadow-2xl rounded-2xl p-4 w-full max-w-sm border border-gray-200"
+                        className="bg-(--tertiary) shadow-2xl rounded-2xl p-4 w-full max-w-sm"
                     >
                         {/* MODAL HEADER */}
                         <div className="flex justify-between items-center mb-4 font-mono">
-                            <h3 className="font-bold text-lg">Select Expiration</h3>
+                            <h3 className="font-bold text-lg">{text ? text : "Select Expiration"}</h3>
                             <button
                                 onClick={() => setOpen(false)}
-                                className="text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-full p-1 transition-colors"
+                                className="text-white bg-red-500 hover:bg-red-200 rounded-xl p-2 transition-colors cursor-pointer"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -170,7 +171,7 @@ export function SingleDatePicker({ value, onChange, hasError, reason }: Props) {
     );
 
     return (
-        <div className="relative whitespace-nowrap w-full sm:w-auto">
+        <div className="relative whitespace-nowrap h-9 w-full sm:w-auto">
             {/* THE BUTTON */}
             <button
                 onClick={() => setOpen(true)}

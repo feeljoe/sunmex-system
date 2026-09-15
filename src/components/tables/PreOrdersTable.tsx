@@ -315,7 +315,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             </div>
             {showFilters && (
               <>
-                <div className="flex flex-col md:flex-row justify-between gap-2 mb-2 md:h-10 md:flex-wrap">
+                <div className="flex flex-col md:flex-row gap-2 mb-2 md:h-10 md:flex-wrap">
                   {/* SAFE CHANGE HANDLERS: Only resets page if value actually changed */}
                   <select value={vendorInput} onChange={(e) => {
                     if (e.target.value !== vendorInput) { setVendorInput(e.target.value); setPage(1); }
@@ -586,7 +586,6 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
           <AssignRouteModal
             bulkMode={selectedIds.length > 0}
             preorderIds={selectedIds.length > 0 ? selectedIds : undefined}
-            clientName={selectedClient}
             preorderId={selectedPreorder2?._id}
             currentRouteId={selectedPreorder2?.routeAssigned?._id ?? selectedPreorder2?.routeAssigned}
             onClose={() => { setAssignRouteModalOpen(false); setSelectedIds([]); }}
