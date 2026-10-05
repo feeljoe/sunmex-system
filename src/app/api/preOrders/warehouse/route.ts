@@ -379,15 +379,7 @@ export async function GET(req: Request) {
               limit
           )
 
-
-          // Your old API was missing this
-          .limit(
-            limit
-          )
-
-
           .lean(),
-
 
         // IMPORTANT:
         // Use the same query here.
