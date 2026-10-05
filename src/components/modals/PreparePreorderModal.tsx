@@ -547,78 +547,43 @@ export default function PrepareOrderModal({
       );
     };
 
+    const differenceLabel = (value:string) => {
+        switch(value) {
+            case "productNotAvailable":
+                return "Product Not Available";
+            case "productDamaged":
+                return "Product Damaged";
+            case "productExpired":
+                return "Product Expired";
+            default: "Not Enough";
+        }
+    }
+
 
   return (
     <>
 
-      <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div onClick={onClose} className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
 
-        <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col space-y-2">
+        <div onClick={(e) => e.stopPropagation()} className="bg-(--secondary) rounded-xl shadow-xl w-[97vw] md:w-full md:max-w-5xl h-[95dvh] flex flex-col space-y-2">
 
 
           {/* =========================================
               HEADER
           ========================================= */}
 
-          <div className="flex p-2 rounded-t-xl bg-(--tertiary) justify-between items-center mb-2">
+          <div className="flex p-2 rounded-t-xl bg-(--tertiary) justify-between items-center">
 
             <div>
 
-              <h2 className="text-sm lg:text-2xl font-semibold">
+              <h2 className="flex text-[16px] lg:text-2xl font-semibold">
 
                 {readOnly
                   ? "Review Order"
                   : "Prepare Order"}
 
-                :{" "}
-
-                {preorder.number}
-
-                {" - "}
-
-                {
-                  preorder.client
-                    ?.clientName
-                }
-
+                :{" "}{preorder.number}{" - "}{preorder.client ?.clientName}
               </h2>
-
-
-              <p className="text-sm mt-1">
-
-                Inventory:{" "}
-
-                <span
-                  className={`
-                    font-bold
-
-                    ${
-                      isForeignInventory
-                        ? "text-blue-700"
-                        : "text-gray-700"
-                    }
-                  `}
-                >
-
-                  {locationLabels[
-                    inventoryLocation
-                  ] ||
-                    inventoryLocation}
-
-                </span>
-
-
-                {isForeignInventory && (
-
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-lg">
-
-                    Foreign Inventory
-
-                  </span>
-
-                )}
-
-              </p>
 
             </div>
 
@@ -712,27 +677,16 @@ export default function PrepareOrderModal({
               PRODUCTS
           ========================================= */}
 
-          <div className="flex-1 overflow-y-auto space-y-2 p-2">
+          <div className="flex-1 overflow-y-auto md:space-y-2 p-2">
 
             {groupedProducts.map(
               (group) => (
-
-                <div
-                  key={
-                    group.categoryName
-                  }
-                  className="rounded-xl p-2 bg-white shadow-xl"
+                <div key={group.categoryName}
+                  className="rounded-xl p-2 bg-white shadow-xl mb-2"
                 >
-
-                  <h3 className="text-xl font-bold text-center text-gray-800 border-b pb-2 mb-2 uppercase tracking-wider">
-
-                    {
-                      group.categoryName
-                    }
-
+                  <h3 className="text-xl font-bold text-center text-gray-800 border-b mb-2 uppercase tracking-wider">
+                    {group.categoryName}
                   </h3>
-
-
                   <div className="space-y-2">
 
                     {group.products.map(
@@ -745,9 +699,9 @@ export default function PrepareOrderModal({
                           className={`
                             flex
                             items-center
-                            gap-3
-                            shadow
-                            p-3
+                            gap-1 md:gap-3
+                            shadow-xl
+                            p-1 md:p-3
                             rounded-xl
 
                             ${
@@ -763,7 +717,7 @@ export default function PrepareOrderModal({
                             }
                           `}
                         >
-
+                            <div className="flex flex-col items-center gap-2 md:flex-row">
                           <input
                             disabled={
                               readOnly
@@ -816,11 +770,12 @@ export default function PrepareOrderModal({
                             )}
 
                           </div>
+                          </div>
 
 
                           <div className="flex-1">
 
-                            <div className="font-semibold capitalize text-lg">
+                            <div className="font-semibold capitalize text-md md:text-lg">
 
                               {
                                 p
@@ -839,24 +794,24 @@ export default function PrepareOrderModal({
                             </div>
 
 
-                            <div className="text-sm text-gray-500 capitalize">
+                            <div className="md:flex text-xs md:text-sm text-gray-500 capitalize">
 
-                              SKU:{" "}
+                              <p>SKU:{" "}
                               {p
                                 .productInventory
                                 ?.product
                                 ?.sku ||
                                 "-"}{" "}
-
-                              | UPC:{" "}
+                                </p>
+                              <p>| UPC:{" "}
 
                               {p
                                 .productInventory
                                 ?.product
                                 ?.upc ||
                                 "-"}{" "}
-
-                              | Brand:{" "}
+</p>
+<p>                              | Brand:{" "}
 
                               {p
                                 .productInventory
@@ -865,7 +820,7 @@ export default function PrepareOrderModal({
                                 ?.name
                                 ?.toLowerCase() ||
                                 "-"}
-
+</p>
                             </div>
 
                           </div>
@@ -873,11 +828,11 @@ export default function PrepareOrderModal({
 
                           {p.differenceReason && (
 
-                            <span className="text-sm font-bold text-orange-600 uppercase bg-orange-100 px-3 py-1 rounded">
+                            <span className="flex-wrap w-30 text-xs md:text-sm text-right font-bold text-orange-600 uppercase bg-orange-100 p-1 rounded">
 
                               Short Picked (
                               {
-                                p.differenceReason
+                                differenceLabel(p.differenceReason)
                               }
                               )
 
@@ -908,7 +863,7 @@ export default function PrepareOrderModal({
                                 readOnly
                               }
 
-                              className="text-md text-red-600 underline cursor-pointer font-bold px-4"
+                              className="md:flex md:gap-2 text-sm md:text-md text-red-600 underline cursor-pointer font-bold px-4"
 
                               onClick={() =>
                                 setActiveProduct(
@@ -917,7 +872,7 @@ export default function PrepareOrderModal({
                               }
                             >
 
-                              not enough?
+                              <p>Not</p> <p>Enough?</p>
 
                             </button>
 
@@ -947,6 +902,7 @@ export default function PrepareOrderModal({
             <div className="flex justify-between p-2">
 
               <button
+              type="button"
                 onClick={() =>
                   executeApiCall(
                     true
@@ -961,6 +917,7 @@ export default function PrepareOrderModal({
 
 
               <button
+              type="button"
                 onClick={
                   handleComplete
                 }

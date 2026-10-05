@@ -1,395 +1,190 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  useList,
-} from "@/utils/useList";
-
+import { useMemo, useState, } from "react";
+import { useList, } from "@/utils/useList";
 import PrepareOrderModal from "../modals/PreparePreorderModal";
-
-import {
-  RefreshButton,
-} from "../ui/RefreshButton";
-
+import { RefreshButton, } from "../ui/RefreshButton";
 import SubmitResultModal from "../modals/SubmitResultModal";
+import { formatCurrency, } from "@/utils/format";
 
-import {
-  formatCurrency,
-} from "@/utils/format";
+export function WarehousePreordersTable({ user, }: any) {
 
-
-export function WarehousePreordersTable({
-  user,
-}: any) {
-
-  // ==================================================
-  // DATA
-  // ==================================================
-
-  const {
-    items: preorderItems,
-    reload,
-  } = useList(
-    "/api/preOrders/warehouse"
-  );
-
-
-  const preorders =
-    preorderItems || [];
-
-
-  const {
-    items: categories,
-  } = useList(
-    "/api/types",
-    {
-      limit: 100,
-    }
-  );
-
-
-  const sortedCategories =
-    [
-      ...(categories || []),
-    ].sort(
-      (a, b) =>
-        (a.order || 0) -
-        (b.order || 0)
-    );
-
-
-  // ==================================================
-  // STATE
-  // ==================================================
-
-  const [
-    selectedRoute,
-    setSelectedRoute,
-  ] = useState("");
-
-
-  const [
-    selectedPreorder,
-    setSelectedPreorder,
-  ] = useState<any | null>(
-    null
-  );
-
-
-  const [
-    viewMode,
-    setViewMode,
-  ] = useState<
-    "pending" | "completed"
-  >("pending");
-
-
-  const [
-    submitStatus,
-    setSubmitStatus,
-  ] = useState<
-    "loading" | null
-  >(null);
-
-
-  // ==================================================
-  // USER LOCATION LABEL
-  // ==================================================
-
-  const location =
-    user?.location ||
-    "phoenix";
-
-
-  const locationLabel: Record<
-    string,
-    string
-  > = {
-    phoenix: "Phoenix",
-    yuma: "Yuma",
-    tucson: "Tucson",
-    elPaso: "El Paso",
-    lasVegas: "Las Vegas",
-  };
-
-
-  // ==================================================
-  // AVAILABLE ROUTES
-  //
-  // Only show routes that exist in the preorders
-  // returned for this warehouse location.
-  // ==================================================
-
-  const routes =
-    useMemo(() => {
-
-      const routeMap =
-        new Map<
-          string,
-          any
-        >();
-
-
-      for (
-        const preorder of preorders
-      ) {
-
-        const route =
-          preorder.routeAssigned;
-
-
-        if (
-          route?._id &&
-          !routeMap.has(
-            route._id
-          )
-        ) {
-
-          routeMap.set(
-            route._id,
-            route
-          );
-
+    const { items: preorderItems, reload, } = useList("/api/preOrders/warehouse");
+    const preorders = preorderItems || [];
+    const { items: categories, } = useList("/api/types", { limit: 100, });
+    const sortedCategories = [...(categories || []),]
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const [selectedRoute, setSelectedRoute] = useState("");
+    const [selectedPreorder, setSelectedPreorder] = useState<any | null>(null);
+    const [viewMode, setViewMode] = useState<"pending" | "completed">("pending");
+    const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
+    const location = user?.location || "phoenix";
+    const locationLabel: Record<string, string> = {
+        phoenix: "Phoenix",
+        yuma: "Yuma",
+        tucson: "Tucson",
+        elPaso: "El Paso",
+        lasVegas: "Las Vegas",
+    };
+    const routes = useMemo(() => {
+        const routeMap = new Map<string, any>();
+        for (const preorder of preorders) {
+            const route = preorder.routeAssigned;
+            if (route?._id && !routeMap.has(route._id)) {
+                routeMap.set(route._id, route);
+            }
         }
-      }
-
-
-      return Array.from(
-        routeMap.values()
-      );
-
+        return Array.from(routeMap.values());
     }, [preorders]);
 
-
-  // ==================================================
-  // FILTER
-  // ==================================================
-
-  const filteredPreorders =
-    preorders.filter(
-      (p: any) => {
-
-        if (
-          selectedRoute &&
-          p.routeAssigned?._id !==
-            selectedRoute
-        ) {
-          return false;
+    const filteredPreorders = preorders.filter((p: any) => {
+        if (selectedRoute && p.routeAssigned?._id !== selectedRoute) {
+            return false;
         }
 
-
-        if (
-          viewMode ===
-            "pending" &&
-          p.status !==
-            "assigned"
-        ) {
-          return false;
+        if (viewMode === "pending" && p.status !== "assigned") {
+            return false;
         }
 
-
-        if (
-          viewMode ===
-            "completed" &&
-          p.status !==
-            "ready"
-        ) {
-          return false;
+        if (viewMode === "completed" && p.status !== "ready") {
+            return false;
         }
-
-
         return true;
-      }
+    }
     );
 
+    const formatDate = (value?: string) => value
+        ? new Date(value).toLocaleDateString()
+        : "-";
 
-  // ==================================================
-  // DATE
-  // ==================================================
-
-  const formatDate = (
-    value?: string
-  ) =>
-    value
-      ? new Date(
-          value
-        ).toLocaleDateString()
-      : "-";
-
-
-  // ==================================================
-  // STATUS COLORS
-  // ==================================================
-
-  const statusColors:
-    Record<
-      string,
-      string
-    > = {
-      assigned:
-        "bg-purple-400 text-purple-800",
-
-      ready:
-        "bg-green-400 text-green-800",
+    const statusColors:
+        Record<string, string> = {
+        assigned: "bg-purple-400 text-purple-800",
+        ready: "bg-green-400 text-green-800",
     };
 
+    const changeView = (value: | "pending" | "completed") => {
+        if (viewMode === value) {
+            return;
+        }
+        setSubmitStatus("loading");
+        setViewMode(value);
+        setTimeout(() => setSubmitStatus(null), 500);
+    };
 
-  // ==================================================
-  // VIEW CHANGE
-  // ==================================================
-
-  const changeView = (
-    value:
-      | "pending"
-      | "completed"
-  ) => {
-
-    if (
-      viewMode === value
-    ) {
-      return;
-    }
-
-
-    setSubmitStatus(
-      "loading"
-    );
-
-    setViewMode(
-      value
-    );
-
-
-    setTimeout(
-      () =>
-        setSubmitStatus(
-          null
-        ),
-      500
-    );
-  };
-
-
-  return (
-    <>
-
-      <div
-        className={`
+    return (
+        <>
+            <div className={`
           bg-(--secondary)
           font-mono
           font-bold
           rounded-xl
           shadow-xl
-          p-4
+          p-2
           flex
           flex-col
-
-          ${
-            user.role === "admin"
-              ? "h-[85vh] w-[88vw]"
-              : "h-[80vh] w-[97vw]"
-          }
+          w-[97vw]
+          h-[89dvh]
+          md:w-[94vw]
+          md:h-[88vh]
+          lg:w-[88vw]
         `}
-      >
+            >
 
-        {/* =========================================
+                {/* =========================================
             HEADER
         ========================================= */}
 
-        <div className="flex items-center justify-between mb-2 gap-4">
+                <div className="flex items-center justify-between mb-2 gap-4">
 
 
-          {/* ROUTE FILTER */}
+                    {/* ROUTE FILTER */}
 
-          <div className="flex gap-4 items-center h-10">
+                    <div className="flex flex-col md:flex-row gap-2 items-center h-auto">
 
-            <label className="font-semibold">
+                        <label className="hidden md:block font-semibold">
 
-              Route:
+                            Route:
 
-            </label>
-
-
-            <select
-              value={
-                selectedRoute
-              }
-
-              onChange={(e) =>
-                setSelectedRoute(
-                  e.target.value
-                )
-              }
-
-              className="rounded-xl h-10 bg-white shadow-xl p-2 outline-hidden"
-            >
-
-              <option value="">
-                All Routes
-              </option>
+                        </label>
 
 
-              {routes.map(
-                (route: any) => (
+                        <select
+                            value={
+                                selectedRoute
+                            }
 
-                  <option
-                    key={
-                      route._id
-                    }
-                    value={
-                      route._id
-                    }
-                  >
+                            onChange={(e) =>
+                                setSelectedRoute(
+                                    e.target.value
+                                )
+                            }
 
-                    {route.code}
+                            className="rounded-xl h-10 bg-white shadow-xl p-2 outline-hidden"
+                        >
 
-                    {route.user
-                      ? ` | ${route.user.firstName} ${route.user.lastName}`
-                      : ""}
-
-                  </option>
-
-                )
-              )}
-
-            </select>
-
-          </div>
+                            <option value="">
+                                All Routes
+                            </option>
 
 
-          {/* LOCATION */}
+                            {routes.map(
+                                (route: any) => (
 
-          <div className="px-4 py-2 bg-white rounded-xl shadow">
+                                    <option
+                                        key={
+                                            route._id
+                                        }
+                                        value={
+                                            route._id
+                                        }
+                                    >
 
-            <span className="text-gray-500 mr-2">
-              Warehouse:
-            </span>
+                                        {route.code}
 
-            <span className="text-blue-700">
-              {locationLabel[
-                location
-              ] ||
-                "Phoenix"}
-            </span>
+                                        {route.user
+                                            ? ` | ${route.user.firstName} ${route.user.lastName}`
+                                            : ""}
 
-          </div>
+                                    </option>
+
+                                )
+                            )}
+
+                        </select>
+
+                    </div>
 
 
-          {/* STATUS */}
+                    {/* LOCATION */}
 
-          <div className="flex gap-2 p-1 bg-gray-200 rounded-xl">
+                    <div className="hidden md:block px-4 py-2 bg-white rounded-xl shadow">
 
-            <button
-              onClick={() =>
-                changeView(
-                  "pending"
-                )
-              }
-              className={`
+                        <span className="text-gray-500 mr-2">
+                            Warehouse:
+                        </span>
+
+                        <span className="text-blue-700">
+                            {locationLabel[
+                                location
+                            ] ||
+                                "Phoenix"}
+                        </span>
+
+                    </div>
+
+
+                    {/* STATUS */}
+
+                    <div className="hidden md:block flex gap-2 p-1 bg-gray-200 rounded-xl">
+
+                        <button
+                            onClick={() =>
+                                changeView(
+                                    "pending"
+                                )
+                            }
+                            className={`
                 px-4
                 py-1
                 font-bold
@@ -397,27 +192,26 @@ export function WarehousePreordersTable({
                 transition-all
                 cursor-pointer
 
-                ${
-                  viewMode ===
-                  "pending"
-                    ? "bg-white shadow-md text-blue-800"
-                    : "text-gray-500 hover:bg-gray-400"
-                }
+                ${viewMode ===
+                                    "pending"
+                                    ? "bg-white shadow-md text-blue-800"
+                                    : "text-gray-500 hover:bg-gray-400"
+                                }
               `}
-            >
+                        >
 
-              Pending
+                            Pending
 
-            </button>
+                        </button>
 
 
-            <button
-              onClick={() =>
-                changeView(
-                  "completed"
-                )
-              }
-              className={`
+                        <button
+                            onClick={() =>
+                                changeView(
+                                    "completed"
+                                )
+                            }
+                            className={`
                 px-4
                 py-1
                 font-bold
@@ -425,478 +219,528 @@ export function WarehousePreordersTable({
                 transition-all
                 cursor-pointer
 
-                ${
-                  viewMode ===
-                  "completed"
-                    ? "bg-white shadow-md text-green-800"
-                    : "text-gray-500 hover:bg-gray-400"
-                }
+                ${viewMode ===
+                                    "completed"
+                                    ? "bg-white shadow-md text-green-800"
+                                    : "text-gray-500 hover:bg-gray-400"
+                                }
               `}
-            >
+                        >
 
-              Completed
+                            Completed
 
-            </button>
+                        </button>
 
-          </div>
-
-
-          {/* REFRESH */}
-
-          <RefreshButton
-            onRefresh={() => {
-
-              setSubmitStatus(
-                "loading"
-              );
-
-              reload();
-
-              setTimeout(
-                () =>
-                  setSubmitStatus(
-                    null
-                  ),
-                1000
-              );
-
-            }}
-          />
-
-        </div>
+                    </div>
 
 
-        {/* =========================================
+                    {/* REFRESH */}
+
+                    <RefreshButton
+                        onRefresh={() => {
+
+                            setSubmitStatus(
+                                "loading"
+                            );
+
+                            reload();
+
+                            setTimeout(
+                                () =>
+                                    setSubmitStatus(
+                                        null
+                                    ),
+                                1000
+                            );
+
+                        }}
+                    />
+
+                </div>
+                <div className="md:hidden flex justify-center">
+                <div className="flex gap-2 mb-2 p-1 bg-gray-200 rounded-xl justify-center items-center">
+
+                    <button
+                        onClick={() =>
+                            changeView(
+                                "pending"
+                            )
+                        }
+                        className={`
+px-4
+py-1
+font-bold
+rounded-lg
+transition-all
+cursor-pointer
+
+${viewMode ===
+                                "pending"
+                                ? "bg-white shadow-md text-blue-800"
+                                : "text-gray-500 hover:bg-gray-400"
+                            }
+`}
+                    >
+
+                        Pending
+
+                    </button>
+
+
+                    <button
+                        onClick={() =>
+                            changeView(
+                                "completed"
+                            )
+                        }
+                        className={`
+px-4
+py-1
+font-bold
+rounded-lg
+transition-all
+cursor-pointer
+
+${viewMode ===
+                                "completed"
+                                ? "bg-white shadow-md text-green-800"
+                                : "text-gray-500 hover:bg-gray-400"
+                            }
+`}
+                    >
+
+                        Completed
+
+                    </button>
+
+                </div>
+                </div>
+
+                {/* =========================================
             TABLE
         ========================================= */}
 
-        <div className="overflow-y-auto rounded-xl shadow-xl bg-white">
+                <div className="flex-1 overflow-auto rounded-xl shadow-xl bg-white">
 
-          <table className="w-full text-left text-sm whitespace-nowrap">
+                    <table className="w-full min-w-[850px] text-left text-sm border-separate border-spacing-0">
 
-            <thead className="bg-(--tertiary) sticky top-0">
+                        <thead className="bg-(--tertiary)">
 
-              <tr className="border-b">
+                            <tr className="border-b">
 
-                <th className="p-2">
-                  Client
-                </th>
+                                <th className="p-2 sticky top-0 left-0 z-30 bg-(--tertiary) min-w-[180px]">
+                                    Client
+                                </th>
 
-                <th className="p-2 text-center">
-                  Route
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Route
+                                </th>
 
-                <th className="p-2 text-center">
-                  Location
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Location
+                                </th>
 
-                <th className="p-2 text-center">
-                  Status
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Status
+                                </th>
 
-                <th className="p-2 text-center">
-                  Total Items
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Total Items
+                                </th>
 
-                <th className="p-2 text-center overflow-y-auto w-40">
-                  Amount ($)
-                </th>
+                                <th className="p-2 text-center overflow-y-auto w-40 sticky top-0 z-20 bg-(--tertiary)">
+                                    Amount ($)
+                                </th>
 
-                <th className="p-2 text-center">
-                  Date
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Date
+                                </th>
 
-                <th className="p-2 text-center">
-                  Action
-                </th>
+                                <th className="p-2 text-center sticky top-0 z-20 bg-(--tertiary)">
+                                    Action
+                                </th>
 
-              </tr>
+                            </tr>
 
-            </thead>
-
-
-            <tbody className="bg-white">
-
-              {filteredPreorders.length ===
-                0 && (
-
-                <tr>
-
-                  <td
-                    colSpan={8}
-                    className="p-10 text-center text-gray-500"
-                  >
-
-                    No{" "}
-                    {viewMode ===
-                    "pending"
-                      ? "pending"
-                      : "completed"}{" "}
-                    preorders for{" "}
-                    {locationLabel[
-                      location
-                    ] ||
-                      "Phoenix"}.
-
-                  </td>
-
-                </tr>
-
-              )}
+                        </thead>
 
 
-              {filteredPreorders.map(
-                (p: any) => {
+                        <tbody className="bg-white">
 
-                  const status =
-                    p.status ===
-                    "assigned"
-                      ? "pending"
-                      : p.status ===
-                        "ready"
-                      ? "Assembled"
-                      : p.status;
+                            {filteredPreorders.length ===
+                                0 && (
+
+                                    <tr>
+
+                                        <td
+                                            colSpan={8}
+                                            className="p-10 text-center text-gray-500"
+                                        >
+
+                                            No{" "}
+                                            {viewMode ===
+                                                "pending"
+                                                ? "pending"
+                                                : "completed"}{" "}
+                                            preorders for{" "}
+                                            {locationLabel[
+                                                location
+                                            ] ||
+                                                "Phoenix"}.
+
+                                        </td>
+
+                                    </tr>
+
+                                )}
 
 
-                  const preorderLocation =
-                    p.inventoryLocation ||
-                    "phoenix";
+                            {filteredPreorders.map(
+                                (p: any) => {
+
+                                    const status =
+                                        p.status ===
+                                            "assigned"
+                                            ? "pending"
+                                            : p.status ===
+                                                "ready"
+                                                ? "Assembled"
+                                                : p.status;
 
 
-                  return (
+                                    const preorderLocation =
+                                        p.inventoryLocation ||
+                                        "phoenix";
 
-                    <tr
-                      key={
-                        p._id
-                      }
-                      className={`
-                        border-b
-                        hover:bg-gray-100
 
-                        ${
-                          p.status ===
-                          "ready"
-                            ? "bg-green-100"
-                            : ""
-                        }
+                                    return (
+
+                                        <tr
+                                            key={
+                                                p._id
+                                            }
+                                            className={`
+                        group border-b
+                        ${p.status ===
+                                                    "ready"
+                                                    ? "bg-green-100"
+                                                    : "hover:bg-gray-100"
+                                                }
                       `}
-                    >
+                                        >
 
-                      {/* CLIENT */}
+                                            {/* CLIENT */}
 
-                      <td className="p-2 capitalize">
+                                            <td className={`p-2 capitalize sticky left-0 z-10 min-w-[180px] border-b md:static ${p.status === "ready" ? "bg-green-100" : "bg-white" }`}>
 
-                        {p.client
-                          ?.clientName
-                          ?.toLowerCase() ||
-                          "-"}
+                                                {p.client
+                                                    ?.clientName
+                                                    ?.toLowerCase() ||
+                                                    "-"}
 
-                      </td>
-
-
-                      {/* ROUTE */}
-
-                      <td className="p-2 text-center">
-
-                        {p.routeAssigned
-                          ?.code ||
-                          "-"}
-
-                      </td>
+                                            </td>
 
 
-                      {/* LOCATION */}
+                                            {/* ROUTE */}
 
-                      <td className="p-2 text-center">
+                                            <td className="p-2 text-center border-b">
 
-                        <span
-                          className={`
+                                                {p.routeAssigned
+                                                    ?.code ||
+                                                    "-"}
+
+                                            </td>
+
+
+                                            {/* LOCATION */}
+
+                                            <td className="p-2 text-center border-b">
+
+                                                <span
+                                                    className={`
                             px-2
                             py-1
                             rounded-xl
                             capitalize
 
-                            ${
-                              preorderLocation ===
-                              "phoenix"
-                                ? "bg-gray-200 text-gray-700"
-                                : "bg-blue-100 text-blue-700"
-                            }
+                            ${preorderLocation ===
+                                                            "phoenix"
+                                                            ? "bg-gray-200 text-gray-700"
+                                                            : "bg-blue-100 text-blue-700"
+                                                        }
                           `}
-                        >
+                                                >
 
-                          {locationLabel[
-                            preorderLocation
-                          ] ||
-                            preorderLocation}
+                                                    {locationLabel[
+                                                        preorderLocation
+                                                    ] ||
+                                                        preorderLocation}
 
-                        </span>
+                                                </span>
 
-                      </td>
+                                            </td>
 
 
-                      {/* STATUS */}
+                                            {/* STATUS */}
 
-                      <td className="text-center">
+                                            <td className="text-center border-b">
 
-                        <span
-                          className={`
+                                                <span
+                                                    className={`
                             p-2
                             rounded-xl
                             font-bold
 
-                            ${
-                              statusColors[
-                                p.status
-                              ] ||
-                              "bg-gray-400"
-                            }
+                            ${statusColors[
+                                                        p.status
+                                                        ] ||
+                                                        "bg-gray-400"
+                                                        }
                           `}
-                        >
+                                                >
 
-                          {status
-                            ?.toUpperCase()}
+                                                    {status
+                                                        ?.toUpperCase()}
 
-                        </span>
+                                                </span>
 
-                      </td>
-
-
-                      {/* ITEMS */}
-
-                      <td className="p-2 text-center">
-
-                        {p.products.reduce(
-                          (
-                            sum: number,
-                            product:
-                              any
-                          ) =>
-                            sum +
-                            Number(
-                              product.quantity ||
-                                0
-                            ),
-                          0
-                        )}
-
-                      </td>
+                                            </td>
 
 
-                      {/* CATEGORY TOTALS */}
+                                            {/* ITEMS */}
 
-                      <td className="flex gap-2 py-1 overflow-auto w-60">
+                                            <td className="p-2 text-center border-b">
 
-                        {sortedCategories.map(
-                          (category) => {
+                                                {p.products.reduce(
+                                                    (
+                                                        sum: number,
+                                                        product:
+                                                            any
+                                                    ) =>
+                                                        sum +
+                                                        Number(
+                                                            product.quantity ||
+                                                            0
+                                                        ),
+                                                    0
+                                                )}
 
-                            const categoryTotal =
-                              p.products
-
-                                .filter(
-                                  (
-                                    product:
-                                      any
-                                  ) =>
-                                    product
-                                      .productInventory
-                                      ?.product
-                                      ?.productType
-                                      ?._id ===
-                                    category._id
-                                )
-
-                                .reduce(
-                                  (
-                                    sum:
-                                      number,
-                                    product:
-                                      any
-                                  ) =>
-                                    sum +
-                                    Number(
-                                      product.quantity ||
-                                        0
-                                    ) *
-                                      Number(
-                                        product.actualCost ||
-                                          0
-                                      ),
-                                  0
-                                );
+                                            </td>
 
 
-                            if (
-                              categoryTotal <=
-                              0
-                            ) {
-                              return null;
-                            }
+                                            {/* CATEGORY TOTALS */}
+
+                                            <td className="flex gap-2 py-1 overflow-auto w-60 border-b">
+
+                                                {sortedCategories.map(
+                                                    (category) => {
+
+                                                        const categoryTotal =
+                                                            p.products
+
+                                                                .filter(
+                                                                    (
+                                                                        product:
+                                                                            any
+                                                                    ) =>
+                                                                        product
+                                                                            .productInventory
+                                                                            ?.product
+                                                                            ?.productType
+                                                                            ?._id ===
+                                                                        category._id
+                                                                )
+
+                                                                .reduce(
+                                                                    (
+                                                                        sum:
+                                                                            number,
+                                                                        product:
+                                                                            any
+                                                                    ) =>
+                                                                        sum +
+                                                                        Number(
+                                                                            product.quantity ||
+                                                                            0
+                                                                        ) *
+                                                                        Number(
+                                                                            product.actualCost ||
+                                                                            0
+                                                                        ),
+                                                                    0
+                                                                );
 
 
-                            return (
-
-                              <div
-                                key={
-                                  category._id
-                                }
-                                className="p-1 flex flex-col text-center font-bold bg-blue-200 text-blue-800 rounded-xl"
-                              >
-
-                                <span className="capitalize">
-
-                                  {category.name
-                                    ?.toLowerCase()}
-
-                                </span>
+                                                        if (
+                                                            categoryTotal <=
+                                                            0
+                                                        ) {
+                                                            return null;
+                                                        }
 
 
-                                <span>
+                                                        return (
 
-                                  {formatCurrency(
-                                    categoryTotal
-                                  )}
+                                                            <div
+                                                                key={
+                                                                    category._id
+                                                                }
+                                                                className="p-1 flex flex-col text-center font-bold bg-blue-200 text-blue-800 rounded-xl"
+                                                            >
 
-                                </span>
+                                                                <span className="capitalize">
 
-                              </div>
+                                                                    {category.name
+                                                                        ?.toLowerCase()}
 
-                            );
-                          }
-                        )}
-
-                      </td>
-
-
-                      {/* DATE */}
-
-                      <td className="p-2 text-center">
-
-                        {formatDate(
-                          p.createdAt
-                        )}
-
-                      </td>
+                                                                </span>
 
 
-                      {/* ACTION */}
+                                                                <span>
 
-                      <td className="p-2 text-center">
+                                                                    {formatCurrency(
+                                                                        categoryTotal
+                                                                    )}
 
-                        <button
-                          className={`
+                                                                </span>
+
+                                                            </div>
+
+                                                        );
+                                                    }
+                                                )}
+
+                                            </td>
+
+
+                                            {/* DATE */}
+
+                                            <td className="p-2 text-center border-b">
+
+                                                {formatDate(
+                                                    p.createdAt
+                                                )}
+
+                                            </td>
+
+
+                                            {/* ACTION */}
+
+                                            <td className="p-2 text-center border-b">
+
+                                                <button
+                                                    className={`
                             p-2
                             rounded-xl
                             transition-all
                             duration-300
                             cursor-pointer
 
-                            ${
-                              p.status ===
-                              "assigned"
-                                ? "bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800"
-                                : "bg-yellow-400 text-yellow-800 hover:text-white hover:bg-gray-800"
-                            }
+                            ${p.status ===
+                                                            "assigned"
+                                                            ? "bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800"
+                                                            : "bg-yellow-400 text-yellow-800 hover:text-white hover:bg-gray-800"
+                                                        }
                           `}
-                          onClick={() =>
-                            setSelectedPreorder(
-                              p
-                            )
-                          }
-                        >
+                                                    onClick={() =>
+                                                        setSelectedPreorder(
+                                                            p
+                                                        )
+                                                    }
+                                                >
 
-                          {p.status ===
-                          "assigned"
-                            ? "Prepare"
-                            : "Review"}
+                                                    {p.status ===
+                                                        "assigned"
+                                                        ? "Prepare"
+                                                        : "Review"}
 
-                        </button>
+                                                </button>
 
-                      </td>
+                                            </td>
 
-                    </tr>
+                                        </tr>
 
-                  );
-                }
-              )}
+                                    );
+                                }
+                            )}
 
-            </tbody>
+                        </tbody>
 
-          </table>
+                    </table>
 
-        </div>
+                </div>
 
-      </div>
+            </div>
 
 
-      {/* =========================================
+            {/* =========================================
           PREPARE MODAL
       ========================================= */}
 
-      {selectedPreorder && (
+            {selectedPreorder && (
 
-        <PrepareOrderModal
-          user={
-            user
-          }
+                <PrepareOrderModal
+                    user={
+                        user
+                    }
 
-          preorder={
-            selectedPreorder
-          }
+                    preorder={
+                        selectedPreorder
+                    }
 
-          categories={
-            sortedCategories
-          }
+                    categories={
+                        sortedCategories
+                    }
 
-          onClose={() =>
-            setSelectedPreorder(
-              null
-            )
-          }
+                    onClose={() =>
+                        setSelectedPreorder(
+                            null
+                        )
+                    }
 
-          readOnly={
-            selectedPreorder
-              ?.status ===
-            "ready"
-          }
+                    readOnly={
+                        selectedPreorder
+                            ?.status ===
+                        "ready"
+                    }
 
-          onCompleted={() => {
+                    onCompleted={() => {
 
-            setSelectedPreorder(
-              null
-            );
+                        setSelectedPreorder(
+                            null
+                        );
 
-            reload();
+                        reload();
 
-          }}
-        />
+                    }}
+                />
 
-      )}
+            )}
 
 
-      {/* =========================================
+            {/* =========================================
           LOADING
       ========================================= */}
 
-      {submitStatus && (
+            {submitStatus && (
 
-        <SubmitResultModal
-          status={
-            submitStatus
-          }
+                <SubmitResultModal
+                    status={
+                        submitStatus
+                    }
 
-          message=""
-          onClose={() =>
-            setSubmitStatus(
-              null
-            )
-          }
+                    message=""
+                    onClose={() =>
+                        setSubmitStatus(
+                            null
+                        )
+                    }
 
-          collection="Warehouse Preorders"
-        />
+                    collection="Warehouse Preorders"
+                />
 
-      )}
+            )}
 
-    </>
-  );
+        </>
+    );
 }
