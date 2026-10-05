@@ -66,8 +66,12 @@ export function generatePreorderPDF(preorder: any) {
   4645 W McDowell Rd Suite #102 
   Phoenix, AZ 85035
   www.sunmexusa.com`;
+  const companyInfo2 = `Sunmex LLC
+  4525 E Skyline Dr Suite #109
+  Tucson, AZ 85718
+  www.sunmexusa.com`;
   doc.setFontSize(10);
-  doc.text(companyInfo, pageWidth/2, 30, {align: "center"});
+  doc.text(companyInfo2, pageWidth/2, 30, {align: "center"});
 
   autoTable(doc, {
     startY: 20,

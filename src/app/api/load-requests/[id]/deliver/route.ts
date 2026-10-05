@@ -6,23 +6,24 @@ import Route from "@/models/Route";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import jwt from "jsonwebtoken";
+import ForeignInventory from "@/models/ForeignInventory";
 
 // 1. Updated getUser to accept the mobile app's JWT token
 async function getUser(req: Request) {
   const authHeader = req.headers.get("authorization");
-  
+
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.split(" ")[1];
     try {
       const decoded = jwt.verify(
-        token, 
+        token,
         process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET as string
       ) as any;
 
       if (decoded && ["admin", "driver", "vendor"].includes(decoded.role)) {
         return {
-           ...decoded,
-           id: decoded.id || decoded._id 
+          ...decoded,
+          id: decoded.id || decoded._id
         };
       }
     } catch (error) {
@@ -58,12 +59,10 @@ export async function PATCH(
     // 2. Extract the new payload from the mobile app
     const body = await req.json();
     const { products: deliveredProducts, signature } = body;
-
     const loadRequest = await LoadRequest.findById(id)
       .populate("products.product")
       .populate("route")
       .populate("routeAssigned");
-
     if (!loadRequest) {
       return NextResponse.json(
         { error: "Load request not found" },
@@ -78,13 +77,57 @@ export async function PATCH(
       );
     }
 
-    const route = await Route.findById(loadRequest.route._id);
 
-    if (!route) {
-      return NextResponse.json(
-        { error: "Route not found" },
-        { status: 404 }
-      );
+    const isForeignRequest =
+      loadRequest.requestType === "foreign";
+
+    let destinationRoute: any = null;
+
+    // ==============================================
+    // FOREIGN TRANSFER
+    // ==============================================
+
+    if (isForeignRequest) {
+      if (!loadRequest.destinationLocation) {
+        return NextResponse.json(
+          {
+            error:
+              "Foreign load request does not have a destination",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ==============================================
+    // NORMAL ROUTE DELIVERY
+    // ==============================================
+
+    else {
+      if (!loadRequest.route?._id) {
+        return NextResponse.json(
+          {
+            error:
+              "Load request does not have a destination route",
+          },
+          { status: 400 }
+        );
+      }
+
+      destinationRoute =
+        await Route.findById(
+          loadRequest.route._id
+        );
+
+      if (!destinationRoute) {
+        return NextResponse.json(
+          {
+            error:
+              "Destination route not found",
+          },
+          { status: 404 }
+        );
+      }
     }
 
     // 3. Loop through database products and apply the driver's exact counts
@@ -110,14 +153,14 @@ export async function PATCH(
 
       if (!inventory) {
         return NextResponse.json(
-          { error: "Inventory not found" },
+          { error: `Inventory not found for ${item.product?.brand?.name} ${item.product.name} ${item.product?.weight}${item.product?.unit?.toUpperCase()}` },
           { status: 404 }
         );
       }
 
       if (inventory.onRouteInventory < deliveredQty) {
         return NextResponse.json(
-          { error: `Not enough onRoute inventory for ${item.product.name}` },
+          { error: `Not enough onRoute inventory for ${item.product?.brand?.name} ${item.product.name} ${item.product?.weight}${item.product?.unit?.toUpperCase()}` },
           { status: 400 }
         );
       }
@@ -126,28 +169,52 @@ export async function PATCH(
       inventory.onRouteInventory -= deliveredQty;
       await inventory.save();
 
-      const existing = route.inventory.find(
+      if (isForeignRequest) {
+        await ForeignInventory.findOneAndUpdate(
+          {
+            location: loadRequest.destinationLocation,
+            product: item.product._id,
+          },
+          {
+            $inc: {
+              currentInventory: deliveredQty,
+            },
+          },
+          {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+          }
+        );
+        continue;
+      }
+
+      const existing = destinationRoute.inventory.find(
         (p: any) => p.product.toString() === item.product._id.toString()
       );
 
       if (existing) {
         existing.quantity += deliveredQty;
       } else {
-        route.inventory.push({
+        destinationRoute.inventory.push({
           product: item.product._id,
           quantity: deliveredQty,
         });
       }
     }
+    if (!isForeignRequest && destinationRoute) {
+      await destinationRoute.save();
+    }
 
-    await route.save();
 
     // 4. Save the signature and update status
     if (signature) {
       loadRequest.signature = signature;
     }
-    
+
     loadRequest.status = "delivered";
+    loadRequest.deliveredAt = new Date();
+
     await loadRequest.save();
 
     return NextResponse.json({

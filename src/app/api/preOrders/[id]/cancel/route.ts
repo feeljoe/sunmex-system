@@ -2,6 +2,7 @@ import { authOptions } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import ProductInventory from "@/models/ProductInventory";
+import { getInventoryModel, normalizeInventoryLocation } from "@/utils/inventoryResolver";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
@@ -18,6 +19,8 @@ export async function PATCH(
 
     try{
         const preorder = await PreOrder.findById(id).session(session);
+        const inventoryLocation = normalizeInventoryLocation(preorder.inventoryLocation);
+        const InventoryModel = getInventoryModel(inventoryLocation);
         const body = await req.json();
         const payload: any = {
             reason : body.reason,
@@ -31,7 +34,7 @@ export async function PATCH(
         }
 
         for(const item of preorder.products){
-            const inventory = await ProductInventory.findById(item.productInventory).session(session);
+            const inventory = await InventoryModel.findById(item.productInventory).session(session);
             if (!inventory) continue;
 
             const currentInv = Number(inventory.currentInventory) || 0;

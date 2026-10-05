@@ -104,6 +104,7 @@ export async function PATCH(
     // update request
     loadRequest.status = "prepared";
     loadRequest.assembledBy = user.id;
+    loadRequest.assembledAt = new Date();
     await loadRequest.save();
 
     return NextResponse.json({

@@ -10,6 +10,7 @@ import AssignLoadRequestRouteModal from "../modals/AssignLoadRequestModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { DateRangePicker } from "../ui/DateRangePicker";
 import { DateTime } from "luxon";
+import CancelOrderModal from "../modals/CancelPreorderModal";
 
 export function LoadRequestsTable() {
   const router = useRouter();
@@ -22,8 +23,9 @@ export function LoadRequestsTable() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [assignRouteOpen, setAssignRouteOpen] = useState(false);
   const [statusView, setStatusView] = useState<"all" | "pending" | "assigned" | "prepared">("all");
-  const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
-
+  const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null>(null);
+  const [message, setMessage] = useState("");
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [fromDate, setFromDate] = useState<string>(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [toDate, setToDate] = useState<string>(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
 
@@ -64,6 +66,48 @@ export function LoadRequestsTable() {
     }
   };
 
+  function formatLocation(location?: string) {
+    switch (location) {
+      case "yuma":
+        return "Yuma";
+      case "tucson":
+        return "Tucson";
+      case "elPaso":
+        return "El Paso";
+      case "lasVegas":
+        return "Las Vegas";
+      default:
+        return "-";
+    }
+  }
+
+  const cancelLoadRequest = async (reason: string) => {
+    if (!loadRequest) return;
+    setSubmitStatus("loading");
+    setMessage("Cancelling Load Request...");
+    try {
+      const res = await fetch(`/api/load-requests/${loadRequest._id}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelReason : reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setMessage(err.error || "Failed to cancel Load Request");
+        setSubmitStatus("error");
+        return;
+      }
+      setSubmitStatus("success");
+      setMessage("Load Request Cancelled Successfully");
+      setLoadRequest(null);
+    } catch (err: any) {
+      setMessage(err.message);
+      setSubmitStatus("error");
+    } finally {
+      setCancelModalOpen(false);
+    }
+  };
+
   return (
     <>
       <div className="bg-(--secondary) rounded-xl font-mono font-bold shadow-xl p-6 flex flex-col h-[80vh] w-[90vw]">
@@ -89,9 +133,15 @@ export function LoadRequestsTable() {
             setTimeout(() => setSubmitStatus(null), 3000);
           }}
           />
+          <button
+            onClick={() => router.push("/pages/inventory/load-requests/create")}
+            className="p-2 bg-blue-400 text-blue-800 hover:bg-blue-800 hover:text-white rounded-xl transition-all duration-300 whitespace-nowrap cursor-pointer"
+            >
+              + Create Load Request
+            </button>
         </div>
         <div className="flex gap-2 mb-4 overflow-auto">
-          {["all", "pending", "approved", "assigned", "prepared", "delivered"].map((view) => (
+          {["all", "pending", "approved", "assigned", "prepared", "delivered", "cancelled", "rejected"].map((view) => (
             <button
               key={view}
               onClick={() => setStatusView(view as any)}
@@ -134,20 +184,23 @@ export function LoadRequestsTable() {
                   />
                 </th>
 
-                <th className="p-2">Assign</th>
+                <th className="p-2 text-center">Assign</th>
                 <th className="p-2">Request #</th>
                 <th className="p-2">Requested By</th>
                 <th className="p-2">Route Assigned</th>
-                <th className="p-2">Status</th>
+                <th className="p-2 text-center">Status</th>
+                <th className="p-2 text-center">Type</th>
+                <th className="p-2">Destination</th>
                 <th className="p-2 text-center">Created At</th>
                 <th className="p-2 text-center">Action</th>
+                <th className="p-2 text-center">Cancel</th>
               </tr>
             </thead>
 
             <tbody className="bg-white">
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-4 text-2xl text-center text-gray-600">
+                  <td colSpan={10} className="p-4 text-2xl text-center text-gray-600">
                     No load requests found
                   </td>
                 </tr>
@@ -215,6 +268,28 @@ export function LoadRequestsTable() {
                   </td>
 
                   <td className="p-2 text-center">
+                    {r.requestType === "foreign" ?
+                      (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-xl">
+                          TRANSFER
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-xl">
+                          ROUTE
+                        </span>
+                      )}
+                  </td>
+                  <td className="p-2">
+                    {r.requestType === "foreign" ?
+                      formatLocation(
+                        r.destinationLocation
+                      ) : r.route?.code
+                        ? `Route: ${r.route.code}`
+                      : "-"
+                    }
+                  </td>
+
+                  <td className="p-2 text-center">
                     {new Date(r.createdAt).toLocaleDateString()}
                   </td>
 
@@ -242,6 +317,13 @@ export function LoadRequestsTable() {
                       </button>
                     )}
                   </td>
+                  {r.status !== "cancelled" && r.status !== "delivered" ? (
+                      <td className="p-2 text-center">
+                        <button className='text-red-800 bg-red-400 p-2 rounded-xl cursor-pointer hover:bg-red-800 hover:text-white transition-all duration:500' onClick={(e) => { e.stopPropagation(); setLoadRequest(r); setCancelModalOpen(true); }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        </button>
+                      </td>
+                    ) : <td className="p-2 text-center">-</td>}
                 </tr>
               ))}
             </tbody>
@@ -317,12 +399,16 @@ export function LoadRequestsTable() {
           }}
         />
       )}
+      {cancelModalOpen && loadRequest && (
+        <CancelOrderModal loadRequest={loadRequest} onClose={() => setCancelModalOpen(false)} onConfirm={cancelLoadRequest} />
+      )}
       {submitStatus && (
         <SubmitResultModal
           status={submitStatus}
-          message={""}
+          message={message}
           onClose={() => {
             setSubmitStatus(null);
+            reload();
           }}
           collection="Load Request"
         />

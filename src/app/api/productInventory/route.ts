@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import ProductInventory from "@/models/ProductInventory";
+import ForeignInventory from "@/models/ForeignInventory";
+import PreOrder from "@/models/PreOrder";
+import User from "@/models/User";
 import Brand from "@/models/Brand";
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { normalizeInventoryLocation } from "@/utils/inventoryResolver";
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+
     await connectToDatabase();
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
 
@@ -17,6 +29,30 @@ export async function GET(req: Request) {
     const brand = searchParams.get("brand");
     const type = searchParams.get("type");
     const availableOnly = searchParams.get("availableOnly") === "true";
+    const preorderId = searchParams.get("preorderId");
+
+    const user = await User.findById(session.user.id).select("location").lean();
+    if (!user) {
+      return NextResponse.json({ error: "User Not Found" }, { status: 404 });
+    }
+
+    let inventoryLocation = normalizeInventoryLocation(user?.location);
+    if (preorderId) {
+      if (!mongoose.Types.ObjectId.isValid(preorderId)) {
+        return NextResponse.json({ error: "Invalid Preorder ID" }, { status: 400 });
+      }
+
+      const preorder = await PreOrder.findById(preorderId).select("inventoryLocation").lean();
+
+      if (!preorder) {
+        return NextResponse.json({ error: "Preorder Not Found" }, {status: 404});
+      }
+      inventoryLocation = normalizeInventoryLocation(preorder.inventoryLocation);
+    }
+    const useForeignInventory = inventoryLocation !== "phoenix";
+    const InventoryModel = useForeignInventory
+      ? ForeignInventory
+      : ProductInventory;
 
     let matchStage: any = {};
 
@@ -26,7 +62,7 @@ export async function GET(req: Request) {
     }
 
     // Type filter
-    if(type && mongoose.Types.ObjectId.isValid(type)) {
+    if (type && mongoose.Types.ObjectId.isValid(type)) {
       matchStage["product.productType._id"] = new mongoose.Types.ObjectId(type);
     }
 
@@ -56,7 +92,16 @@ export async function GET(req: Request) {
       ];
     }
 
+    const locationStage = useForeignInventory
+      ? {
+        $match: {
+          location: inventoryLocation,
+        },
+      }
+      : null;
+
     const pipeline: any[] = [
+      locationStage,
       {
         $lookup: {
           from: "products",
@@ -85,11 +130,12 @@ export async function GET(req: Request) {
         },
       },
 
-      { $unwind: {
+      {
+        $unwind: {
           path: "$productType",
           preserveNullAndEmptyArrays: true
         }
-       },
+      },
 
       {
         $addFields: {
@@ -139,7 +185,7 @@ export async function GET(req: Request) {
       },
     ].filter(Boolean);
 
-    const result = await ProductInventory.aggregate(pipeline);
+    const result = await InventoryModel.aggregate(pipeline);
 
     const items = result[0]?.items || [];
     const total = result[0]?.totalCount[0]?.count || 0;
@@ -151,6 +197,10 @@ export async function GET(req: Request) {
       page,
       limit,
       totalInventoryMoney,
+      inventoryLocation,
+      InventoryModel: useForeignInventory
+        ? "ForeignInventory"
+        : "ProductInventory",
     });
 
   } catch (err: any) {

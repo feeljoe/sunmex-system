@@ -7,7 +7,8 @@ const PreorderSchema = new Schema(
     client: { type: Schema.Types.ObjectId, ref: "Client", required: true },
     products: [
       {
-        productInventory: { type: Schema.Types.ObjectId, ref: "ProductInventory", required: true },
+        productInventory: { type: Schema.Types.ObjectId, refPath: "products.inventoryModel", required: true },
+        inventoryModel: {type: String, enum: ["ProductInventory", "ForeignInventory"], default: "ProductInventory", required: true},
         quantity: { type: Number, required: true },
         pickedQuantity: { type: Number, default: 0 },
         differenceReason: { type: String, enum: ["productDamaged", "productExpired", "productNotAvailable"] },
@@ -80,6 +81,11 @@ const PreorderSchema = new Schema(
       latitude: { type: Number },
       longitude: { type: Number },
       capturedAt: { type: Date }
+    },
+    inventoryLocation: {
+      type: String,
+      enum: ["phoenix", "yuma", "tucson", "elPaso", "lasVegas"],
+      default: "phoenix",
     },
   },
   { versionKey: false }

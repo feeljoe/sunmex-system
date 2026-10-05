@@ -105,7 +105,8 @@ export async function GET(
         },
       })
       .populate("routeAssigned")
-      .populate("createdBy");
+      .populate("createdBy")
+      .populate("cancelledBy");
 
     if (!creditMemo) {
       return NextResponse.json({ error: "Credit Memo Not Found" }, { status: 404 });

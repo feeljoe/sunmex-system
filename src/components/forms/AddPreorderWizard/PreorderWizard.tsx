@@ -275,6 +275,7 @@ export default function PreorderWizard({
             pricingLists={pricingLists}
             selectedClient={selectedClient}
             outstandingBalance={outstandingBalance}
+            preorderId={existingPreorder?._id}
           />
         )}
 

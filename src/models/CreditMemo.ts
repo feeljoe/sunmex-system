@@ -57,6 +57,11 @@ const CreditMemoSchema = new Schema(
       longitude: { type: Number },
       capturedAt: { type: Date }
     },
+    inventoryLocation: {
+      type: String,
+      enum: ["phoenix", "yuma", "tucson", "elPaso", "lasVegas"],
+      default: "phoenix",
+    },
   },
   { versionKey: false }
 );

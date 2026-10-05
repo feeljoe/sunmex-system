@@ -4,7 +4,6 @@ import { useList } from "@/utils/useList";
 import { SearchBar } from "../ui/SearchBar";
 import { useEffect, useMemo, useState } from "react";
 import AssignRouteModal from "../modals/AssignRouteModal";
-import CancelPreorderModal from "../modals/CancelPreorderModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import PreorderDetailsModal from "../modals/PreorderDetailsModal";
 import { RefreshButton } from "../ui/RefreshButton";
@@ -14,6 +13,7 @@ import { DateTime } from "luxon";
 import { formatCurrency } from "@/utils/format";
 import Link from "next/link";
 import { useSidebar } from "@/app/components/SideBarContext";
+import CancelOrderModal from "../modals/CancelPreorderModal";
 
 export function PreordersTable({ userRole, userId }: { userRole: string, userId: string }) {
   const statusColors: Record<string, string> = {
@@ -33,10 +33,11 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   const [warehouseInput, setWarehouseInput] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
+  const phoenixToday = DateTime.now().setZone("America/Phoenix").toFormat("yyyy-MM-dd");
   // API Fetch State Tracker
   const [apiDates, setApiDates] = useState({
-    from: userRole === "vendor" ? new Date().toISOString().split("T")[0] : DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"),
-    to: userRole === "vendor" ? new Date().toISOString().split("T")[0] : DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd")
+    from: userRole === "vendor" ? phoenixToday : DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"),
+    to: userRole === "vendor" ? phoenixToday : DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd")
   });
 
   // Draft State for Date Picker
@@ -86,7 +87,6 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   const { items: fetchedItems, reload, loading } = useList("/api/preOrders", {
     fromDate: apiDates.from,
     toDate: apiDates.to,
-    vendorId: userRole === "vendor" ? userId : undefined,
   });
 
   useEffect(() => {
@@ -593,7 +593,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
           />
         )}
         {cancelModalOpen && selectedPreorder2 && (
-          <CancelPreorderModal preorder={selectedPreorder2} onClose={() => setCancelModalOpen(false)} onConfirm={cancelPreorder} />
+          <CancelOrderModal preorder={selectedPreorder2} onClose={() => setCancelModalOpen(false)} onConfirm={cancelPreorder} />
         )}
         {submitStatus && <SubmitResultModal status={submitStatus} message={message} onClose={() => { setSubmitStatus(null); setMessage(""); setCancelModalOpen(false); }} collection="Preorder" />}
       </div>

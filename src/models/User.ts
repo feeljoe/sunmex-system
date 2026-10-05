@@ -10,6 +10,7 @@ export interface IUser extends Document {
   phoneNumber: string;
   password: string;
   salary: Number;
+  location: String;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -24,6 +25,10 @@ const UserSchema = new Schema<IUser>({
   phoneNumber: {type: String},
   password: { type: String, required: true },
   salary: {type: Number, default: 0},
+  location: {type: String, 
+    enum: ["phoenix", "yuma", "tucson", "elPaso", "lasVegas"], 
+    default: "phoenix"
+  }
 }, 
 { timestamps: true }
 );

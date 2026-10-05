@@ -85,6 +85,22 @@ export function UsersTable() {
             setPage(p => p + 1);
         }
     };
+    const getLocationValue = (value:string) => {
+        switch (value) {
+            case "phoenix":
+                return "Phoenix";
+            case "yuma":
+                return "Yuma";
+            case "tucson":
+                return "Tucson";
+            case "elPaso":
+                return "El Paso";
+            case "lasVegas":
+                return "Las Vegas";
+            default:
+                return "Phoenix";
+        }
+    };
 
     return (
         <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[85vw]" : "md:w-[94vw]"} w-[96vw] h-[75vh] md:h-[82vh]`}>
@@ -114,6 +130,7 @@ export function UsersTable() {
                                 <th className="p-2">Name</th>
                                 <th className="p-2">Username</th>
                                 <th className="p-2">Role</th>
+                                <th className="p-2">Location</th>
                                 <th className="p-2 text-right">Edit</th>
                                 <th className="p-2 text-right">Delete</th>
                             </tr>
@@ -124,6 +141,7 @@ export function UsersTable() {
                                     <td className="p-2 whitespace-nowrap capitalize">{it.firstName.toLowerCase()} {it.lastName.toLowerCase()}</td>
                                     <td className="p-2 whitespace-nowrap">{it.username.toLowerCase()}</td>
                                     <td className="p-2 capitalize whitespace-nowrap capitalize">{it.userRole.toLowerCase()}</td>
+                                    <td className="p-2">{getLocationValue(it.location) || "Phoenix"}</td>
                                     <td className="p-2 text-right whitespace-nowrap">
                                         <button
                                             onClick={() => setEditUser(it)}

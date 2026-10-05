@@ -8,7 +8,7 @@ import { DateRangePicker } from "../ui/DateRangePicker";
 import DirectSaleDetailsModal from "../modals/DirectSaleDetailsModal";
 import { DateTime } from "luxon";
 import { formatCurrency } from "@/utils/format";
-import CancelPreorderModal from "../modals/CancelPreorderModal";
+import CancelOrderModal from "../modals/CancelPreorderModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { SingleDatePicker } from "../ui/SingleDatePicker";
 
@@ -316,7 +316,7 @@ export function DirectSalesTable({ isAdmin, userId }: { isAdmin: boolean; userId
 
       {selectedDirectSale && <DirectSaleDetailsModal userRole={isAdmin? "admin" : "not-allowed"} directSale={selectedDirectSale} onClose={() => setSelectedDirectSale(null)} />}
       
-      {cancelModalOpen && selectedDirectSale2 && <CancelPreorderModal directSale={selectedDirectSale2} onClose={() => setCancelModalOpen(false)} onConfirm={cancelDirectSale} />}
+      {cancelModalOpen && selectedDirectSale2 && <CancelOrderModal directSale={selectedDirectSale2} onClose={() => setCancelModalOpen(false)} onConfirm={cancelDirectSale} />}
       
       {submitStatus && <SubmitResultModal status={submitStatus} message={message} onClose={() => { setSubmitStatus(null); setMessage(""); setCancelModalOpen(false); }} collection="Direct Sale" />}
     </div>

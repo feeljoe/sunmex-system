@@ -31,6 +31,15 @@ const ProductInventorySchema = new Schema(
       default: 0,
       min: 0,
     },
+    lots: [
+      {
+        lotNumber: { type: String },
+        cost: { type: Number },
+        originalQty: { type: Number },
+        currentQty: { type: Number },
+        receivedAt: { type: Date, default: Date.now }
+      }
+    ]
   },
   {
     timestamps: true,

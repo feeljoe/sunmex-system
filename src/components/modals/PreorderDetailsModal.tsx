@@ -103,8 +103,12 @@ export default function PreorderDetailsModal({
      RENDER
   ==============================*/
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
-      <div className={`bg-(--secondary) font-mono rounded-xl shadow-xl w-[95vw] ${userRole === "admin" ? "lg:max-w-5xl" : ""} max-h-[90vh] overflow-auto`}>
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
+      <div
+        onClick={(e) => e.stopPropagation()} 
+        className={`bg-(--secondary) font-mono rounded-xl shadow-xl w-[95vw] ${userRole === "admin" ? "lg:max-w-6xl" : ""} max-h-[95vh] overflow-auto`}>
 
         {/* HEADER */}
         <div className="flex p-2 bg-(--tertiary) justify-between items-center mb-2">
@@ -123,13 +127,13 @@ export default function PreorderDetailsModal({
         <h2 className={`font-semibold text-center text-md md:text-xl`}>
           {preorder.client?.clientName}
         </h2>
-        <h3 className={`flex flex-col text-center mb-4 text-xs md:text-[14px] text-gray-500 px-2`}>
+        <h3 className={`flex flex-col text-center mb-2 text-xs md:text-[14px] text-gray-500 px-2`}>
           <span>{preorder.client?.billingAddress?.addressLine}, </span>
           <span>{preorder.client?.billingAddress?.city}, {preorder.client?.billingAddress?.state}, {preorder.client?.billingAddress?.country}, {preorder.client?.billingAddress?.zipCode}</span> </h3>
 
         {/* META INFO */}
         {userRole === "admin" && (
-          <div className="flex flex-wrap gap-2 justify-around items-center text-xs md:text-[14px] text-center px-2 py-4">
+          <div className="flex flex-wrap gap-2 justify-around items-center text-xs md:text-[14px] text-center p-2">
             <div className="flex flex-col gap-2">
               <span className="font-semibold">Route</span>
               <span className="p-2">{preorder.routeAssigned?.code ?? "-"}</span>
@@ -193,7 +197,7 @@ export default function PreorderDetailsModal({
         )}
 
         {/* PRODUCTS TABLE */}
-        <div className="max-h-[37vh] md:max-h-[56vh] ml-2 mr-2 overflow-y-auto rounded-xl shadow-xl">
+        <div className="max-h-[37vh] md:max-h-[50vh] ml-2 mr-2 overflow-y-auto rounded-xl shadow-xl">
           <table className={`w-full text-left text-xs md:text-[16px]`}>
             <thead className="sticky top-0 bg-(--tertiary)">
               <tr className="whitespace-nowrap">

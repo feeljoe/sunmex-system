@@ -79,6 +79,13 @@ export async function DELETE(
     req: Request,
     context: { params: Promise<{id:string}> }
   ) {
+    const VALID_LOCATIONS = [
+      "phoenix",
+      "yuma",
+      "tucson",
+      "elPaso",
+      "lasVegas",
+    ];
     try{
       await connectToDatabase();
       const { id } = await context.params;
@@ -86,6 +93,10 @@ export async function DELETE(
         return NextResponse.json({error: "User ID is required"}, {status: 400});
       }
       const body = await req.json();
+
+      if(body.location && !VALID_LOCATIONS.includes(body.location)) {
+        return NextResponse.json({error: "Invalid user location"}, {status:400});
+      }
 
       const updateData: any = {
         firstName: body.firstName,
@@ -95,6 +106,7 @@ export async function DELETE(
         phoneNumber: body.phoneNumber,
         userRole: body.userRole,
         salary: body.salary,
+        location: body.location,
       };
 
       if(body.password && body.password.trim() !== ""){

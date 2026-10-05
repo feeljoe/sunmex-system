@@ -9,7 +9,9 @@ import { authOptions } from "@/lib/auth";
 import CounterPreorder from "@/models/CounterPreorder";
 import Client from "@/models/Client";
 import { DateTime } from "luxon";
-
+import User from "@/models/User";
+import ForeignInventory from "@/models/ForeignInventory";
+import { getInventoryModel, getInventoryModelName, normalizeInventoryLocation } from "@/utils/inventoryResolver";
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
@@ -191,6 +193,11 @@ export async function POST(req: Request) {
       throw new Error("User not authenticated");
     }
 
+    const userDoc = await User.findById(user.user.id).select("location").session(session);
+    const inventoryLocation = normalizeInventoryLocation(userDoc?.location);
+    const InventoryModel = getInventoryModel(inventoryLocation);
+    const inventoryModelName = getInventoryModelName(inventoryLocation);
+
     // AUTOMATIC INVOICE COUNTER
 
     const counter = await CounterPreorder.findOneAndUpdate(
@@ -220,6 +227,7 @@ export async function POST(req: Request) {
     // PREP PRODUCTS
     const productsToSave = body.products.map((p: any) => ({
       productInventory: p.productInventory,
+      inventoryModel: inventoryModelName,
       quantity: Math.round(Number(p.quantity)),
       actualCost: p.effectiveUnitPrice ?? p.unitPrice ?? 0,
     }));
@@ -230,10 +238,14 @@ export async function POST(req: Request) {
     const inventoryDocs = new Map<string, any>();
 
     for (const item of productsToSave) {
-      const inventory = await ProductInventory
+      const inventory = await InventoryModel
         .findById(item.productInventory)
         .populate("product")
         .session(session);
+
+        if (inventoryLocation !== "phoenix" && inventory?.location !== inventoryLocation) {
+          throw new Error("Inventory Item does not belong to user's location");
+        }
 
       inventoryDocs.set(item.productInventory, inventory);
 
@@ -272,6 +284,7 @@ export async function POST(req: Request) {
           number: nextNumber,
           client: body.client,
           location: body.location || undefined,
+          inventoryLocation,
           products: productsToSave,
           type: body.type,
           noChargeReason: body.noChargeReason || "",

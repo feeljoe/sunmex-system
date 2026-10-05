@@ -36,6 +36,7 @@ export default function AddUserWizard({ onSuccess }: { onSuccess?: () => void })
     email: "",
     phoneNumber: "",
     password: "",
+    location: "",
 });
   
 
@@ -47,7 +48,6 @@ export default function AddUserWizard({ onSuccess }: { onSuccess?: () => void })
   const back = () => setStep(s => Math.max(s - 1, 1));
 
   const submit = async (payload: any) => {
-    try{
     const url = "/api/users";
         
     const method = "POST";
@@ -60,10 +60,7 @@ export default function AddUserWizard({ onSuccess }: { onSuccess?: () => void })
 
     if (!res.ok) {
         const err = await res.json();
-        throw new Error(err?.error || "Failed to create client");
-    }
-    }catch(err: any){
-        throw new Error(err?.error);
+        throw new Error(err?.error || "Failed to create user");
     }
 }
 
@@ -80,12 +77,17 @@ export default function AddUserWizard({ onSuccess }: { onSuccess?: () => void })
             phoneNumber: form.phoneNumber,
             password: form.password,
         };
-            submit(payload);
+        if(form.location){
+          payload.location = form.location;
+        }
+            await submit(payload);
             setMessage("User added successfully");
             setSubmitStatus("success");
             if(onSuccess) onSuccess();
       }catch(err: any){
-        setMessage(err.message || "Error");
+        console.error("Error creating new user: ", err);
+
+        setMessage(err.message || "Error creating user");
         setSubmitStatus("error");
       }
     }
@@ -98,7 +100,9 @@ export default function AddUserWizard({ onSuccess }: { onSuccess?: () => void })
             email: "",
             phoneNumber: "",
             password: "",
+            location: "",
           });
+          setStep(1);
     }
 
   return (

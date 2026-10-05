@@ -5,6 +5,7 @@ import ProductInventory from "@/models/ProductInventory";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { getInventoryModel, getInventoryModelName, normalizeInventoryLocation } from "@/utils/inventoryResolver";
 
 // This calculates exactly how many items this specific order line is holding in each inventory bucket!
 const calculateState = (status: string, qty: number, picked: number, delivered: number) => {
@@ -44,6 +45,10 @@ export async function PATCH(
     if (!preorder) {
       throw new Error("Preorder not found");
     }
+
+    const inventoryLocation = normalizeInventoryLocation(preorder.inventoryLocation);
+    const InventoryModel = getInventoryModel(inventoryLocation);
+    const inventoryModelName = getInventoryModelName(inventoryLocation);
 
     const getIdsString = (val: any) => {
       if(!val) return;
@@ -102,7 +107,7 @@ export async function PATCH(
     // PREVALIDATION
     // -----------------------------
     for (const inventoryId of allIds) {
-      const inventory = await ProductInventory.findById(inventoryId).populate("product").session(session);
+      const inventory = await InventoryModel.findById(inventoryId).populate("product").session(session);
       inventoryDocs.set(inventoryId, inventory);
 
       if(!inventory){
@@ -203,6 +208,7 @@ export async function PATCH(
 
       return {
         productInventory: p.productInventory,
+        inventoryModel : inventoryModelName,
         quantity: p.quantity,
         pickedQuantity: pk,
         deliveredQuantity: del,

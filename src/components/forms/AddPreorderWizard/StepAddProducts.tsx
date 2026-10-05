@@ -15,6 +15,7 @@ export default function StepAddProducts({
   pricingLists,
   selectedClient,
   outstandingBalance,
+  preorderId,
 }: {
   userRole: string;
   products: any[];
@@ -24,6 +25,7 @@ export default function StepAddProducts({
   pricingLists: any[];
   selectedClient: any;
   outstandingBalance?: { total: number, invoices: string[] } | null;
+  preorderId?: string;
 }) {
   const inventoryInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRefs = useRef<HTMLInputElement[]>([]);
@@ -49,7 +51,7 @@ export default function StepAddProducts({
   
   const { items: inventory, loading: loadingInventory } = useList(
     searchMode === "product" ? '/api/productInventory' : "", 
-    searchMode === "product" ? { search: inventorySearch || undefined, limit: 50 } : {}
+    searchMode === "product" ? { search: inventorySearch || undefined, limit: 50, preorderId: preorderId || undefined, } : {}
   );
 
   const availableProducts = useMemo(() => {

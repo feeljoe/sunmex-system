@@ -7,9 +7,13 @@ import { DateTime } from "luxon";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import User from "@/models/User";
+import { normalizeInventoryLocation } from "@/utils/inventoryResolver";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+  const user = await User.findById(session?.user?.id).select("location");
+  const inventoryLocation = normalizeInventoryLocation(user?.location);
   try {
     await connectToDatabase();
     const body = await req.json();
@@ -42,6 +46,7 @@ export async function POST(req: Request) {
       number: nextNumber,
       client: body.client,
       location: body?.location || undefined,
+      inventoryLocation,
       createdBy: session?.user?.id,
       subtotal: body.total,
       status: body.status ?? "pending",
@@ -245,7 +250,7 @@ export async function GET(req: Request) {
         path: "products.product",
         populate: { path: "brand" },
       },
-      { path: "cancelledBy" },
+      { path: "cancelledBy", select: "firstName lastName" },
     ]);
     const totalResult = await CreditMemo.aggregate([
       ...countPipeline,

@@ -48,31 +48,62 @@ export default function LoadRequestDetailsModal({
     );
   });
   let totalQty = 0;
+  const isForeign = loadRequest.requestType === "foreign";
+  const getDestination = (value:string) => {
+    switch (value) {
+      case "yuma":
+        return "Yuma";
+      case "tucson":
+        return "Tucson";
+      case "elPaso":
+        return "El Paso";
+      case "lasVegas":
+        return "Las Vegas";
+      default:
+        return "-";
+    }
+  };
   /* =============================
      RENDER
   ==============================*/
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
-      <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl lg:max-w-5xl p-2 space-y-2">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
+      <div
+        onClick={(e) => e.stopPropagation()} 
+        className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl lg:max-w-5xl overflow-hidden space-y-2">
 
         {/* HEADER */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">
+        {/* HEADER */}
+        <div className="flex p-2 bg-(--tertiary) justify-between items-center mb-2">
+          <h2 className="text-sm lg:text-2xl font-semibold">
             Load Request Details for #{loadRequest?.LRNumber}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-black text-2xl cursor-pointer"
+            className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-300 hover:text-red-800 cursor-pointer transition-all duration:300"
           >
-            ✕
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {/* META INFO */}
-        <div className="flex items-center justify-around mt-5 mb-5 gap-4 text-sm text-center">
+        <div className="flex p-2 items-center justify-around mt-5 mb-5 gap-4 text-sm text-center">
           <div className="flex flex-col gap-2">
-            <span className="font-semibold">Route</span>
-            <div>{loadRequest.route?.code ?? "-"} | {loadRequest.route?.user?.firstName ?? "-"} {loadRequest.route?.user?.lastName ?? "-"}</div>
+            <span className="font-semibold">{isForeign ? "Transfer" : "Route"}</span>
+            {isForeign ? (
+              <div>
+              {getDestination(loadRequest.destinationLocation)}
+              </div>
+            ): (
+              <div>
+                {loadRequest.route?.code ?? "-"} | {loadRequest.route?.user?.firstName ?? "-"} {loadRequest.route?.user?.lastName ?? "-"}
+              </div>
+            )}
+            
           </div>
 
           <div className="flex flex-col gap-2">
@@ -97,6 +128,7 @@ export default function LoadRequestDetailsModal({
         </div>
 
         {/* PRODUCTS TABLE */}
+        <div className="p-2">
         <div className="max-h-[40vh] overflow-y-auto rounded-xl shadow-xl">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-(--tertiary)">
@@ -177,19 +209,10 @@ export default function LoadRequestDetailsModal({
             </tbody>
           </table>
         </div>
-
-        <div className="flex justify-end text-2xl font-semibold">
-          Total Units: {totalQty}
         </div>
 
-        {/* ACTIONS */}
-        <div className="flex justify-between pt-4 border-t">
-          <button
-            onClick={onClose}
-            className="bg-gray-300 px-5 py-3 rounded-xl cursor-pointer"
-          >
-            Close
-          </button>
+        <div className="p-2 flex justify-end text-2xl font-semibold">
+          Total Units: {totalQty}
         </div>
       </div>
     </div>

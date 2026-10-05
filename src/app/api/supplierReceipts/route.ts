@@ -183,12 +183,25 @@ export async function POST(req: Request) {
       { session }
     );
 
-    // 2️⃣ Update inventory
+    // 2️⃣ Update Inventory & Create Lots
     for (const item of items) {
       const safeQty = Math.round(Number(item.receivedQuantity));
+      
+      const lotNumber = `LOT-\(${invoice}-\)${Date.now().toString().slice(-4)}`;
+
       await ProductInventory.findOneAndUpdate(
         { product: item.product },
-        { $inc: { currentInventory: safeQty } },
+        { 
+          inc: { currentInventory: safeQty }, push: { 
+            lots: {
+              lotNumber,
+              cost: item.actualCost, // Accurate cost from this specific order
+              originalQty: safeQty,
+              currentQty: safeQty,
+              receivedAt: new Date()
+            }
+          }
+        },
         { upsert: true, session }
       );
     }

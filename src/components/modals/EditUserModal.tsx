@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import SubmitResultModal from "./SubmitResultModal";
 
 export function EditUserModal({ user, onClose, onSaved }: any) {
+  const [submitStatus, setSubmitStatus] = useState<"loading" | "error" | "success" | "info" | null>(null);
+  const [message, setMessage] = useState("");
+
   const [form, setForm] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -12,6 +16,7 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
     userRole: user.userRole,
     password: "",
     salary: user.salary || 0,
+    location: user.location || "phoenix",
   });
 
   const [loading, setLoading] = useState(false);
@@ -22,17 +27,24 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
 
   const submit = async () => {
     setLoading(true);
+    setSubmitStatus("loading");
     try {
-      await fetch(`/api/users/${user._id}`, {
+      const res = await fetch(`/api/users/${user._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
+      const data = await res.json();
+      if(!res.ok) {
+        throw new Error(data.error || "Failed to update user");
+      }
+      setMessage("User updated successfully");
+      setSubmitStatus("success");
       onSaved();
-      onClose();
-    } catch (err) {
+    } catch (err: any) {
+      setMessage(err.message || "Error updating user");
       console.error(err);
+      setSubmitStatus("error");
     } finally {
       setLoading(false);
     }
@@ -87,6 +99,20 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
                 <option value="driver">Driver</option>
                 <option value="warehouse">Warehouse</option>
                 <option value="onRoute">On Route</option>
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="font-bold">Location</label>
+            <select
+                className="bg-white rounded-xl p-2 h-10"
+                value={form.location}
+                onChange={e => updateField("location", e.target.value)}
+            >
+                <option value="phoenix">Phoenix</option>
+                <option value="yuma">Yuma</option>
+                <option value="tucson">Tucson</option>
+                <option value="elPaso">El Paso</option>
+                <option value="lasVegas">Las Vegas</option>
             </select>
           </div>
           <div className="flex flex-col">
@@ -145,6 +171,16 @@ export function EditUserModal({ user, onClose, onSaved }: any) {
           </button>
         </div>
       </div>
+      {submitStatus && (
+        <SubmitResultModal 
+          status={submitStatus}
+          message={message}
+          onClose={() => {
+            onClose();
+          }}
+          collection="User"
+        />
+      )}
     </div>
   );
 }

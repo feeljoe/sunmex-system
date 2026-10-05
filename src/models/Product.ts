@@ -18,6 +18,11 @@ export interface IProduct extends Document {
   palletSize?: number;
   weight?: number;
   unit?: "g" | "kg" | "mg" | "oz" | "lb" | "fl oz" | "ml" | "l";
+  location? :{
+    aisle?: string;
+    bay?: string;
+    level?: string;
+  };
 }
 
 const ProductSchema = new Schema<IProduct>({
@@ -38,6 +43,11 @@ const ProductSchema = new Schema<IProduct>({
   weight: {type: Number},
   unit: {type: String, 
     enum: ["g" , "kg" , "mg" , "oz" , "lb" , "fl oz" , "ml" , "l"]
+  },
+  location: {
+    aisle: { type: String },
+    bay: { type: String },
+    level: { type: String },
   },
 }, { timestamps: true });
 

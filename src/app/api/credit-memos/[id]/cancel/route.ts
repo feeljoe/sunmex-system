@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import CreditMemo from "@/models/CreditMemo";
 import mongoose from "mongoose";
+import { getInventoryModel, normalizeInventoryLocation } from "@/utils/inventoryResolver";
 
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
     await connectToDatabase();
 
     const { id } = await context.params;
@@ -39,21 +39,88 @@ export async function PATCH(
       );
     }
 
-    const creditMemo = await CreditMemo.findById(id);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+
+    const creditMemo = await CreditMemo.findById(id).session(session);
 
     if (!creditMemo) {
+      await session.abortTransaction();
       return NextResponse.json(
         { message: "Credit memo not found" },
         { status: 404 }
       );
     }
 
+    const wasReceived = creditMemo.status === "received";
+
     // ✅ Prevent double cancellation
     if (creditMemo.status === "cancelled") {
+      await session.abortTransaction();
       return NextResponse.json(
         { message: "Credit memo already cancelled" },
         { status: 400 }
       );
+    }
+
+    if(!["pending", "received"].includes(creditMemo.status)){
+      throw new Error(`Credit memo cannot be cancelled from status ${creditMemo.status}`);
+    }
+
+    const inventoryLocation = normalizeInventoryLocation(creditMemo.inventoryLocation);
+    const isForeignInventory = inventoryLocation !== "phoenix";
+    const InventoryModel = getInventoryModel(inventoryLocation);
+
+    if(wasReceived) {
+      for(const item of creditMemo.products) {
+        const receivedQty = Math.round(Number(item.pickedQuantity || item.returnedQuantity || 0));
+
+        if(receivedQty <=0) {
+          continue;
+        }
+
+        const inventoryQuery: any ={
+          product: item.product,
+          onRouteInventory: {
+            $gte: receivedQty,
+          },
+        };
+
+        if(isForeignInventory) {
+          inventoryQuery.location = inventoryLocation;
+        }
+
+        const updatedInventory = await InventoryModel.findOneAndUpdate(inventoryQuery,
+          {
+            $inc: {
+              onRouteInventory: -receivedQty,
+            },
+          },
+          {
+            new: true,
+            session,
+          }
+        );
+
+        if(!updatedInventory) {
+          const existingQuery: any = {
+            product: item.product,
+          };
+          if(isForeignInventory){
+            existingQuery.location = inventoryLocation;
+          }
+
+          const existingInventory = await InventoryModel.findOne(existingQuery).session(session);
+          const productName = `${item.product?.brand?.name} ${item.product?.name} ${item.product?.weight}${item.product?.unit?.toUpperCase()}`;
+          if(!existingInventory) {
+            throw new Error(`Inventory record not found for product ${productName} in ${inventoryLocation}`);
+          }
+
+          throw new Error (`Cannot cancel this credit memo because only ${existingInventory.onRouteInventory || 0} units are currently onRoute but ${receivedQty} units need to be reversed. The credit memo may already have been reconciled by the warehouse.`);
+        }
+      }
     }
 
     // ✅ Update fields
@@ -61,16 +128,29 @@ export async function PATCH(
     creditMemo.cancelReason = cancelReason;
     creditMemo.cancelledBy = cancelledBy;
     creditMemo.cancelledAt = new Date();
+    creditMemo.preorder = null;
 
-    await creditMemo.save();
+    await creditMemo.save({session,});
 
-    return NextResponse.json(creditMemo, { status: 200 });
+    await session.commitTransaction();
+
+    return NextResponse.json({
+      success: true,
+      inventoryReversed: wasReceived,
+      inventoryLocation,
+      inventoryModel: isForeignInventory ? "Foreign Inventory" : "ProductInventory",
+      creditMemo,
+     },
+    { status: 200 });
 
   } catch (error: any) {
+    await session.abortTransaction();
     console.error("Cancel credit memo error:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
+      { message: error.message || "Internal server error" },
+      { status: 400 }
     );
+  }finally {
+    await session.endSession();
   }
 }

@@ -27,13 +27,21 @@ const LoadRequestSchema = new Schema(
     route: {
       type: Schema.Types.ObjectId,
       ref: "Route",
-      required: true,
     },
     routeAssigned: {
         type: Schema.Types.ObjectId,
         ref: "Route",
       },
-
+    requestType: {
+      type: String,
+      enum: ["route", "foreign"],
+      default: "route",
+      required: true,
+    },
+    destinationLocation: {
+      type: String,
+      enum: ["yuma", "tucson", "elPaso", "lasVegas"],
+    },
     requestedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -60,6 +68,16 @@ const LoadRequestSchema = new Schema(
       enum: ["pending", "approved", "assigned", "prepared", "delivered", "rejected", "cancelled"],
       default: "pending",
     },
+    cancelReason: {
+      type:String,
+    },
+    cancelledBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    cancelledAt: {
+      type: Date,
+    },
     signature: {type: String},
     deliveryDate: {type: Date},
     deliveredAt: {type: Date},
@@ -67,6 +85,16 @@ const LoadRequestSchema = new Schema(
   },
   { timestamps: true }
 );
+
+LoadRequestSchema.pre("validate", function (next:any) {
+  if (this.requestType === "route" && !this.route) {
+    throw new Error("Route is required for route load requests");
+  }
+
+  if (this.requestType === "foreign" && !this.destinationLocation) {
+    throw new Error("Destination location is required for foreign load requests");
+  }
+});
 
 export default models.LoadRequest ||
   mongoose.model("LoadRequest", LoadRequestSchema);

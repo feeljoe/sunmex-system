@@ -128,7 +128,13 @@ export async function GET(req: Request) {
     if (search) {
       matchQuery.$or = [
         {
-          number: {
+          LRNumber: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          destinationLocation: {
             $regex: search,
             $options: "i",
           },
