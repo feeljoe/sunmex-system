@@ -158,15 +158,30 @@ export async function POST(req: Request) {
         throw new Error("User not found");
       }
 
+    // 2️⃣ Update Inventory & Create Lots
+    for (const item of items) {
+      const safeQty = Math.round(Number(item.receivedQuantity));
+      const actualCost = Number(item.actualCost);
+      if(!item.product) {
+        throw new Error("One or more received items are missing a product registration");
+      }
+      if(!Number.isFinite(safeQty) || safeQty < 0) {
+        throw new Error ("Received quantity must be a valid positive number");
+      }
+      if(!Number.isFinite(actualCost) || actualCost < 0) {
+        throw new Error("Actual cost must be a valid positive number");
+      }
+    }
+
     // Calculate total from received items
-    const total = items.reduce(
-      (sum: number, it: any) =>
-        sum + it.receivedQuantity * it.actualCost,
-      0
-    );
+    const total = items.reduce((sum: number, item: any) => {
+      const qty = Math.round(Number(item.receivedQuantity) || 0);
+      const cost = Number(item.actualCost) || 0;
+      return sum + qty * cost;
+    }, 0);
 
     // 1️⃣ Create receipt
-    const receipt = await SupplierReceipt.create(
+    const [receipt] = await SupplierReceipt.create(
       [
         {
           invoice,
@@ -175,53 +190,65 @@ export async function POST(req: Request) {
           supplier: supplierOrder.supplier._id,
           requestedAt: supplierOrder.requestedAt,
           receivedAt: new Date(),
-          elaboratedBy: currentUser,
+          elaboratedBy: currentUser._id,
           items,
           total,
         },
       ],
       { session }
     );
+      
+    const lotNumber = `LOT-\(${invoice}\)-${Date.now().toString().slice(-6)}`;
 
-    // 2️⃣ Update Inventory & Create Lots
     for (const item of items) {
       const safeQty = Math.round(Number(item.receivedQuantity));
-      
-      const lotNumber = `LOT-\(${invoice}-\)${Date.now().toString().slice(-4)}`;
+      const actualCost = Number(item.actualCost);
+      if(safeQty <= 0) continue;
 
-      await ProductInventory.findOneAndUpdate(
+      const updatedInventory = await ProductInventory.findOneAndUpdate(
         { product: item.product },
         { 
-          inc: { currentInventory: safeQty }, push: { 
+          $inc: { currentInventory: safeQty }, 
+          $push: { 
             lots: {
               lotNumber,
-              cost: item.actualCost, // Accurate cost from this specific order
+              cost: actualCost, // Accurate cost from this specific order
               originalQty: safeQty,
               currentQty: safeQty,
               receivedAt: new Date()
-            }
-          }
+            },
+          },
         },
-        { upsert: true, session }
+        { new:true, upsert: true, setDefaultsOnInsert: true, session }
       );
+
+      if(!updatedInventory){
+        throw new Error(`Failed to update inventory for product: ${item.product}`);
+      }
+      console.log("SUPPLIER RECEIPT INVENTORY UPDATED: ", {
+        product: item.product,
+        receivedQuantity: safeQty,
+        currentInventory: updatedInventory.currentInventory,
+        lotNumber,
+      });
     }
 
-    // 3️⃣ Update supplier order status
+
+    // Update supplier order status
     supplierOrder.status = "received";
     await supplierOrder.save({ session });
 
     await session.commitTransaction();
-    session.endSession();
+    return NextResponse.json(receipt, { status: 201 });
 
-    return NextResponse.json(receipt[0], { status: 201 });
   } catch (err: any) {
     await session.abortTransaction();
-    session.endSession();
-
     console.error("Create supplier receipt error:", err);
     return NextResponse.json(
-      { error: err.message },
+      { error: err.message || "Failed to receive supplier order" },
       { status: 500 }
     );
+  } finally {
+    await session.endSession();
   }
 }

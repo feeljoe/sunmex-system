@@ -486,7 +486,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
                     <td className="p-2 font-bold" onClick={() => setSelectedPreorder(it)}>{it.number}</td>
                     <td className="p-2 capitalize font-bold" onClick={() => setSelectedPreorder(it)}>{it.client?.clientName?.toLowerCase()}</td>
                     <td className="p-2 font-bold" onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.subtotal)}</td>
-                    <td className={`p-2 font-bold ${it.status === "cancelled" ? "text-red-800" : it.status === "delivered" ? it.subtotal === it.total ? "text-green-800" : "text-red-800" : ""}`} onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.total)}</td>
+                    <td className={`p-2 font-bold ${it.status === "cancelled" ? "text-red-800" : it.status === "delivered" ? Number(it.subtotal.toFixed(2)) === Number(it.total.toFixed(2)) ? "text-green-800" : "text-red-800" : ""}`} onClick={() => setSelectedPreorder(it)}>{formatCurrency(it.total)}</td>
                     <td className={`p-2`} onClick={() => setSelectedPreorder(it)}>
                       <div className={`px-1 py-1 rounded-xl text-center font-bold ${statusColors[it.status]}`}>{it.status.toUpperCase()}</div>
                     </td>
