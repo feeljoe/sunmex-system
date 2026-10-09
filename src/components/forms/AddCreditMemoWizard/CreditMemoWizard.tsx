@@ -54,6 +54,7 @@ export default function CreditMemoWizard({
 
     setProducts(
       existingCreditMemo.products.map((p: any) => ({
+        creditMemoLineId: p._id?.toString(),
         lineId: Math.random().toString(36).substring(2, 9),
         productId: p.product?._id,
         brandId: p.product?.brand?._id,
@@ -64,7 +65,10 @@ export default function CreditMemoWizard({
         weight: p.product?.weight,
         unit: p.product?.unit,
         caseSize: p.product?.caseSize,
-        quantity: p.quantity,
+        quantity: p.quantity ?? 0,
+        pickedQuantity: p.pickedQuantity ?? 0,
+        returnedQuantity: p.returnedQuantity ?? 0,
+        warehouseVerifiedQuantity: p.warehouseVerifiedQuantity ?? 0,
         basePrice: p.actualCost,
         unitPrice: p.actualCost,
         returnReason: p.returnReason || "",
@@ -130,6 +134,13 @@ export default function CreditMemoWizard({
         returnReason: p.returnReason,
         condition: p.condition,
         expirationDate: p.expirationDate,
+        ...(isEdit && {
+          creditMemoLineId: p.creditMemoLineId,
+        }),
+        ...(isEdit && userRole === "admin" && {
+          pickedQuantity: p.pickedQuantity ?? 0,
+          returnedQuantity: p.returnedQuantity ?? 0,
+        }),
       }));
 
     const url = isEdit
@@ -205,6 +216,7 @@ export default function CreditMemoWizard({
         {step === 2 && (
           <StepAddProducts
             userRole={userRole}
+            mode={mode}
             products={pricedProducts}
             setProducts={setProducts}
             pricingLists={pricingLists}

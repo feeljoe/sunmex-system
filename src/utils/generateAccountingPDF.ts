@@ -2,18 +2,31 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { COMPANY_LOGO_BASE64 } from "./companyLogo"; 
 import { formatCurrency } from "./format";           
-
-export function generateAccountingPDF(orders: any[], filters: any) {
+export async function generateAccountingPDF(orders: any[], filters: any) {
   const doc = new jsPDF("p", "pt", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-
+  const response = await fetch("/api/company-settings", {
+    cache: "no-store",
+  });
+  if(!response.ok){
+    throw new Error("Failed to load company settings");
+  }
+  const company = await response.json();
+  const address = company?.address;
   // 1. LOGO & COMPANY INFO
   const logoWidth = 120;
   const logoHeight = 50;
   doc.addImage(COMPANY_LOGO_BASE64, "PNG", 40, 20, logoWidth, logoHeight);
 
-  const companyInfo = `Sunmex LLC\n4645 W McDowell Rd Suite #102\nPhoenix, AZ 85035\nwww.sunmexusa.com`;
+  const companyInfo = [
+    company?.companyName,
+    `${address?.street} ${address?.street2}`,
+    `${address?.city} ${address?.state} ${address?.zipCode}`,
+    `Tel: ${company?.phone}`,
+    `Email: ${company?.email}`,
+    company?.website,
+  ];
   doc.setFontSize(10);
   doc.text(companyInfo, pageWidth / 2, 30, { align: "center" });
 
@@ -29,7 +42,7 @@ export function generateAccountingPDF(orders: any[], filters: any) {
     headStyles: { fillColor: [0, 102, 204], textColor: 255, fontStyle: "bold", halign: "center" },
   });
 
-  let cursorY = 80;
+  let cursorY = 90;
 
   // 3. APPLIED FILTERS BOX
   const filterBody = [];

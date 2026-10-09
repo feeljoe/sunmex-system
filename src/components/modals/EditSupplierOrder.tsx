@@ -178,7 +178,7 @@ export default function EditSupplierOrderModal({
           <div className="flex justify-between mt-6">
             <div className="flex gap-3">
               <button
-                onClick={() => generateSupplierOrderPDF(order)}
+                onClick={async () => generateSupplierOrderPDF(order)}
                 className="px-2 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-400 cursor-pointer transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">

@@ -2,21 +2,30 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { COMPANY_LOGO_BASE64 } from "@/utils/companyLogo";
 
-export function generateSupplierOrderPDF(order: any) {
+export async function generateSupplierOrderPDF(order: any) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
+  const response = await fetch("/api/company-settings", {
+    cache: "no-store",
+  });
+  if(!response.ok){
+    throw new Error("Failed to load company settings");
+  }
+  const company = await response.json();
+  const address = company?.address;
 
   doc.addImage(COMPANY_LOGO_BASE64, "PNG", 14, 10, 40, 18);
   
   doc.setFontSize(11);
   const companyInfo = [
-    "Sunmex LLC",
-    "4645 W McDowell Rd Ste 102",
-    "Phoenix AZ 85035",
-    "Tel: (520) 882-2658",
-    "bromero@sunmexusa.com",
-  ]
+    company?.companyName,
+    `${address?.street} ${address?.street2}`,
+    `${address?.city} ${address?.state} ${address?.zipCode}`,
+    `Tel: ${company?.phone}`,
+    `Email: ${company?.email}`,
+    company?.website,
+  ];
   let companyY = 15;
 
   companyInfo.forEach(line => {
@@ -60,10 +69,10 @@ export function generateSupplierOrderPDF(order: any) {
     const caseSize = p.product?.caseSize || null;
 
     const qtyCases = caseSize ? (qtyUnits/caseSize) : "-";
-
+    const productName = `${p.product?.name} ${p.product?.weight}${p.product?.unit?.toUpperCase()}`.trim(); 
     return [
       p.product?.brand?.name || "-",
-      p.product?.name || "-",
+      productName || "-",
       p.product?.sku || "-",
       p.product?.vendorSku || "-",
       qtyUnits,

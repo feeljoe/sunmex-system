@@ -4,10 +4,18 @@ import { COMPANY_LOGO_BASE64 } from "./companyLogo";
 import { calculateDynamicTotal, calculateDynamicTotalUnitsDirectSale } from "./calculatePreorderDynamicTotal";
 import { formatCurrency } from "./format";
 
-export function generateDirectSalePDF(directSale: any) {
+export async function generateDirectSalePDF(directSale: any) {
   const doc = new jsPDF("p", "pt", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const response = await fetch("/api/company-settings", {
+    cache: "no-store",
+  });
+  if(!response.ok){
+    throw new Error("Failed to load company settings");
+  }
+  const company = await response.json();
+  const address = company?.address;
   // --- Helper for watermark/status label on every page ---
   function drawWatermark() {
     if (directSale.status === "cancelled") {
@@ -54,10 +62,14 @@ export function generateDirectSalePDF(directSale: any) {
 
   doc.addImage(COMPANY_LOGO_BASE64, "PNG", 40, 20, logoWidth, logoHeight);
 
-  const companyInfo = `Sunmex LLC
-  4645 W McDowell Rd Suite #102 
-  Phoenix, AZ 85035
-  www.sunmexusa.com`;
+  const companyInfo = [
+    company?.companyName,
+    `${address?.street} ${address?.street2}`,
+    `${address?.city} ${address?.state} ${address?.zipCode}`,
+    `Tel: ${company?.phone}`,
+    `Email: ${company?.email}`,
+    company?.website,
+  ];
   doc.setFontSize(10);
   doc.text(companyInfo, pageWidth/2, 30, {align: "center"});
 
@@ -82,7 +94,7 @@ export function generateDirectSalePDF(directSale: any) {
     },
   });
 
-  cursorY = 80;
+  cursorY = 90;
 
   //Client info
   autoTable(doc, {

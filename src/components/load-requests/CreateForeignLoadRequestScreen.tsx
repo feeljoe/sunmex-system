@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SubmitResultModal from "../modals/SubmitResultModal";
-
+import { SearchBar } from "../ui/SearchBar";
 type Location = "yuma" | "tucson" | "elPaso" | "lasVegas";
 
 interface Product {
@@ -44,6 +44,37 @@ export default function CreateForeignLoadRequestScreen() {
     const [addProductOpen, setAddProductOpen] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null>(null);
     const [message, setMessage] = useState("");
+    const [search, setSearch] = useState("");
+
+    const handleSearch = useCallback((value: string) => {
+        setSearch(value);
+    }, []);
+
+    const filteredProducts = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        return products.filter((item) => {
+            if(!query) return true;
+            const product = item.product;
+            const searchableFields = [
+                product.upc,
+                product.sku,
+                product.brand?.name,
+                product.name,
+            ];
+            return searchableFields.some((field) =>
+                String(field ?? "").toLowerCase().includes(query));
+        }).sort((a, b) => {
+            const brandA = a.product.brand?.name ?? "";
+            const brandB = b.product.brand?.name ?? "";
+            const brandCompare = brandA.localeCompare(brandB, undefined, {sensitivity: "base"});
+            if (brandCompare!== 0) {
+                return brandCompare;
+            }
+            const nameA = a.product.name ?? "";
+            const nameB = b.product.name ?? "";
+            return nameA.localeCompare(nameB, undefined, {sensitivity: "base"});
+        });
+    }, [products, search]);
 
     // =============================================
     // LOAD DESTINATION INVENTORY
@@ -372,9 +403,9 @@ export default function CreateForeignLoadRequestScreen() {
 
                             {/* ACTION BAR */}
 
-                            <div className="flex justify-between items-center mb-3">
+                            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-3">
 
-                                <div>
+                                <div className="shrink-0">
                                     <h2 className="text-lg">
                                         {
                                             LOCATIONS.find(
@@ -385,20 +416,26 @@ export default function CreateForeignLoadRequestScreen() {
                                     </h2>
 
                                     <p className="text-sm text-gray-600">
-                                        {products.length} products currently
-                                        displayed
+                                        {filteredProducts.length} of {products.length} products displayed
                                     </p>
                                 </div>
-
-                                <button
-                                    onClick={() =>
-                                        setAddProductOpen(true)
-                                    }
-                                    className="p-2 bg-green-400 text-green-800 hover:bg-green-800 hover:text-white rounded-xl transition-all duration-300 cursor-pointer"
-                                >
-                                    + Add Product
-                                </button>
-
+                                <div className="flex w-full items-stretch sm:items-center gap-2">
+                                    <div className="w-full">
+                                        <SearchBar
+                                            placeholder="Search by brand, name, SKU or UPC..."
+                                            onSearch={handleSearch}
+                                            debounce={true}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() =>
+                                            setAddProductOpen(true)
+                                        }
+                                        className="whitespace-nowrap p-2 bg-green-400 text-green-800 hover:bg-green-800 hover:text-white rounded-xl transition-all duration-300 cursor-pointer"
+                                    >
+                                        + Add Product
+                                    </button>
+                                </div>
                             </div>
 
                             {/* TABLE */}
@@ -471,7 +508,16 @@ export default function CreateForeignLoadRequestScreen() {
                                             </tr>
                                         )}
 
-                                        {products.map((item) => {
+                                        {products.length > 0 && filteredProducts.length === 0 && (
+                                            <tr>
+                                                <td colSpan={8} className="p-10 text-center text-gray-500">
+                                                    <p className="text-xl">No matching products found.</p>
+                                                    <p className="text-sm mt-2"> Try searching by another brand, product name, SKU or UPC. OR search for it in "Add Product".</p>
+                                                </td>
+                                            </tr>
+                                        )}
+
+                                        {filteredProducts.map((item) => {
 
                                             const caseSize =
                                                 item.product.caseSize || 1;

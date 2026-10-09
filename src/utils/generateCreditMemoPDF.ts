@@ -4,11 +4,18 @@ import { COMPANY_LOGO_BASE64 } from "./companyLogo";
 import { formatCurrency } from "./format";
 import { calculateDynamicTotalUnitsCreditMemo } from "./calculatePreorderDynamicTotal";
 
-export function generateCreditMemoPDF(creditMemo: any) {
+export async function generateCreditMemoPDF(creditMemo: any) {
   const doc = new jsPDF("p", "pt", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-
+  const response = await fetch("/api/company-settings", {
+    cache: "no-store",
+  });
+  if(!response.ok){
+    throw new Error("Failed to load company settings");
+  }
+  const company = await response.json();
+  const address = company?.address;
   // --- Watermark ---
   function drawWatermark() {
     if (creditMemo.status === "cancelled") {
@@ -26,6 +33,15 @@ export function generateCreditMemoPDF(creditMemo: any) {
     }
   }
 
+  const companyInfo = [
+    company?.companyName,
+    `${address?.street} ${address?.street2}`,
+    `${address?.city} ${address?.state} ${address?.zipCode}`,
+    `Tel: ${company?.phone}`,
+    `Email: ${company?.email}`,
+    company?.website,
+  ];
+
   // --- Sort products ---
   const sortedProducts = (creditMemo.products || []).sort((a: any, b: any) => {
     const nameA = (a.product?.name || "").toLowerCase();
@@ -40,11 +56,7 @@ export function generateCreditMemoPDF(creditMemo: any) {
 
   // --- Company Info ---
   doc.setFontSize(10);
-  doc.text(
-    `Sunmex LLC
-4645 W McDowell Rd Suite #102 
-Phoenix, AZ 85035
-www.sunmexusa.com`,
+  doc.text(companyInfo,
     pageWidth / 2,
     30,
     { align: "center" }
@@ -70,7 +82,7 @@ www.sunmexusa.com`,
     },
   });
 
-  cursorY = 80;
+  cursorY = 90;
 
   // -------------------
   // CLIENT INFO

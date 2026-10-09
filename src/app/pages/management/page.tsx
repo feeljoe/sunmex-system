@@ -2,6 +2,14 @@ import Link from "next/link";
 export default function ManagementPage() {
     return (
         <div className="flex flex-wrap w-full h-full gap-10 p-5">
+            <Link href="/pages/management/company" className="w-40 h-50 lg:w-50 lg:h-80 lg:w-50 lg:h-80 bg-white rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
+                <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
+                    Company
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-10">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                    </svg>
+                </div>
+            </Link>
             <Link href="/pages/management/chains" className="w-40 h-50 lg:w-50 lg:h-80 bg-(--secondary) rounded-4xl transition-all duration:300 hover:bg-(--quarteary) hover:shadow-2xl hover:-translate-y-2 hover:scale-105 shadow-lg">
                 <div className="flex flex-col items-center justify-center w-full h-full text-2xl lg:text-3xl text-gray-700 hover:text-white">
                     Chains
@@ -81,4 +89,4 @@ export default function ManagementPage() {
             </Link>
         </div>
     );
-  }
+}
