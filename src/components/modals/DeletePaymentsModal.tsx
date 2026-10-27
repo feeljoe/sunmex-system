@@ -51,13 +51,16 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted, onErr
     if (confirmMode) {
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-(--tertiary) p-6 rounded-xl shadow-2xl w-[500px] max-w-[95vw]">
-                    <h2 className="text-xl font-bold mb-2 text-red-600 text-center">Confirm Deletion</h2>
-                    <p className="mb-4 text-center text-gray-700 dark:text-gray-300 font-medium">
-                        Are you sure you want to delete <span className="font-bold text-red-500">{selectedPayments.size}</span> payment(s) from invoice <strong>{order.number}</strong>?
+                <div className="bg-(--secondary) rounded-xl shadow-2xl w-[500px] max-w-[95vw]">
+                    <h2 className="text-xl bg-(--tertiary) p-2 rounded-t-xl font-bold mb-2 text-red-700 text-center">Confirm Deletion?</h2>
+                    <div className="p-2">
+                        <div className="flex flex-col items-center">
+                    <p className="text-center text-gray-700 dark:text-gray-300 font-medium">
+                        Are you sure you want to delete <span className="font-bold text-red-500">{selectedPayments.size}</span> payment(s) from invoice
                     </p>
-                    
-                    <div className="bg-(--secondary) p-2 rounded-xl mb-6">
+                    <p className="mb-4"><strong>{order.number}</strong>?</p>
+                    </div>
+                    <div className="bg-blue-100 p-2 rounded-xl mb-2">
                         <textarea
                             placeholder="Reason for deletion (Required)..."
                             value={reason}
@@ -81,6 +84,7 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted, onErr
                             {isSubmitting ? "Deleting..." : "Delete Payments"}
                         </button>
                     </div>
+                    </div>
                 </div>
             </div>
         );
@@ -88,9 +92,10 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted, onErr
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-(--tertiary) p-6 rounded-xl shadow-2xl w-[450px] max-w-[95vw]">
-                <h2 className="text-xl font-bold mb-4 border-b pb-2 text-center dark:text-white">Select Payments to Delete</h2>
-                <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto mb-4 bg-(--secondary) p-2 rounded-xl">
+            <div className="bg-(--secondary) rounded-xl shadow-2xl w-[450px] max-w-[95vw]">
+                <h2 className="p-2 bg-(--tertiary) rounded-t-xl text-xl font-bold mb-2 pb-2 text-center">Select Payments to Delete</h2>
+                <div className="p-2">
+                <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto mb-4 bg-blue-100 p-2 rounded-xl">
                     {order.payments.map((p: any) => (
                         <div 
                             key={p._id}
@@ -122,6 +127,7 @@ export default function DeletePaymentsModal({ order, onClose, onCompleted, onErr
                     >
                         Proceed
                     </button>
+                </div>
                 </div>
             </div>
         </div>

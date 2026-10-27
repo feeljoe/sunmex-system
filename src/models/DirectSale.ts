@@ -74,11 +74,48 @@ const DirectSaleSchema = new Schema(
             enum: ["pending", "paid"],
             default: "pending"
           },
+        paidAt: {
+            type: Date,
+            default: null,
+            index: true,
+        },
         payments: [
             {
                 type: { type: String, enum: ["cash", "check", "creditMemo", "discount"] },
-                amount: Number,
-                checkNumber: String
+                amount: {type: Number, required: true },
+                checkNumber: { type: String },
+                paidAt: { type: Date, default: null },
+                recordedAt: { type: Date, default: Date.now },
+                dateUpdatedBy: {
+                    type: Schema.Types.ObjectId,
+                    ref: "User",
+                    default: null,
+                  },
+                  dateUpdatedAt: {
+                    type: Date,
+                    default: null,
+                  },
+                  dateChangeHistory: [
+                    {
+                      previousDate: {
+                        type: Date,
+                        default: null,
+                      },
+                      newDate: {
+                        type: Date,
+                        required: true,
+                      },
+                      changedBy: {
+                        type: Schema.Types.ObjectId,
+                        ref: "User",
+                        required: true,
+                      },
+                      changedAt: {
+                        type: Date,
+                        default: Date.now,
+                      },
+                    },
+                  ],
             }
         ],
         paymentDeletedReason: { type: String, default: null},

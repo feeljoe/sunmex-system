@@ -8,6 +8,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import CreditMemo from "@/models/CreditMemo";
 import Product from "@/models/Product";
+import PaymentOperation from "@/models/PaymentOperation";
+import { getPaymentOperationId, hashPaymentRequest } from "@/lib/paymentIdempotency";
 
 // Extract user from JWT (Mobile) OR Session (Web)
 async function getUser(req: Request) {
@@ -85,9 +87,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (!user) throw new Error("Unauthorized");
   
       const { id } = await params;
+      const operationId = getPaymentOperationId(req);
       
       // Extract everything that might be passed in
       const { products, signature, payments, paymentStatus, status } = await req.json();
+
+      const isPaymentRequest = Array.isArray(payments) && payments.length > 0 && !products && !signature && !status;
+      const requestHash = isPaymentRequest ? hashPaymentRequest({
+        documentType: "directSale",
+        documentId: id,
+        payments,
+        paymentStatus,
+      }) : "";
+      if(isPaymentRequest && operationId) {
+        const previous = await PaymentOperation.findOne({operationId}).lean();
+        if(previous) {
+          if(previous.documentType !== "directSale" || String(previous.documentId) !== id || previous.requestHash !== requestHash) {
+            await session.abortTransaction();
+            return NextResponse.json({error: "Idempotency Key conflict"}, {status: 409});
+          }
+          await session.abortTransaction();
+          return NextResponse.json(previous.result);
+        }
+      }
   
       const existingSale = await DirectSale.findById(id).session(session);
       if (!existingSale) throw new Error("Sale not found");
@@ -138,7 +160,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   
       // --- SCENARIO 2: SIMPLE UPDATES (Payments & Signatures) ---
       if (signature) existingSale.signature = signature;
-      if (payments) existingSale.payments = payments;
+      if (payments !== undefined) {
+        if(!Array.isArray(payments)) {
+          throw new Error("Invalid payments");
+        }
+        const validatedPayments = payments.map((payment: any) => {
+          const amount = Number(payment.amount);
+          if(!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100){
+            throw new Error("Invalid payment amount");
+          }
+          if(!["cash", "check"].includes(payment.type)){
+            throw new Error("Invalid payment type");
+          }
+          if(payment.type === "check" && !String(payment.checkNumber ?? "").trim()) {
+            throw new Error("Check number is required");
+          }
+          return {
+            type: payment.type,
+            amount,
+            ...(payment.type === "check" ? {
+              checkNumber: String(payment.checkNumber).trim(),
+            } : {}),
+          };
+        });
+        const totalPaidCents = validatedPayments.reduce((sum: number, payment: any) => sum + Math.round(payment.amount * 100), 0);
+        const saleTotalCents = Math.round(Number(existingSale.total) *100);
+        if(paymentStatus === "paid" && totalPaidCents !== saleTotalCents) {
+          throw new Error("Payments do not match sale total");
+        }
+        existingSale.payments = payments;
+      }
       if (paymentStatus) existingSale.paymentStatus = paymentStatus;
 
       if(status) {
@@ -170,9 +221,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   
       // Save the Direct Sale document
       await existingSale.save({ session });
+      const result = {
+        message: "Updated sucessfully",
+        sale: existingSale.toObject(),
+      };
+      if(isPaymentRequest && operationId) {
+        await PaymentOperation.create([{
+          operationId,
+          DocumentType: "directSale",
+          documentId: existingSale._id,
+          requestHash,
+          result,
+        }], { session });
+      }
   
       await session.commitTransaction();
-      return NextResponse.json({ message: "Updated successfully", sale: existingSale });
+      return NextResponse.json(result);
     } catch (err: any) {
       await session.abortTransaction();
       if (err.type === "INVENTORY_ERROR") return NextResponse.json({ error: "Insufficient truck stock", details: err.details }, { status: 400 });

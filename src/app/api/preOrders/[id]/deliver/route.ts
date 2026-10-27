@@ -3,6 +3,7 @@ import {
 } from "@/lib/db";
 
 import PreOrder from "@/models/PreOrder";
+import CreditMemo from "@/models/CreditMemo";
 
 import {
   getInventoryModel,
@@ -69,6 +70,10 @@ export async function PATCH(
     } =
       await req.json();
 
+    if(typeof signature !== "string" || !signature.startsWith("data:image/") || signature.length < 100) {
+      throw new Error("A valid customer signature is required");
+    }
+
 
     if (
       !Array.isArray(
@@ -132,6 +137,23 @@ export async function PATCH(
         "Preorder not ready for delivery"
       );
 
+    }
+
+    const linkedCreditMemo = await CreditMemo.findOne({
+      preorder: preorder._id,
+    }).session(session);
+    if(linkedCreditMemo) {
+      if(String(linkedCreditMemo.client) !== String(preorder.client)) {
+        throw new Error("Credit memo and Preorder client mismatch");
+      }
+      if(linkedCreditMemo.status === "pending") {
+        throw new Error("Receive the linked credit memo before delivering this Preorder");
+      }
+      if(linkedCreditMemo.status === "cancelled"){
+
+      } else if(linkedCreditMemo.status !=="received") {
+        throw new Error("Linked Credit Memo has an unexpected status");
+      }
     }
 
 
@@ -607,6 +629,14 @@ export async function PATCH(
 
     preorder.deliverySignature =
       signature;
+
+    if(linkedCreditMemo && linkedCreditMemo.status === "received"){
+      if(linkedCreditMemo.returnSignature && linkedCreditMemo.returnSignature !== signature){
+        throw new Error("Credit Memo already has a different signature");
+      }
+      linkedCreditMemo.returnSignature = signature;
+      await linkedCreditMemo.save({session});
+    }
 
 
     // ==================================================

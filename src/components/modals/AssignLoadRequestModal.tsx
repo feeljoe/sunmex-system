@@ -42,30 +42,31 @@ export default function AssignLoadRequestRouteModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-xl w-96 shadow-xl">
-
-        <h2 className="text-xl font-bold mb-4 text-center">
+    <div  onClick={onClose} className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div onClick={e => e.stopPropagation()}className="flex flex-col justify-between bg-(--secondary) p-2 rounded-xl min-h-[20vh] min-w-[70vw] md:min-w-[30vw] shadow-xl">
+        <div className="flex flex-col gap-4">
+        <h2 className="py-2 border-b text-2xl font-bold mb-4 text-center">
           Assign Load Request
         </h2>
-
+      <div className="w-full h-10 rounded-xl bg-gray-100 mb-4">
         <select
-          className="w-full p-3 rounded-xl bg-gray-100 mb-4"
+          className="w-full h-full"
           value={selectedRoute}
           onChange={(e) => setSelectedRoute(e.target.value)}
         >
           <option value="">Select Route</option>
-          {routes.map((r: any) => (
+          {routes.filter((r:any) => r.type === "driver").map((r: any) => (
             <option key={r._id} value={r._id}>
-              {r.code} - {r.user?.firstName}
+              {r.code} | {r.user?.firstName} {r.user?.lastName}
             </option>
           ))}
         </select>
-
+        </div>
+        </div>
         <div className="flex justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-300 rounded-xl"
+            className="p-2 bg-gray-300 hover:bg-gray-700 hover:text-white transition-colors cursor-pointer rounded-xl"
           >
             Cancel
           </button>
@@ -73,7 +74,7 @@ export default function AssignLoadRequestRouteModal({
           <button
             onClick={assign}
             disabled={!selectedRoute || loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl"
+            className="p-2 bg-blue-400 hover:bg-blue-800 text-blue-800 hover:text-white transition-colors cursor-pointer rounded-xl"
           >
             {loading ? "Assigning..." : "Assign"}
           </button>

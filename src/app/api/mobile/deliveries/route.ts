@@ -291,10 +291,7 @@ export async function GET(
             preorder: {
               $in:
                 orderIds,
-            },
-
-            routeAssigned:
-              route._id,
+            }
 
           })
 

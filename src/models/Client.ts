@@ -19,6 +19,7 @@ export interface IClient extends Document {
   paymentTerm?: Types.ObjectId;
   creditLimit?: number;
   frequency?: string;
+  routeAssigned? : Types.ObjectId | null;
   visitingDays?:string[];
 }
 
@@ -39,6 +40,7 @@ const ClientSchema = new Schema<IClient>({
   billingAddress: AddressSchema,
   paymentTerm: { type: Schema.Types.ObjectId, ref: "PaymentTerm" },
   creditLimit: Number,
+  routeAssigned: {type: Schema.Types.ObjectId, ref: "Route", default: null, index:true},
   frequency: {type: String, required: true},
   visitingDays: {
     type: [String],

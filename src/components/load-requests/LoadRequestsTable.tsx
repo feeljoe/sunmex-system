@@ -209,7 +209,7 @@ export function LoadRequestsTable() {
               {filteredItems.map((r: any) => (
                 <tr key={r._id} className="border-b whitespace-nowrap">
                   <td className="p-2 text-center">
-                    {r.status === "approved" ? (
+                    {r.status !== "delivered" && r.status !== "cancelled" && r.status !== "pending" ? (
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(r._id)}
@@ -230,7 +230,7 @@ export function LoadRequestsTable() {
                   </td>
 
                   <td className="p-2 text-center">
-                    {r.status === "approved" ? (
+                    {r.status !== "delivered" && r.status !== "cancelled" && r.status !== "pending" ? (
                       <button
                         onClick={() => {
                           setSelectedIds([r._id]);

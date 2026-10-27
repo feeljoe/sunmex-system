@@ -45,6 +45,35 @@ const CompanySettingsSchema = new Schema(
                 trim: true,
             },
         },
+        geoLocation: {
+            latitude: {
+              type: Number,
+            },
+      
+            longitude: {
+              type: Number,
+            },
+      
+            formattedAddress: {
+              type: String,
+              default: "",
+            },
+      
+            geocodedAt: {
+              type: Date,
+            },
+      
+            geocodeStatus: {
+              type: String,
+              enum: [
+                "pending",
+                "success",
+                "failed",
+                "manual",
+              ],
+              default: "pending",
+            },
+          },
         phone: {
             type: String,
             default: "",

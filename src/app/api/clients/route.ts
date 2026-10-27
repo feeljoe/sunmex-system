@@ -51,6 +51,7 @@ export async function GET(req: Request) {
       Client.find(query)
       .populate("chain")
       .populate("paymentTerm")
+      .populate("routeAssigned")
       .sort({ clientNumber: -1})
       .skip((page - 1) * limit)
       .limit(limit),
@@ -63,6 +64,7 @@ export async function GET(req: Request) {
       limit,
     });
   }catch(err:any){
+    console.error("Error fetching clients: ", err);
     return NextResponse.json({ error: String(err.message) }, {status: 500 });
   }
 }

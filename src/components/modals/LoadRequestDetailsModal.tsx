@@ -1,7 +1,5 @@
 "use client";
 
-import { generatePreorderPDF } from "@/utils/generatePreorderPDF";
-import { useRouter } from "next/navigation";
 export default function LoadRequestDetailsModal({
   loadRequest,
   onClose,
@@ -150,11 +148,11 @@ export default function LoadRequestDetailsModal({
                   const approved = p.approvedQuantity ?? 0;
                   const delivered = p.deliveredQuantity ?? 0;
 
-                  const isDifferent = (approved !== requested && loadRequest.status === "approved") || (approved !== assembled && loadRequest.status === "prepared") || ((assembled !== delivered) && loadRequest.status === "delivered");
+                  const isDifferent = (approved !== requested && (loadRequest.status === "approved" || loadRequest.status === "assigned")) || (approved !== assembled && loadRequest.status === "prepared") || ((assembled !== delivered) && loadRequest.status === "delivered");
                   
                   totalQty += loadRequest.status === "delivered" ? delivered : loadRequest.status === "prepared" ? assembled : loadRequest.status === "approved" ? approved : requested;
                 return (
-                  <tr key={p._id} className={`border-t ${isDifferent ? "bg-yellow-50" : ""}`}>
+                  <tr key={p.id} className={`border-t ${isDifferent ? "bg-yellow-50" : ""}`}>
                     <td className="p-2 capitalize">
                       {p.product?.brand?.name.toLowerCase()}
                     </td>

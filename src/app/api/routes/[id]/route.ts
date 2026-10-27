@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import Route from "@/models/Route";
 import User from "@/models/User";
-import Client from "@/models/Client";
+import { RouteAssignmentError, syncRouteClients } from "@/lib/syncRouteClients";
+import mongoose from "mongoose";
 
 export async function GET(
   req: Request,
@@ -42,24 +43,29 @@ export async function GET(
 /* ---------------- PATCH ---------------- */
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ id: string }>}
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
 
     const { id } = await context.params;
     const body = await req.json();
-    const { code, type, user, tempUsers, active, clients } = body;
 
-    const route = await Route.findById(id);
-    if (!route) {
+    const {
+      code,
+      type,
+      user,
+      tempUsers,
+      active,
+      clients,
+    } = body;
+
+    if (!mongoose.isValidObjectId(id)) {
       return NextResponse.json(
-        { error: "Route not found" },
-        { status: 404 }
+        { error: "Invalid route ID" },
+        { status: 400 }
       );
     }
-
-    /* -------- VALIDATION -------- */
 
     if (!code || !type) {
       return NextResponse.json(
@@ -68,8 +74,23 @@ export async function PATCH(
       );
     }
 
+    if (!["vendor", "driver", "onRoute"].includes(type)) {
+      return NextResponse.json(
+        { error: "Invalid route type" },
+        { status: 400 }
+      );
+    }
+
     if (user) {
-      const userExists = await User.findById(user);
+      if (!mongoose.isValidObjectId(user)) {
+        return NextResponse.json(
+          { error: "Invalid assigned user ID" },
+          { status: 400 }
+        );
+      }
+
+      const userExists = await User.exists({ _id: user });
+
       if (!userExists) {
         return NextResponse.json(
           { error: "Assigned user does not exist" },
@@ -78,40 +99,94 @@ export async function PATCH(
       }
     }
 
-    if (type === "vendor" && clients?.length) {
-      const validClients = await Client.countDocuments({
-        _id: { $in: clients },
-      });
-
-      if (validClients !== clients.length) {
-        return NextResponse.json(
-          { error: "One or more clients are invalid" },
-          { status: 400 }
-        );
-      }
+    if (
+      clients !== undefined &&
+      (!Array.isArray(clients) ||
+        clients.some(
+          (clientId: unknown) =>
+            typeof clientId !== "string" ||
+            !mongoose.isValidObjectId(clientId)
+        ))
+    ) {
+      return NextResponse.json(
+        { error: "Invalid clients array" },
+        { status: 400 }
+      );
     }
 
-    /* -------- UPDATE -------- */
+    const session = await mongoose.startSession();
 
-    route.code = code;
-    route.type = type;
-    route.user = user || null;
+    try {
+      await session.withTransaction(async () => {
 
-    route.tempUsers = tempUsers || [];
-    if (active !== undefined) route.active = active;
+        const route = await Route.findById(id).session(session);
 
-    route.clients = type === "vendor" ? clients : [];
+        if (!route) {
+          throw new RouteAssignmentError("Route not found");
+        }
 
-    await route.save();
+        // Preserve the current selection when clients
+        // is omitted, but clear it for non-vendor routes.
+        const clientIds =
+          type === "vendor"
+            ? (
+                clients ??
+                route.clients.map((clientId: any) =>
+                  clientId.toString()
+                )
+              )
+            : [];
 
-    const updatedRoute = await Route.findById(route._id)
+        // Update route information.
+        route.code = code;
+        route.type = type;
+        route.user = user || null;
+        route.tempUsers = tempUsers || [];
+
+        if (active !== undefined) {
+          route.active = active;
+        }
+
+        await route.save({ session });
+
+        // Synchronize route and clients.
+        await syncRouteClients({
+          routeId: route._id,
+          clientIds,
+          session,
+        });
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    const updatedRoute = await Route.findById(id)
       .populate("user")
       .populate("tempUsers")
       .populate("clients");
 
     return NextResponse.json(updatedRoute);
-  } catch (err) {
-    console.error("PATCH route error:", err);
+
+  } catch (err: any) {
+    console.error("PATCH ROUTE ERROR:", err);
+
+    if (err instanceof RouteAssignmentError) {
+      return NextResponse.json(
+        { error: err.message },
+        {
+          status:
+            err.message === "Route not found" ? 404 : 400,
+        }
+      );
+    }
+
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { error: "Route code already exists" },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to update route" },
       { status: 500 }

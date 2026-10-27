@@ -39,8 +39,17 @@ export async function PATCH(req: Request) {
         document.paymentDeletedReason = reason;
         
         // 3. Recalculate if it's still paid or pending
-        const paidSoFar = updatedPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-        document.paymentStatus = paidSoFar >= (document.total - 0.01) ? "paid" : "pending";
+        const paidSoFar = updatedPayments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+        const wasPaid = document.paymentStatus === "paid";
+        const isPaid = paidSoFar >= document.total - 0.01;
+
+        document.paymentStatus = isPaid ? "paid" : "pending";
+
+        if(!isPaid) {
+            document.paidAt = null;
+        } else if(!wasPaid) {
+            document.paidAt = null;
+        }
 
         await document.save();
 
@@ -52,7 +61,7 @@ export async function PATCH(req: Request) {
             );
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, paymentStatus: document.paymentStatus, paidAt: document.paidAt });
     } catch (error: any) {
         console.error("Delete payment error: ", error);
         return NextResponse.json({error: error.message}, {status: 500});

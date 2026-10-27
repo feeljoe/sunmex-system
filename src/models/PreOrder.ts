@@ -8,7 +8,7 @@ const PreorderSchema = new Schema(
     products: [
       {
         productInventory: { type: Schema.Types.ObjectId, refPath: "products.inventoryModel", required: true },
-        inventoryModel: {type: String, enum: ["ProductInventory", "ForeignInventory"], default: "ProductInventory", required: true},
+        inventoryModel: { type: String, enum: ["ProductInventory", "ForeignInventory"], default: "ProductInventory", required: true },
         quantity: { type: Number, required: true },
         pickedQuantity: { type: Number, default: 0 },
         differenceReason: { type: String, enum: ["productDamaged", "productExpired", "productNotAvailable"] },
@@ -29,8 +29,8 @@ const PreorderSchema = new Schema(
     status: { type: String, enum: ["pending", "assigned", "ready", "delivered", "cancelled"], default: "pending" },
     createdAt: { type: Date, default: Date.now },
     routeAssigned: { type: Schema.Types.ObjectId, ref: "Route" },
-    warehouseAssigned: { type: Schema.Types.ObjectId, ref: "User"},
-    position: {type: Number, default: 0},
+    warehouseAssigned: { type: Schema.Types.ObjectId, ref: "User" },
+    position: { type: Number, default: 0 },
     assembledBy: { type: Schema.Types.ObjectId, ref: "User" },
     assembledAt: { type: Date },
     deliveryDate: {
@@ -60,13 +60,50 @@ const PreorderSchema = new Schema(
           required: "true"
         },
         amount: { type: Number, required: true },
-        checkNumber: { type: String }
+        checkNumber: { type: String },
+        paidAt: { type: Date, default: null },
+        recordedAt: { type: Date, default: Date.now },
+        dateUpdatedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        dateUpdatedAt: {
+          type: Date,
+          default: null,
+        },
+        dateChangeHistory: [
+          {
+            previousDate: {
+              type: Date,
+              default: null,
+            },
+            newDate: {
+              type: Date,
+              required: true,
+            },
+            changedBy: {
+              type: Schema.Types.ObjectId,
+              ref: "User",
+              required: true,
+            },
+            changedAt: {
+              type: Date,
+              default: Date.now,
+            },
+          },
+        ],
       }
     ],
     paymentStatus: {
       type: String,
       enum: ["pending", "paid"],
       default: "pending"
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+      index: true,
     },
     paymentDeletedReason: { type: String, default: null },
     quickbooks: {

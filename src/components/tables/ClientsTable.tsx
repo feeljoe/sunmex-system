@@ -164,7 +164,7 @@ export function ClientsTable() {
                   onSearch={setSearch}
                   debounce
               />
-              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading")}}/>
+              <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading"); setTimeout(() => setSubmitStatus(null), 3000);}}/>
             </div>
             <div className='flex-1 overflow-auto rounded-xl shadow-xl'>
       <table className='w-full text-left'>
@@ -173,6 +173,7 @@ export function ClientsTable() {
             <th className='px-2 py-2 text-center'>Client Number</th>
             <th className='px-2 py-2'>Client Name</th>
             <th className='px-2 py-2'>Chain</th>
+            <th className='px-2 py-2'>Route</th>
             <th className='px-2 py-2'>Full Address</th>
             <th className='px-2 py-2'>Payment Term</th>
             <th className='px-2 py-2 text-right'>Credit Limit</th>
@@ -194,6 +195,8 @@ export function ClientsTable() {
               <td className='p-2'>{it.clientNumber}</td>
               <td className='p-2 capitalize'>{it.clientName.toLowerCase()}</td>
               <td className='p-2 capitalize'>{it.chain?.name.toLowerCase() || '-'}</td>
+              <td className='p-2 capitalize'>{it.routeAssigned?.code || '-'}</td>
+              
               <td className='p-2 capitalize  whitespace-nowrap'>
                 <p>{it.billingAddress?.addressLine?.toLowerCase()},</p>
                 <p>{it.billingAddress?.city?.toLowerCase()} {it.billingAddress?.state}, {it.billingAddress?.zipCode}</p>

@@ -3,6 +3,7 @@ import { authenticateMobile } from "@/lib/mobileAuth";
 import { connectToDatabase } from "@/lib/db";
 import PreOrder from "@/models/PreOrder";
 import CreditMemo from "@/models/CreditMemo";
+import { formatPreOrderProducts } from "@/utils/mobileDeliveriesFormatter";
 
 export async function GET(
   req: Request,
@@ -18,6 +19,7 @@ export async function GET(
     }
 
     const { id } = await context.params;
+    
 
     // -----------------------------
     // Try to fetch preorder first
@@ -26,13 +28,6 @@ export async function GET(
       .populate({
         path: "client",
         populate: { path: "paymentTerm" },
-      })
-      .populate({
-        path: "products.productInventory",
-        populate: {
-          path: "product",
-          populate: { path: "brand" },
-        },
       })
       .populate({
         path: "routeAssigned",
@@ -67,6 +62,7 @@ export async function GET(
 
       // Format standalone credit memo for driver
       const products = creditMemo.products.map((p: any) => ({
+        _id: p._id,
         productId: p.product._id,
         sku: p.product.sku,
         upc: p.product.upc,
@@ -137,26 +133,13 @@ export async function GET(
       })
       .lean();
 
-    const products = order.products
-      .map((p: any) => ({
-        productInventory: p.productInventory._id,
-        productId: p.productInventory.product._id,
-        sku: p.productInventory.product.sku,
-        upc: p.productInventory.product.upc,
-        name: p.productInventory.product.name,
-        brand: p.productInventory.product.brand?.name,
-        quantity: p.pickedQuantity ?? 0,
-        deliveredQuantity: p.deliveredQuantity ?? 0,
-        weight: p.productInventory.product.weight ?? "",
-        uom: p.productInventory.product.unit ?? "",
-        unitPrice: p.actualCost ?? 0,
-      }))
-      .filter((p: any) => p.quantity > 0);
+    const {inventoryLocation, products,} = await formatPreOrderProducts(order);
 
     const formatted = {
       orderId: order._id,
       number: order.number,
       status: order.status,
+      inventoryLocation,
       deliveryDate: order.deliveryDate,
       client: {
         _id: order.client._id,

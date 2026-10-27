@@ -194,6 +194,8 @@ export async function GET(req: NextRequest) {
         $project: {
           number: 1,
           deliveredAt: 1,
+          paidAt: 1,
+          paymentStatus: 1,
           vendorId: "$createdBy",
           total: 1,
           credits: "$creditTotal",
@@ -312,6 +314,8 @@ export async function GET(req: NextRequest) {
         $project: {
           number: 1,
           deliveredAt: 1,
+          paidAt: 1,
+          paymentStatus: 1,
           vendorId: "$createdBy",
           total: 1,
           credits: "$creditTotal",

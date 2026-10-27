@@ -8,6 +8,7 @@ import { ExportExcelButton } from "../ui/ExportExcelButton";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import { PaginatedSelect } from "../ui/PaginatedSelect";
 import { formatCurrency } from "@/utils/format";
+import InventoryAllocationsModal, {AllocationType} from "../modals/InventoryAllocationsModal";
 
 export function InventoryTable() {
   const [page, setPage] = useState(1);
@@ -26,6 +27,17 @@ export function InventoryTable() {
   });
 
   const [submitStatus, setSubmitStatus] = useState<"loading"| null>(null);
+
+  const [selectedAllocation, setSelectedAllocation] = useState<{inventoryId: string; productName: string; allocation: AllocationType;} | null>(null);
+  const openAllocations = (
+    item: any, allocation: AllocationType
+  ) => {
+    setSelectedAllocation({
+      inventoryId: item._id,
+      productName: `${item.product?.brand?.name ?? ""} ${item.product?.name ?? ""} ${item.product?.weight ?? ""}${item.product?.unit?.toUpperCase() ?? ""}`.trim(),
+      allocation,
+    });
+  };
 
   useEffect(() => {
     setPage(1);
@@ -118,8 +130,26 @@ export function InventoryTable() {
               <td className="p-2 capitalize">{it.product?.productType?.name?.toLowerCase()}</td>
               <td className={`p-2 text-right ${it.currentInventory === 0? "text-red-600": ""}`}>{formatCurrency(Number(it.currentInventory * it.product.unitCost))}</td>
               <td className={`p-2 text-center ${it.currentInventory === 0? "text-red-600": ""}`}>{Math.round(it.currentInventory)}</td>
-              <td className="p-2 text-center">{Math.round(it.preSavedInventory)}</td>
-              <td className="p-2 text-center">{Math.round(it.onRouteInventory)}</td>
+              <td className="p-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => openAllocations(it, "presaved")}
+                  className={`font-bold px-2 py-1 rounded-xl cursor-pointer transition-all duration-300 ${it.preSavedInventory > 0 ? "text-blue-800 bg-blue-200 hover:bg-blue-800 hover:text-white hover:underline" : "text-red-500 hover:bg-red-200"} disabled:cursor-not-allowed`}
+                  title="View Presaved preorders"
+                  disabled={Math.round(it.preSavedInventory ?? 0) <= 0}>
+                  {Math.round(it.preSavedInventory ?? 0)}
+                </button>
+              </td>
+              <td className="p-2 text-center">
+              <button
+                  type="button"
+                  onClick={() => openAllocations(it, "onRoute")}
+                  className={`font-bold px-2 py-1 rounded-xl cursor-pointer transition-all duration-300 ${it.onRouteInventory > 0 ? "text-blue-800 bg-blue-200 hover:bg-blue-800 hover:text-white hover:underline" : "text-red-500 hover:bg-red-200"} disabled:cursor-not-allowed`}
+                  title="View On Route preorders"
+                  disabled={Math.round(it.onRouteInventory ?? 0) <= 0}>
+                  {Math.round(it.onRouteInventory ?? 0)}
+                </button>
+              </td>
               <td className="p-2 text-center">{Math.round(it.inactiveInventory)}</td>
             </tr>
           ))}
@@ -171,6 +201,15 @@ export function InventoryTable() {
               onClose={() => setSubmitStatus(null)}
               collection="General Reports"
           />
+      )}
+      {selectedAllocation && (
+        <InventoryAllocationsModal
+          inventoryId={selectedAllocation.inventoryId}
+          inventoryLocation="phoenix"
+          productName={selectedAllocation.productName}
+          allocation={selectedAllocation.allocation}
+          onClose={() => setSelectedAllocation(null)}
+        />
       )}
     </div>   
   );

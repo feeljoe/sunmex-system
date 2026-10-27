@@ -5,6 +5,7 @@ import Client from "@/models/Client";
 import "@/models/Chain";
 import "@/models/PaymentTerm";
 import * as XLSX from "xlsx";
+import "@/models/Route";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     const clients = await Client.find({})
       .populate("chain", "name")
       .populate("paymentTerm", "name")
+      .populate("routeAssigned", "code")
       .lean();
 
     // 2. RAM Sorting Engine: Sort by Chain Name, then Client Name
@@ -45,6 +47,7 @@ export async function GET(req: NextRequest) {
         "Client #": c.clientNumber || "-",
         "Client Name": c.clientName || "-",
         "Chain": c.chain?.name || "-",
+        "Route" : c.routeAssigned?.code || "-",
         "Contact Name": c.contactName || "-",
         "Phone": c.phoneNumber || "-",
         "Billing Address": fullAddress,
