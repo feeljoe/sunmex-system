@@ -32,8 +32,12 @@ export async function PATCH(
     }
     const validatedPayments = payments.map((p: any) => {
       const amount = Number(p.amount);
-      if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
+      if (!Number.isFinite(amount) || amount <= 0) {
         throw new Error("Invalid payment amount");
+      }
+      const amountInCents = Math.round(amount * 100);
+      if(Math.abs(amount * 100 - amountInCents) > 1e-6){
+        throw new Error("Payment amounts must have no more than 2 decimal places");
       }
       if (!["cash", "check"].includes(p.type)) {
         throw new Error("Invalid payment type");
@@ -44,7 +48,7 @@ export async function PATCH(
       return {
         _id: p._id,
         type: p.type,
-        amount,
+        amount: amountInCents / 100,
         checkNumber: p.type === "check" ? String(p.checkNumber).trim() : undefined,
       };
     });
@@ -105,7 +109,7 @@ export async function PATCH(
       }
 
       const wasPaid = preorder.paymentStatus === "paid";
-      const isPaid = totalPaidCents >= netCents - 1;
+      const isPaid = totalPaidCents >= netCents - 5;
 
       preorder.payments = updatedPayments;
       preorder.paymentStatus = isPaid ? "paid" : "pending";
