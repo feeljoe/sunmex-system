@@ -42,9 +42,13 @@ const ForeignInventorySchema = new Schema(
         cost: { type: Number },
         originalQty: { type: Number },
         currentQty: { type: Number },
-        receivedAt: { type: Date, default: Date.now }
+        onRouteReservedQty: { type: Number, default: 0, min: 0 },
+        receivedAt: { type: Date, default: Date.now },
+        expirationDate: {type: Date, default: null},
+        hasMovement: {type: Boolean, default: false},
+        lastMovementAt: {type: Date, default: null},
       }
-    ]
+    ],
   },
   {
     timestamps: true,

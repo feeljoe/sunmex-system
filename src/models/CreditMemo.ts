@@ -1,5 +1,6 @@
 // models/CreditMemo.ts
 import { Schema, model, models } from "mongoose";
+import { LotAllocationsSchema } from "./LotAllocation";
 
 const CreditMemoSchema = new Schema(
   {
@@ -23,7 +24,16 @@ const CreditMemoSchema = new Schema(
           type: String,
           enum: ["damaged", "expired", "good"]
         },
-        expirationDate: { type: Date }
+        expirationDate: { type: Date },
+        lotAllocations: {
+          type: [LotAllocationsSchema],
+          default: [],
+        },
+        lotResolutionStatus: {
+          type: String,
+          enum: ["pending", "resolved", "unresolved"],
+          default: "pending",
+        },
       },
     ],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -62,6 +72,15 @@ const CreditMemoSchema = new Schema(
       enum: ["phoenix", "yuma", "tucson", "elPaso", "lasVegas"],
       default: "phoenix",
     },
+    lotAllocations: [
+      {
+        lotId: Schema.Types.ObjectId,
+        lotNumber: String,
+        unitCost: Number,
+        expirationDate: Date,
+        lotMatchMethod: String,
+      }
+    ]
   },
   { versionKey: false }
 );

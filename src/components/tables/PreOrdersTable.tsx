@@ -2,7 +2,7 @@
 
 import { useList } from "@/utils/useList";
 import { SearchBar } from "../ui/SearchBar";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AssignRouteModal from "../modals/AssignRouteModal";
 import SubmitResultModal from "../modals/SubmitResultModal";
 import PreorderDetailsModal from "../modals/PreorderDetailsModal";
@@ -14,6 +14,9 @@ import { formatCurrency } from "@/utils/format";
 import Link from "next/link";
 import { useSidebar } from "@/app/components/SideBarContext";
 import CancelOrderModal from "../modals/CancelPreorderModal";
+import PreorderMobileCard from "../mobile/PreorderMobileCard";
+import PreorderMobileDetailsModal from "../modals/PreorderMobileDetailsModal";
+import PreorderMobileFiltersModal from "../modals/PreorderMobileFiltersModal";
 
 export function PreordersTable({ userRole, userId }: { userRole: string, userId: string }) {
   const statusColors: Record<string, string> = {
@@ -50,6 +53,18 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   const [vendors, setVendors] = useState<any[]>([]);
   const [warehouseUsers, setWarehouseUsers] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1279px)");
+    const updateLayout = () => {
+      setIsMobileLayout(media.matches);
+    };
+    updateLayout();
+    media.addEventListener("change", updateLayout);
+    return () => {
+      media.removeEventListener("change", updateLayout);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -102,6 +117,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   const [message, setMessage] = useState("");
   const [editingPreorder, setEditingPreorder] = useState(null);
   const [showFilters, setShowFilters] = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Snappy Loading Modal Logic
   useEffect(() => {
@@ -211,16 +227,30 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
       if (key === "subtotal") result = result.filter(o => o.subtotal === Number(value));
     });
 
-    if (search) {
-      const lowerSearch = search.toLowerCase();
-      result = result.filter(o =>
-        o.number?.toLowerCase().includes(lowerSearch) ||
-        o.client?.clientName?.toLowerCase().includes(lowerSearch)
-      );
+    if (search.trim()) {
+      const lowerSearch = search.trim().toLowerCase();
+    
+      result = result.filter((o) => {
+        const preorderNumber = String(o.number ?? "").toLowerCase();
+        const clientName = String(o.client?.clientName ?? "").toLowerCase();
+    
+        return (
+          preorderNumber.includes(lowerSearch) ||
+          clientName.includes(lowerSearch)
+        );
+      });
     }
 
     return result;
   }, [localItems, vendorInput, routeInput, warehouseInput, activeFilters, search]);
+
+  const handleSearch = useCallback((value: string) => {
+    setSearch((previous) => {
+      if(previous === value) return previous;
+      return value;
+    });
+    setPage(1);
+    }, []);
 
   const totalPages = filteredItems.length > 0 ? Math.ceil(filteredItems.length / ITEMS_PER_PAGE) : 1;
   const paginatedItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -258,10 +288,28 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
       setSubmitStatus("error");
     }
   };
+  const applyMobileFilters = (values: {
+    dates: { from: string, to: string };
+    vendor: string;
+    route: string;
+    warehouse: string;
+    activeFilters: Record<string, string>;
+  }) => {
+    setVendorInput(values.vendor);
+    setRouteInput(values.route);
+    setWarehouseInput(values.warehouse);
+    setActiveFilters(values.activeFilters);
+    setDraftFrom(values.dates.from);
+    setDraftTo(values.dates.to);
+    if (values.dates.from !== apiDates.from || values.dates.to !== apiDates.to) {
+      setApiDates({ from: values.dates.from, to: values.dates.to });
+    }
+    setPage(1);
+  };
 
   return (
-    <div className={`transition-all duration-300 ease-in-out ${sidebarOpen ? "md:w-[89vw]" : "md:w-[96vw]"} w-[96vw] h-[75vh] md:h-[86vh]`}>
-      <div className="flex items-center justify-end py-2">
+    <div className={`flex h-[calc(100dvh-120px)] min-h-0 min-w-0 w-full flex-col transition-all duration-300 lg:h-[86vh] ${sidebarOpen ? "lg:w-[89vw]" : "lg:w-[96vw]"}`}>
+      <div className="flex items-center justify-end mb-1">
         <Link href="/pages/sales/preorders/add-preorder">
           <button className="flex gap-2 p-2 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
             Make Pre Order
@@ -271,129 +319,192 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
           </button>
         </Link>
       </div>
-      <div className='flex flex-col w-full h-full bg-(--secondary) shadow-xl rounded-xl p-2 overflow-auto'>
-        {userRole === "admin" &&
-          <>
-          <div className="flex flex-col items-center md:flex-row md:justify-between mb-4 gap-2">
-          {userRole === "admin" && (
-            <div className="flex w-full md:w-auto bg-white rounded-xl justify-center shadow-xl">
-              <DateRangePicker
-                fromDate={draftFrom}
-                toDate={draftTo}
-                onChange={(from, to) => {
-                  setDraftFrom(from);
-                  setDraftTo(to);
-                  // ONLY fire the API if 'to' is valid and it actually changed!
-                  if (to && (from !== apiDates.from || to !== apiDates.to)) {
-                    setApiDates({ from, to });
-                    setPage(1);
-                  }
-                }}
-              />
-            </div>
-          )}
-          <div className="flex gap-2 w-full">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-xl bg-(--secondary) p-2 shadow-xl">
+        <div className="mb-2 flex shrink-0 items-center gap-2 lg:hidden">
+          <div className="min-w-0 flex-1">
             <SearchBar
-              placeholder="Search by client or number..."
-              onSearch={(val) => {
-                if (val !== search) { setSearch(val); setPage(1); }
-              }}
+              placeholder="Search by client or invoice"
+              onSearch={handleSearch}
               debounce
             />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            aria-label="Open preorder filters"
+            title="Filters"
+            className={`relative flex p-1.5 shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors ${Object.keys(activeFilters).length > 0 ||
+              vendorInput ||
+              routeInput ||
+              warehouseInput
+              ? "bg-blue-600 text-white"
+              : "bg-blue-400 text-blue-900"
+              }`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="size-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"
+              />
+            </svg>
+            {/* Active filter indicator */}
+            {(Object.keys(activeFilters).length > 0 ||
+              vendorInput ||
+              routeInput ||
+              warehouseInput) && (
+                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-red-500" />
+              )}
+          </button>
+          <div className="shrink-0">
             <RefreshButton onRefresh={() => reload()} />
           </div>
-        
-              <button
-                onClick={() => setShowFilters((prev) => !prev)}
-                className={`cursor-pointer flex gap-2 p-2 ${showFilters ? "bg-yellow-400 text-yellow-800" : "bg-yellow-800 text-white"} hover:bg-yellow-800 hover:text-white rounded-xl text-xl font-bold transition-colors duration:300`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-5 md:size-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
-                </svg>
-                <span className="text-sm md:text-[16px] whitespace-nowrap">{showFilters ? "Hide Filters" : "Show Filters"}</span>
-              </button>
-            </div>
-            {showFilters && (
-              <>
-                <div className="flex flex-col md:flex-row gap-2 mb-2 md:h-10 md:flex-wrap">
-                  {/* SAFE CHANGE HANDLERS: Only resets page if value actually changed */}
-                  <select value={vendorInput} onChange={(e) => {
-                    if (e.target.value !== vendorInput) { setVendorInput(e.target.value); setPage(1); }
-                  }} className="p-2 rounded-xl bg-white cursor-pointer">
-                    <option value="">All Vendors</option>
-                    {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
-                  </select>
+        </div>
+        {/* MOBILE RESULT COUNT */}
+        <div className="mb-2 flex shrink-0 items-center justify-between px-1 text-xs font-semibold text-gray-600 xl:hidden">
+          <span>
+            {filteredItems.length} preorders found
+          </span>
 
-                  <select value={routeInput} onChange={(e) => {
-                    if (e.target.value !== routeInput) { setRouteInput(e.target.value); setPage(1); }
-                  }} className="p-2 rounded-xl bg-white cursor-pointer">
-                    <option value="">All Routes</option>
-                    {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
-                  </select>
-
-                  <select value={warehouseInput} onChange={(e) => {
-                    if (e.target.value !== warehouseInput) { setWarehouseInput(e.target.value); setPage(1); }
-                  }} className="p-2 rounded-xl bg-white cursor-pointer">
-                    <option value="">All Warehouse</option>
-                    {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
-                  </select>
+          <span>
+            {[
+              ...Object.keys(activeFilters),
+              ...(vendorInput ? ["vendor"] : []),
+              ...(routeInput ? ["route"] : []),
+              ...(warehouseInput ? ["warehouse"] : []),
+            ].length}{" "}
+            filters active
+          </span>
+        </div>
+        <div className="hidden lg:block">
+          {userRole === "admin" &&
+            <>
+              <div className="flex flex-col items-center md:flex-row md:justify-between mb-4 gap-2">
+                {userRole === "admin" && (
+                  <div className="flex w-full md:w-auto bg-white rounded-xl justify-center shadow-xl">
+                    <DateRangePicker
+                      fromDate={draftFrom}
+                      toDate={draftTo}
+                      onChange={(from, to) => {
+                        setDraftFrom(from);
+                        setDraftTo(to);
+                        // ONLY fire the API if 'to' is valid and it actually changed!
+                        if (to && (from !== apiDates.from || to !== apiDates.to)) {
+                          setApiDates({ from, to });
+                          setPage(1);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2 w-full">
+                  <SearchBar
+                    placeholder="Search by client or number..."
+                    onSearch={handleSearch}
+                    debounce
+                  />
+                  <RefreshButton onRefresh={() => reload()} />
                 </div>
-              </>
-            )}
-          </>
-        }
-        {showFilters && (
-          <div className="flex whitespace-nowrap overflow-auto gap-2 mb-3">
-            {userRole === "admin" && (
-              <>
-                {filterOptions.map((f) => {
-                  const isActive = f.key === "total" || f.key === "subtotal" ? !!activeFilters[f.key] : activeFilters[f.key] === f.value;
-                  const isInputActive = activeInput === f.key;
 
-                  if (f.key === "total" || f.key === "subtotal") {
+                <button
+                  onClick={() => setShowFilters((prev) => !prev)}
+                  className={`cursor-pointer flex gap-2 p-2 ${showFilters ? "bg-yellow-400 text-yellow-800" : "bg-yellow-800 text-white"} hover:bg-yellow-800 hover:text-white rounded-xl text-xl font-bold transition-colors duration:300`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-5 md:size-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                  </svg>
+                  <span className="text-sm md:text-[16px] whitespace-nowrap">{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                </button>
+              </div>
+              {showFilters && (
+                <>
+                  <div className="flex flex-col md:flex-row gap-2 mb-2 md:h-10 md:flex-wrap">
+                    {/* SAFE CHANGE HANDLERS: Only resets page if value actually changed */}
+                    <select value={vendorInput} onChange={(e) => {
+                      if (e.target.value !== vendorInput) { setVendorInput(e.target.value); setPage(1); }
+                    }} className="p-2 rounded-xl bg-white cursor-pointer">
+                      <option value="">All Vendors</option>
+                      {vendors.map(v => <option key={v._id} value={v.user?._id}>{v.code} - {v.user?.firstName} {v.user?.lastName}</option>)}
+                    </select>
+
+                    <select value={routeInput} onChange={(e) => {
+                      if (e.target.value !== routeInput) { setRouteInput(e.target.value); setPage(1); }
+                    }} className="p-2 rounded-xl bg-white cursor-pointer">
+                      <option value="">All Routes</option>
+                      {routes.map(r => <option key={r._id} value={r._id}>{r.code} - {r.user?.firstName} {r.user?.lastName}</option>)}
+                    </select>
+
+                    <select value={warehouseInput} onChange={(e) => {
+                      if (e.target.value !== warehouseInput) { setWarehouseInput(e.target.value); setPage(1); }
+                    }} className="p-2 rounded-xl bg-white cursor-pointer">
+                      <option value="">All Warehouse</option>
+                      {warehouseUsers.map(w => <option key={w._id} value={w._id}>{w.firstName} {w.lastName}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
+            </>
+          }
+          {showFilters && (
+            <div className="flex whitespace-nowrap overflow-auto gap-2 mb-3">
+              {userRole === "admin" && (
+                <>
+                  {filterOptions.map((f) => {
+                    const isActive = f.key === "total" || f.key === "subtotal" ? !!activeFilters[f.key] : activeFilters[f.key] === f.value;
+                    const isInputActive = activeInput === f.key;
+
+                    if (f.key === "total" || f.key === "subtotal") {
+                      return (
+                        <div key={f.key} className="flex whitespace-nowrap items-center gap-5">
+                          {!isInputActive ? (
+                            <button
+                              onClick={() => {
+                                if (isActive) {
+                                  setActiveFilters((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[f.key];
+                                    return copy;
+                                  });
+                                  setPage(1);
+                                } else {
+                                  setActiveInput(f.key);
+                                  setTempValue("");
+                                }
+                              }}
+                              className={`px-3 py-2 rounded-xl whitespace-nowrap shadow-xl transition-all duration:300 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}
+                            >
+                              {isActive ? `${f.label}:${activeFilters[f.key]}` : f.label}
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <input type="number" inputMode="decimal" step="0.01" value={tempValue} onChange={(e) => setTempValue(e.target.value)} className="px-2 py-1 rounded-xl bg-white shadow-xl w-24" placeholder="value" autoFocus />
+                              <button onClick={() => { if (tempValue) setActiveFilters((prev) => ({ ...prev, [f.key]: tempValue })); setActiveInput(null); setTempValue(""); setPage(1); }} className="px-3 py-2 rounded-xl bg-blue-500 text-white cursor-pointer">OK</button>
+                              <button onClick={() => { setActiveInput(null); setTempValue(""); }} className="px-3 py-2 rounded-xl bg-gray-300 text-black cursor-pointer">Cancel</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div key={f.key} className="flex whitespace-nowrap items-center gap-5">
-                        {!isInputActive ? (
-                          <button
-                            onClick={() => {
-                              if (isActive) {
-                                setActiveFilters((prev) => {
-                                  const copy = { ...prev };
-                                  delete copy[f.key];
-                                  return copy;
-                                });
-                                setPage(1);
-                              } else {
-                                setActiveInput(f.key);
-                                setTempValue("");
-                              }
-                            }}
-                            className={`px-3 py-2 rounded-xl whitespace-nowrap shadow-xl transition-all duration:300 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}
-                          >
-                            {isActive ? `${f.label}:${activeFilters[f.key]}` : f.label}
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <input type="number" inputMode="decimal" step="0.01" value={tempValue} onChange={(e) => setTempValue(e.target.value)} className="px-2 py-1 rounded-xl bg-white shadow-xl w-24" placeholder="value" autoFocus />
-                            <button onClick={() => { if (tempValue) setActiveFilters((prev) => ({ ...prev, [f.key]: tempValue })); setActiveInput(null); setTempValue(""); setPage(1); }} className="px-3 py-2 rounded-xl bg-blue-500 text-white cursor-pointer">OK</button>
-                            <button onClick={() => { setActiveInput(null); setTempValue(""); }} className="px-3 py-2 rounded-xl bg-gray-300 text-black cursor-pointer">Cancel</button>
-                          </div>
-                        )}
-                      </div>
+                      <button key={f.label} onClick={() => toggleFilters(f.key, f.value)} className={`px-3 py-1 rounded-xl shadow-xl transition-all duration-200 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}>
+                        {f.label}
+                      </button>
                     );
-                  }
-
-                  return (
-                    <button key={f.label} onClick={() => toggleFilters(f.key, f.value)} className={`px-3 py-1 rounded-xl shadow-xl transition-all duration-200 cursor-pointer ${isActive ? "bg-(--tertiary) text-white" : "bg-white hover:bg-gray-100"}`}>
-                      {f.label}
-                    </button>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        )}
-        <div className='flex-1 overflow-auto rounded-xl shadow-xl bg-white font-mono'>
+                  })}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="hidden min-h-0 min-w-0 flex-1 overflow-auto rounded-xl bg-white font-mono shadow-xl lg:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-(--tertiary) sticky top-0 whitespace-nowrap">
               <tr className="border-b">
@@ -546,6 +657,45 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             </tbody>
           </table>
         </div>
+        {/* MOBILE / TABLET CARDS */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain lg:hidden">
+          {paginatedItems.length === 0 && !loading ? (
+            <div className="rounded-xl bg-white p-8 text-center text-sm font-semibold text-gray-500">
+              No preorders found.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+              {paginatedItems.map((it: any) => (
+                <PreorderMobileCard
+                  key={it._id}
+                  preorder={it}
+                  userRole={userRole}
+                  selected={selectedIds.includes(it._id)}
+                  onSelect={(id, checked) => {
+                    setSelectedIds((prev) =>
+                      checked
+                        ? [...new Set([...prev, id])]
+                        : prev.filter((itemId) => itemId !== id)
+                    );
+                  }}
+                  onOpen={() => {
+                    setSelectedPreorder(it);
+                  }}
+                  onAssign={() => {
+                    setSelectedIds([]);
+                    setSelectedPreorder2(it);
+                    setSelectedClient(it.client?.clientName);
+                    setAssignRouteModalOpen(true);
+                  }}
+                  onCancel={() => {
+                    setSelectedPreorder2(it);
+                    setCancelModalOpen(true);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* FOOTER */}
         <div className="flex flex-col md:flex-row justify-between items-center mt-2 gap-2">
@@ -565,7 +715,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
             )}
           </div>
           <div className="text-sm md:text-[16px] flex w-full md:w-auto font-mono font-bold items-center justify-between gap-4">
-            <span className="hidden md:block">
+            <span className="hidden lg:block">
               Showing {paginatedItems.length} of {filteredItems.length} Records
             </span>
             <button disabled={page === 1} onClick={() => handleSetPage("back")} className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}>
@@ -579,7 +729,42 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
         </div>
 
         {/* MODALS */}
-        {selectedPreorder && <PreorderDetailsModal preorder={selectedPreorder} onClose={() => setSelectedPreorder(null)} onEdit={(preorder) => { setEditingPreorder(preorder); }} userRole={userRole} />}
+
+        {selectedPreorder &&
+          (isMobileLayout ? (
+            <PreorderMobileDetailsModal
+              preorder={selectedPreorder}
+              userRole={userRole}
+              onClose={() => setSelectedPreorder(null)}
+              onEdit={(preorder) => {
+                setEditingPreorder(preorder);
+              }}
+            />
+          ) : (
+            <PreorderDetailsModal
+              preorder={selectedPreorder}
+              userRole={userRole}
+              onClose={() => setSelectedPreorder(null)}
+              onEdit={(preorder) => {
+                setEditingPreorder(preorder);
+              }}
+            />
+          ))}
+        <PreorderMobileFiltersModal
+          isOpen={mobileFiltersOpen}
+          onClose={() => setMobileFiltersOpen(false)}
+          onApply={applyMobileFilters}
+          userRole={userRole}
+          apiDates={apiDates}
+          vendorInput={vendorInput}
+          routeInput={routeInput}
+          warehouseInput={warehouseInput}
+          activeFilters={activeFilters}
+          vendors={vendors}
+          routes={routes}
+          warehouseUsers={warehouseUsers}
+        />
+
         {editingPreorder && <PreorderWizard userRole={userRole} mode="edit" existingPreorder={editingPreorder} />}
 
         {assignRouteModalOpen && (

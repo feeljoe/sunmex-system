@@ -1,137 +1,632 @@
 "use client";
+import { useEffect } from "react";
+import { ArrowDownTrayIcon, CalendarDaysIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { formatCurrency } from "@/utils/format";
 
 interface Props {
   open: boolean;
   receipt: any;
   onClose: () => void;
+  onEdit?: (receipt: any) => void;
 }
+function formatDate(value?: string | Date | null) {
+  if(!value) return "-";
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "America/Phoenix",
+  });
+}
+function formatExpiration(value?: string | Date | null) {
+  if (!value) return "Not Required";
+
+  // Expiration dates represent calendar dates rather
+  // than a specific moment in local time.
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const iso = date.toISOString().slice(0, 10);
+  const [year, month, day] = iso.split("-");
+  return `${month}/${day}/${year}`;
+}
+
+function receiptLots(item: any) {
+  if (Array.isArray(item.lots) && item.lots.length > 0) {
+    return item.lots;
+  }
+  if (Number(item.receivedQuantity ?? 0) > 0) {
+    return [{
+      lotId: item.lotId,
+      quantity: Number(item.receivedQuantity),
+      expirationDate: item.expirationDate ?? null,
+    }];
+  }
+  return [];
+}
+
+function LotSummary({ item }: { item: any }) {
+  const lots = receiptLots(item);
+  if (lots.length === 0) return <span className="text-gray-500">No units received</span>;
+  return (
+    <div className="space-y-1">
+      {lots.map((lot: any, index: number) => (
+        <div key={String(lot.lotId ?? index)} className="flex flex-wrap gap-x-2 text-xs">
+          <span className="font-bold">Lot {index + 1}: {lot.quantity} units</span>
+          <span>{formatExpiration(lot.expirationDate)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const paymentStatusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  overdue: "bg-red-100 text-red-800",
+  paid: "bg-green-100 text-green-800",
+};
 
 export function SupplierReceiptSummaryModal({
   open,
   receipt,
   onClose,
+  onEdit,
 }: Props) {
+  useEffect(() => {
+    if(!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   if (!open || !receipt) return null;
-  const statusColors: Record<string, string> = {
-    pending: "bg-orange-300 text-orange-600 font-bold",
-    received: "bg-green-300 <text-green-600></text-green-600> font-bold",
-    paid: "bg-green-500 text-white font-bold",
-    cancelled: "bg-red-500 text-white",
-  };
+  
+  const items = [...(receipt.items ?? [])].sort((a, b) => {
+    const brandA = String(a.product?.brand?.name ?? "");
+    const brandB = String(b.product?.brand?.name ?? "");
+    const brandDifference = brandA.localeCompare(brandB);
+    if(brandDifference !== 0) return brandDifference;
+    return String(a.product?.name ?? "").localeCompare(String(b.product?.name));
+  });
+  const paymentStatus = receipt.paymentStatus ?? "pending";
+  const receiptStatus = receipt.supplierOrder?.status ?? "received";
+  const hasPayments = Array.isArray(receipt.payments) && receipt.payments.length > 0;
+  const canEdit = ["pending", "overdue"].includes(paymentStatus) && !hasPayments;
+  const paidAmount = (receipt.payments ?? []).reduce((sum: number, payment: any) => sum + Number(payment.amount ?? 0), 0);
+  const balance = Math.max(Number(receipt.total ?? 0) - paidAmount, 0);
+  const totalOrdered = items.reduce((sum, item) => sum + Number(item.orderedQuantity ?? 0), 0);
+  const totalReceived = items.reduce((sum, item) => sum + Number(item.receivedQuantity ?? 0), 0);
+  const differenceCount = items.filter((item) => Number(item.orderedQuantity) !== Number(item.receivedQuantity) || Math.abs(Number(item.unitCost) - Number(item.actualCost)) >= 0.001).length;
+  const person = receipt.elaboratedBy;
+  const elaboratedBy = [person?.firstName, person?.lastName].filter(Boolean).join(" ") || "-";
 
-  const formatCurrency = (v?: number) =>
-    v != null ? `$${v.toFixed(2)}` : "-";
-
-  const formatDate = (v?: string) =>
-    v ? new Date(v).toLocaleDateString() : "-";
 
   const exportPdf = () => {
-    window.open(`/api/supplierReceipts/${receipt._id}/export/pdf`, "_blank");
+    window.open(`/api/supplierReceipts/${receipt._id}/export/pdf`, "_blank", "noopener,noreferrer");
   };
 
   const exportExcel = () => {
-    window.open(`/api/supplierReceipts/${receipt._id}/export/excel`, "_blank");
+    window.open(`/api/supplierReceipts/${receipt._id}/export/excel`, "_blank", "noopener,noreferrer");
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-(--secondary) rounded-xl shadow-xl w-full max-w-2xl p-6 lg:max-w-5xl max-h-[90vh] overflow-auto">
-
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onMouseDown={(event) => {
+        if(event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-label="Supplier Receipt Summary"
+        className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-(--secondary) shadow-2xl sm:h-[92dvh] sm:max-w-3xl sm:rounded-2xl lg:max-w-6xl"
+      >
         {/* HEADER */}
-        <div className="flex justify-between items-center py-2 mb-4 border-b">
-          <h2 className="lg:text-2xl font-semibold">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-(--quarteary) sm:bg-(--tertiary) pt-[max(12px,env(safe-area-inset-top))] p-2">
+        <div className="min-w-0 text-white sm:text-black">
+          <h2 className="text-base font-black sm:text-xl lg:text-2xl">
             Supplier Receipt Summary
           </h2>
+          <p className="mt-1 break-words text-xs font-semibold opacity-75">
+            {receipt.invoice} | {receipt.poNumber}
+          </p>
+          </div>
           <button
+            type="button"
+            aria-label="Close supplier receipt"
             onClick={onClose}
-            className="px-2 py-2 bg-red-500 text-white rounded-xl hover:bg-red-300 cursor-pointer transition-all duration:300"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500 text-white transition-colors hover:bg-red-600"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
+            <XMarkIcon className="w-6 h-6"/>
           </button>
-        </div>
+        </header>
 
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-4">
-          <div><strong>Invoice:</strong> {receipt.invoice}</div>
-          <div className="text-center"><strong>PO Number:</strong> {receipt.poNumber}</div>
-          <div className="text-right"><strong>Supplier:</strong> {receipt.supplier?.name}</div>
-          <div><strong>Status:</strong> <span className={`p-2 rounded-xl ${statusColors[receipt.supplierOrder.status]}`}>{receipt.supplierOrder.status.toUpperCase()}</span></div>
-          <div className="text-center"><strong>Requested At:</strong> {formatDate(receipt.requestedAt)}</div>
-          <div className="text-right"><strong>Received At:</strong> {formatDate(receipt.receivedAt)}</div>
-        </div>
-        <div className="flex justify-between">
-          <div className="py-4">
-              <strong>Elaborated By:</strong>{" "}
-              {receipt.elaboratedBy.firstName} {receipt.elaboratedBy.lastName}
+        {/* SCROLLABLE CONTENT */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-2 sm:p-4">
+          {/* RECEIPT INFORMATION */}
+          <section className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Supplier Invoice
+                </p>
+                <h3 className="break-words text-xl font-black text-gray-900">
+                  {receipt.invoice}
+                </h3>
+                <p className="mt-1 text-sm font-semibold text-blue-700">
+                  PO: {receipt.poNumber}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${
+                    paymentStatusColors[paymentStatus] ??
+                    "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  Payment: {paymentStatus}
+                </span>
+
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold capitalize text-green-800">
+                  Order: {receiptStatus}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-xs text-gray-500">Supplier</p>
+                <p className="font-bold capitalize text-gray-900">
+                  {receipt.supplier?.name ?? "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Requested</p>
+                <p className="font-bold text-gray-900">
+                  {formatDate(receipt.requestedAt)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Received</p>
+                <p className="font-bold text-gray-900">
+                  {formatDate(receipt.receivedAt)}
+                </p>
+              </div>
+
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-xs text-gray-500">Received By</p>
+                <p className="font-bold capitalize text-gray-900">
+                  {elaboratedBy}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Paid At</p>
+                <p className="font-bold text-gray-900">
+                  {formatDate(receipt.paidAt)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Product Lines</p>
+                <p className="font-bold text-gray-900">
+                  {items.length}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* FINANCIAL SUMMARY */}
+          <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              {
+                label: "Receipt Total",
+                value: formatCurrency(Number(receipt.total ?? 0)),
+              },
+              {
+                label: "Paid Amount",
+                value: formatCurrency(paidAmount),
+              },
+              {
+                label: "Balance",
+                value: formatCurrency(balance),
+              },
+              {
+                label: "Received Units",
+                value: `${totalReceived} / ${totalOrdered}`,
+              },
+            ].map((metric) => (
+              <div
+                key={metric.label}
+                className="rounded-xl bg-white p-3 shadow-sm"
+              >
+                <p className="text-[11px] font-semibold uppercase text-gray-500">
+                  {metric.label}
+                </p>
+                <p className="mt-1 break-words text-lg font-black text-gray-900">
+                  {metric.value}
+                </p>
+              </div>
+            ))}
+          </section>
+
+          {differenceCount > 0 && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm font-semibold text-orange-800">
+              {differenceCount} product line(s) have a quantity
+              or unit-cost difference.
+            </div>
+          )}
+
+          {/* MOBILE / IPAD PRODUCT CARDS */}
+          <div className="space-y-2 lg:hidden">
+            {items.length === 0 ? (
+              <div className="rounded-xl bg-white p-5 text-center text-gray-500">
+                No products to show
+              </div>
+            ) : (
+              items.map((item: any, index: number) => {
+                const ordered = Number(
+                  item.orderedQuantity ?? 0
+                );
+                const received = Number(
+                  item.receivedQuantity ?? 0
+                );
+                const unitCost = Number(item.unitCost ?? 0);
+                const actualCost = Number(
+                  item.actualCost ?? 0
+                );
+
+                const quantityDifferent = ordered !== received;
+                const costDifferent =
+                  Math.abs(unitCost - actualCost) >= 0.001;
+
+                return (
+                  <article
+                    key={item._id ?? index}
+                    className={`rounded-xl border p-3 shadow-sm ${
+                      quantityDifferent || costDifferent
+                        ? "border-orange-300 bg-orange-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <p className="text-xs font-bold uppercase text-blue-700">
+                      {item.product?.brand?.name ?? "Unbranded"}
+                    </p>
+
+                    <h4 className="mt-1 text-sm font-bold capitalize text-gray-900">
+                      {item.product?.name ?? "Unknown Product"} {item.product?.weight ?? ""}{item.product?.unit?.toUpperCase() ?? ""}
+                    </h4>
+
+                    <p className="mt-1 break-words text-[11px] text-gray-500">
+                      SKU: {item.product?.sku ?? "-"}
+                      {" | "}
+                      UPC: {item.product?.upc ?? "-"}
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-white/80 p-2">
+                      <div>
+                        <p className="text-[11px] text-gray-500">
+                          Ordered
+                        </p>
+                        <p className="text-lg font-black text-gray-900">
+                          {ordered}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] text-gray-500">
+                          Received
+                        </p>
+                        <p
+                          className={`text-lg font-black ${
+                            quantityDifferent
+                              ? "text-orange-700"
+                              : "text-green-700"
+                          }`}
+                        >
+                          {received}
+                          {quantityDifferent && (
+                            <span className="ml-1 text-xs">
+                              ({received - ordered > 0 ? "+" : ""}
+                              {received - ordered})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] text-gray-500">
+                          Original Unit Cost
+                        </p>
+                        <p className="font-bold text-gray-900">
+                          {formatCurrency(unitCost)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] text-gray-500">
+                          Actual Unit Cost
+                        </p>
+                        <p
+                          className={`font-bold ${
+                            costDifferent
+                              ? "text-orange-700"
+                              : "text-gray-900"
+                          }`}
+                        >
+                          {formatCurrency(actualCost)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
+                      <div>
+                        <p className="flex items-center gap-1 text-xs text-gray-500">
+                          <CalendarDaysIcon className="h-4 w-4" />
+                          Expiration
+                        </p>
+                        <p className="text-sm font-bold text-gray-800">
+                          <LotSummary item={item} />
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">
+                          Line Total
+                        </p>
+                        <p className="text-lg font-black text-gray-900">
+                          {formatCurrency(
+                            received * actualCost
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            )}
           </div>
-          <div className="py-4">
-            <strong>Payment Status: </strong>{" "}
-            <span className={`p-2 rounded-xl ${statusColors[receipt.paymentStatus]}`}>{receipt.paymentStatus?.toUpperCase()}</span>
-          </div>
-        </div>
-        <div className="h-100 overflow-auto rounded-xl shadow-xl">
-            <table className="w-full">
-                <thead className="bg-(--tertiary)">
-                    <tr>
-                        <th className="p-2 whitespace-nowrap">SKU</th>
-                        <th className="p-2 whitespace-nowrap">UPC</th>
-                        <th className="p-2 whitespace-nowrap">Product</th>
-                        <th className="p-2 whitespace-nowrap">Ordered</th>
-                        <th className="p-2 whitespace-nowrap">Received</th>
-                        <th className="p-2 whitespace-nowrap">Unit Cost</th>
-                        <th className="p-2 whitespace-nowrap">Actual Cost</th>
-                        <th className="p-2 whitespace-nowrap">Total</th>
+
+          {/* DESKTOP TABLE */}
+          <div className="hidden overflow-x-auto rounded-xl bg-white shadow-sm lg:block">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-(--tertiary)">
+                <tr>
+                  {[
+                    "SKU",
+                    "UPC",
+                    "Brand",
+                    "Product",
+                    "Ordered",
+                    "Received",
+                    "Unit Cost",
+                    "Actual Cost",
+                    "Expiration",
+                    "Total",
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="whitespace-nowrap p-3"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {items.map((item: any, index: number) => {
+                  const ordered = Number(
+                    item.orderedQuantity ?? 0
+                  );
+                  const received = Number(
+                    item.receivedQuantity ?? 0
+                  );
+                  const originalCost = Number(
+                    item.unitCost ?? 0
+                  );
+                  const actualCost = Number(
+                    item.actualCost ?? 0
+                  );
+
+                  const quantityDifferent =
+                    ordered !== received;
+                  const costDifferent =
+                    Math.abs(originalCost - actualCost) >= 0.001;
+
+                  return (
+                    <tr
+                      key={item._id ?? index}
+                      className={`border-b border-gray-100 ${
+                        quantityDifferent || costDifferent
+                          ? "bg-orange-50"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <td className="p-2">
+                        {item.product?.sku ?? "-"}
+                      </td>
+                      <td className="p-2">
+                        {item.product?.upc ?? "-"}
+                      </td>
+                      <td className="min-w-40 p-2 font-semibold capitalize">
+                        {item.product?.brand?.name?.toLowerCase() ?? "-"}
+                      </td>
+                      <td className="min-w-40 p-2 font-semibold capitalize">
+                        {item.product?.name?.toLowerCase() ?? "-"} {item.product?.weight ?? ""}{item.product?.unit?.toUpperCase() ?? ""}
+                      </td>
+                      <td className="p-2 text-center">
+                        {ordered}
+                      </td>
+                      <td
+                        className={`p-2 text-center font-bold ${
+                          quantityDifferent
+                            ? "text-orange-700"
+                            : ""
+                        }`}
+                      >
+                        {received}
+                      </td>
+                      <td className="p-2 text-right">
+                        {formatCurrency(originalCost)}
+                      </td>
+                      <td
+                        className={`p-2 text-right ${
+                          costDifferent
+                            ? "font-bold text-orange-700"
+                            : ""
+                        }`}
+                      >
+                        {formatCurrency(actualCost)}
+                      </td>
+                      <td className="whitespace-nowrap p-2">
+                        <LotSummary item={item} />
+                      </td>
+                      <td className="p-2 text-right font-bold">
+                        {formatCurrency(received * actualCost)}
+                      </td>
                     </tr>
-                </thead>
-                <tbody className="bg-white">
-                    {receipt.items?.length === 0 && (
-                        <tr>
-                            <td colSpan={7} className="p-4 text-center text-gray-500">No Products to show</td>
-                        </tr>
-                    )}
-                    {receipt.items?.map((item: any) => {
-                        const lineTotal = (item.receivedQuantity ?? 0) * (item.actualCost ?? 0);
-                        return (
-                        <tr key={item._id} className="border-b">
-                            <td className="p-2 whitespace-nowrap">{item.product?.sku}</td>
-                            <td className="p-2 whitespace-nowrap">{item.product?.upc}</td>
-                            <td className="p-2 whitespace-nowrap capitalize">{item.product?.name.toLowerCase()}</td>
-                            <td className="p-2 text-center whitespace-nowrap">{item.orderedQuantity}</td>
-                            <td className="p-2 text-center whitespace-nowrap">{item.receivedQuantity}</td>
-                            <td className="p-2 text-center whitespace-nowrap">{formatCurrency(item.unitCost)}</td>
-                            <td className="p-2 text-center whitespace-nowrap">{formatCurrency(item.actualCost)}</td>
-                            <td className="p-2 text-right font-bold whitespace-nowrap">{formatCurrency(lineTotal)}</td>
-                        </tr>
-                        );
-                    })}
-                </tbody>
+                  );
+                })}
+              </tbody>
             </table>
-        </div>
-        <div className="flex justify-end text-2xl mt-4"><strong>Total: </strong> {formatCurrency(receipt.total)}</div>
-        {/* Footer buttons */}
-        <div className="flex justify-between gap-3 mt-6">
-          <button
-            title="Export to PDF"
-            onClick={exportPdf}
-            className="px-2 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-400 cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-            </svg>
-          </button>
+          </div>
 
-          <button
-            title="Export to Excel"
-            onClick={exportExcel}
-            className="px-2 py-2 bg-green-600 text-white rounded-xl hover:bg-green-400 cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5" />
-            </svg>
-          </button>
+          {/* PAYMENTS */}
+          <section className="rounded-xl bg-white p-2 shadow-sm">
+            <h3 className="font-bold text-gray-900">
+              Payment Information
+            </h3>
+
+            {!hasPayments ? (
+              <p className="mt-2 text-sm text-gray-500">
+                No payments recorded.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {receipt.payments.map(
+                  (payment: any, index: number) => (
+                    <div
+                      key={payment._id ?? index}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 p-2 text-sm"
+                    >
+                      <div>
+                        <p className="font-bold capitalize">
+                          {payment.type ?? "Payment"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDate(payment.date)}
+                        </p>
+                        {payment.checkNumber && (
+                          <p className="text-xs text-gray-500">
+                            Check: {payment.checkNumber}
+                          </p>
+                        )}
+                      </div>
+
+                      <strong>
+                        {formatCurrency(Number(payment.amount ?? 0))}
+                      </strong>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* EDIT HISTORY */}
+          {(receipt.editHistory?.length ?? 0) > 0 && (
+            <section className="rounded-xl bg-white p-2 shadow-sm">
+              <h3 className="font-bold text-gray-900">
+                Correction History
+              </h3>
+
+              <div className="mt-2 space-y-2">
+                {receipt.editHistory.map(
+                  (entry: any, index: number) => (
+                    <div
+                      key={entry._id ?? index}
+                      className="rounded-lg bg-gray-50 p-2 text-sm"
+                    >
+                      <p className="font-semibold">
+                        {formatDate(entry.editedAt)}
+                      </p>
+                      <p className="mt-1 text-gray-700">
+                        {entry.reason ?? "Receipt correction"}
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* GRAND TOTAL */}
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-(--tertiary) p-2">
+            <span className="text-lg font-bold">
+              Receipt Total
+            </span>
+            <strong className="text-2xl">
+              {formatCurrency(Number(receipt.total ?? 0))}
+            </strong>
+          </section>
         </div>
+
+        {/* PERSISTENT FOOTER */}
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-white px-1 py-2 pb-[max(6px,env(safe-area-inset-bottom))]">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              title="Export to PDF"
+              aria-label="Export to PDF"
+              onClick={exportPdf}
+              className="flex p-2 gap-2 items-center justify-center rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 cursor-pointer transition-colors"
+            >
+              <ArrowDownTrayIcon className="h-6 w-6" />
+              <span className="font-bold">PDF</span>
+            </button>
+
+            <button
+              type="button"
+              title="Export to Excel"
+              aria-label="Export to Excel"
+              onClick={exportExcel}
+              className="flex p-2 gap-2 items-center justify-center rounded-xl bg-green-400 text-green-800 hover:text-white hover:bg-green-800 cursor-pointer transition-colors"
+            >
+              <ArrowDownTrayIcon className="h-6 w-6" />
+              <span className="font-bold">Excel</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canEdit && onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(receipt)}
+                className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+              >
+                <PencilSquareIcon className="h-5 w-5" />
+                Edit Receipt
+              </button>
+            )}
+
+            {!canEdit && (
+              <span className="text-xs font-semibold text-gray-500">
+                Receipt locked
+              </span>
+            )}
+          </div>
+        </footer>
       </div>
     </div>
   );

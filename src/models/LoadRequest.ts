@@ -1,5 +1,33 @@
 import mongoose, { Schema, models } from "mongoose";
 
+const LoadRequestLotAllocationSchema = new Schema(
+  {
+    lotId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+    },
+    lotNumber: {
+      type: String,
+      default: null,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    unitCost: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    expirationDate: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const LoadRequestProductSchema = new Schema(
   {
     product: {
@@ -12,7 +40,18 @@ const LoadRequestProductSchema = new Schema(
     assembledQuantity: {type: Number},
     deliveredQuantity: {type: Number},
     differenceReason: {type: String},
-
+    reservedLotAllocations: {
+      type: [LoadRequestLotAllocationSchema],
+      default: [],
+    },
+    assembledLotAllocations: {
+      type: [LoadRequestLotAllocationSchema],
+      default: [],
+    },
+    lotAllocations: {
+      type: [LoadRequestLotAllocationSchema],
+      default: [],
+    },
   },
   { _id: false }
 );
@@ -82,6 +121,10 @@ const LoadRequestSchema = new Schema(
     deliveryDate: {type: Date},
     deliveredAt: {type: Date},
     warehouseReturnProcessed: { type: Boolean, default: false },
+    lotTrackingVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

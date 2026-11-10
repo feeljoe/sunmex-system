@@ -49,10 +49,10 @@ export async function GET() {
         const items = locations.map((location) => {
             const products = inventory.filter((item: any) => item.location === location.code);
 
-            const totalQuantity = products.reduce((sum: number, item: any) => sum + Number(item.currentInventory || 0), 0);
+            const totalQuantity = products.reduce((sum: number, item: any) => sum + Number(item.currentInventory || 0) + Number(item.preSavedInventory || 0) + Number(item.onRouteInventory || 0), 0);
 
             const totalValue = products.reduce((sum: number, item: any) => {
-                const quantity = Number(item.currentInventory || 0);
+                const quantity = Number(item.currentInventory || 0) + Number(item.preSavedInventory || 0) + Number(item.onRouteInventory || 0);
                 const unitCost = Number(item.product?.unitCost || 0);
 
                 return (sum + quantity * unitCost);

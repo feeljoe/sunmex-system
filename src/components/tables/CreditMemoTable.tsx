@@ -91,6 +91,19 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
   const [submitStatus, setSubmitStatus] =
     useState<"loading" | "success" | "error" | null>(null);
   const [message, setMessage] = useState("");
+  
+  const [isLocationHovered, setIsLocationHovered] = useState(false);
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    const timeout = setTimeout(() => setIsLocationHovered(true), 300);
+    setHoverTimeout(timeout);
+  };
+  const handleMouseLeave = () => {
+    if (hoverTimeout) clearTimeout(hoverTimeout);
+    setIsLocationHovered(false);
+  };
+
   const formatDate = (v?: string) => (v ? new Date(v).toLocaleDateString() : "-");
   const formatTime = (v?: string) =>
     v
@@ -405,6 +418,7 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                     <th className="p-2">Created By</th>
                     <th className="p-2">Created Date</th>
                     <th className="p-2">Created At</th>
+                    <th className="p-2 text-center">Location</th>
                     <th className="p-2">Returned By</th>
                     <th className="p-2">Returned Date</th>
                     <th className="p-2">Returned At</th>
@@ -488,6 +502,13 @@ export function CreditMemosTable({ userRole, userId }: { userRole: string; userI
                       </td>
                       <td className="p-2">{formatDate(it.createdAt)}</td>
                       <td className="p-2">{formatTime(it.createdAt)}</td>
+                      <td className="p-2 text-center w-48" onClick={(e) => e.stopPropagation()}>
+                          {it.location ? (
+                            <a href={`https://www.google.com/maps/search/?api=1&query=${it.location.latitude},${it.location.longitude}`} target="_blank" rel="noopener noreferrer" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="md:w-48 group p-2 rounded-xl font-bold text-blue-800 hover:bg-blue-800 hover:text-white transition-all duration-500 ease-in-out cursor-pointer justify-center items-center">
+                              <span>{isLocationHovered ? "Check Location" : `${it.location.latitude.toFixed(5)}, ${it.location.longitude.toFixed(5)}`}</span>
+                            </a>
+                          ) : "-"}
+                        </td>
                       {it.routeAssigned &&
                         <td className="p-2 capitalize">
                           {it.status === "received" ? (

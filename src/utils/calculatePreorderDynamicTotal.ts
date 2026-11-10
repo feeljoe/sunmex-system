@@ -1,5 +1,6 @@
 export const calculateDynamicTotal = (preorder: any) => {
     if (!preorder) return 0;
+    if(preorder.type === "noCharge") return 0;
     if(preorder.status === "pending" || preorder.status === "assigned"){
       return preorder.subtotal || 0;
     }

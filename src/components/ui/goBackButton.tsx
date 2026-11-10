@@ -32,7 +32,7 @@ export default function GoBackButton() {
   return (
     <button
       onClick={handleGoBack}
-      className="flex items-center px-3 py-2 rounded-xl bg-(--primary) text-white hover:bg-(--tertiary) transition-all duration-300 cursor-pointer"
+      className="flex items-center px-3 py-1 rounded-xl bg-(--primary) text-white hover:bg-(--tertiary) transition-all duration-300 cursor-pointer"
     >
       Go Back
     </button>

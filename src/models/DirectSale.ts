@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from "mongoose";
+import { LotAllocationsSchema } from "./LotAllocation";
 
 const DirectSaleSchema = new Schema(
     {
@@ -27,7 +28,7 @@ const DirectSaleSchema = new Schema(
             type: String,
             enum: ["pending", "delivered", "cancelled"],
             default: "pending",
-          },
+        },
         products: [
             {
                 product: {
@@ -44,6 +45,10 @@ const DirectSaleSchema = new Schema(
                     type: Number,
                     required: true,
                 },
+                lotAllocations: {
+                    type: [LotAllocationsSchema],
+                    default: [],
+                },
             },
         ],
         total: {
@@ -57,7 +62,7 @@ const DirectSaleSchema = new Schema(
             type: Date,
             index: true,
         },
-        cancelledAt:{
+        cancelledAt: {
             type: Date,
         },
         cancelledBy: {
@@ -66,14 +71,14 @@ const DirectSaleSchema = new Schema(
         cancelReason: {
             type: String
         },
-        updatedAt: {type: Date},
-        createdAt: {type: Date},
-        updatedBy: {type: Schema.Types.ObjectId, ref: "User"},
+        updatedAt: { type: Date },
+        createdAt: { type: Date },
+        updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
         paymentStatus: {
             type: String,
             enum: ["pending", "paid"],
             default: "pending"
-          },
+        },
         paidAt: {
             type: Date,
             default: null,
@@ -82,7 +87,7 @@ const DirectSaleSchema = new Schema(
         payments: [
             {
                 type: { type: String, enum: ["cash", "check", "creditMemo", "discount"] },
-                amount: {type: Number, required: true },
+                amount: { type: Number, required: true },
                 checkNumber: { type: String },
                 paidAt: { type: Date, default: null },
                 recordedAt: { type: Date, default: Date.now },
@@ -90,38 +95,48 @@ const DirectSaleSchema = new Schema(
                     type: Schema.Types.ObjectId,
                     ref: "User",
                     default: null,
-                  },
-                  dateUpdatedAt: {
+                },
+                dateUpdatedAt: {
                     type: Date,
                     default: null,
-                  },
-                  dateChangeHistory: [
+                },
+                dateChangeHistory: [
                     {
-                      previousDate: {
-                        type: Date,
-                        default: null,
-                      },
-                      newDate: {
-                        type: Date,
-                        required: true,
-                      },
-                      changedBy: {
-                        type: Schema.Types.ObjectId,
-                        ref: "User",
-                        required: true,
-                      },
-                      changedAt: {
-                        type: Date,
-                        default: Date.now,
-                      },
+                        previousDate: {
+                            type: Date,
+                            default: null,
+                        },
+                        newDate: {
+                            type: Date,
+                            required: true,
+                        },
+                        changedBy: {
+                            type: Schema.Types.ObjectId,
+                            ref: "User",
+                            required: true,
+                        },
+                        changedAt: {
+                            type: Date,
+                            default: Date.now,
+                        },
                     },
-                  ],
+                ],
             }
         ],
-        paymentDeletedReason: { type: String, default: null},
-        cogs: {type: Number, default: 0},
+        paymentDeletedReason: { type: String, default: null },
+        cogs: { type: Number, default: 0 },
+        lotAllocations: [
+            {
+                lotId: Schema.Types.ObjectId,
+                lotNumber: String,
+                quantity: Number,
+                unitCost: Number,
+                expirationDate: Date,
+                inventoryLocation: String,
+            }
+        ]
     },
-    {timestamps: true}
+    { timestamps: true }
 );
 
 export default mongoose.models.DirectSale || mongoose.model("DirectSale", DirectSaleSchema);

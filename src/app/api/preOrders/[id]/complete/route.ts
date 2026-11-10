@@ -12,6 +12,7 @@ import {
   getInventoryModel,
   normalizeInventoryLocation,
 } from "@/utils/inventoryResolver";
+import { allocateLotsForPicking } from "@/lib/inventory/allocateLots";
 
 export async function PATCH(
   req: Request,
@@ -288,9 +289,20 @@ export async function PATCH(
       // =======================================================
 
       if (pickedQty > 0) {
+        const { allocations, remaining } = allocateLotsForPicking(inventory.lots || [], pickedQty, inventoryLocation);
+        if (remaining > 0) {
+          throw new Error(`Insufficient lot availability for ${displayName}.` +
+            `Picked: ${pickedQty}.` +
+            `Without lot allocation: ${remaining}.` 
+          );
+        }
+        line.pickedLotAllocations = allocations;
+
         inventory.preSavedInventory -= pickedQty;
         inventory.onRouteInventory =
           Number(inventory.onRouteInventory || 0) + pickedQty;
+      } else {
+        line.pickedLotAllocations = [];
       }
 
       // =======================================================

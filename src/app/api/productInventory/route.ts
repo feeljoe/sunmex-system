@@ -172,6 +172,7 @@ export async function GET(req: Request) {
                         $add: [
                           { $ifNull: ["$currentInventory", 0] },
                           { $ifNull: ["$preSavedInventory", 0] },
+                          { $ifNull: ["$onRouteInventory", 0] },
                         ]
                       },
                       { $ifNull: ["$product.unitCost", 0] },

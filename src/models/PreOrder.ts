@@ -1,6 +1,6 @@
 // models/Preorder.ts
 import mongoose, { Schema, model, models } from "mongoose";
-
+import { LotAllocationsSchema } from "./LotAllocation";
 const PreorderSchema = new Schema(
   {
     number: { type: String, required: true, unique: true },
@@ -18,7 +18,15 @@ const PreorderSchema = new Schema(
         deviationReason: {
           type: String,
           enum: ["damaged", "missing", "returned"],
-        }
+        },
+        pickedLotAllocations: {
+          type: [LotAllocationsSchema],
+          default: [],
+        },
+        lotAllocations: {
+          type: [LotAllocationsSchema],
+          default: [],
+        },
       },
     ],
     type: { type: String, enum: ["charge", "noCharge"], default: "charge" },

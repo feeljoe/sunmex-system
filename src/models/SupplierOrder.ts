@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface ISupplierOrder extends Document {
     poNumber: string;
     supplier: mongoose.Types.ObjectId;
-    products: Array<{productId: mongoose.Types.ObjectId, quantity: number, unit: string}>;
+    products: Array<{product: mongoose.Types.ObjectId, quantity: number, unit: string}>;
     requestedAt: Date;
     elaboratedBy: string;
     status: string;

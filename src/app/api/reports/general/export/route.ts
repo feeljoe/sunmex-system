@@ -32,10 +32,49 @@ export async function GET(req: NextRequest) {
     const preorderPipeline = [
       { $match: matchPreorders },
       { $unwind: "$products" },
-      { $lookup: { from: "productinventories", localField: "products.productInventory", foreignField: "_id", as: "inventoryData" } },
-      { $unwind: "$inventoryData" },
-      { $lookup: { from: "products", localField: "inventoryData.product", foreignField: "_id", as: "productData" } },
-      { $unwind: "$productData" },
+      {
+        $addFields: {
+          resolvedInventoryModel: {
+            $ifNull: [
+              "$products.inventoryModel",
+              "ProductInventory"
+            ]
+          }
+        }
+      },
+      { $lookup: { from: "productinventories", localField: "products.productInventory", foreignField: "_id", as: "mainInventoryData" } },
+      { $lookup: { from: "foreigninventories", localField: "products.productInventory", foreignField: "_id", as: "foreignInventoryData"}},
+      {
+        $addFields: {
+          inventoryData: {
+            $cond: {
+              if: {
+                $eq: [
+                  "$resolvedInventoryModel",
+                  "ForeignInventory"
+                ]
+              },
+              then: {
+                $arrayElemAt: ["$foreignInventoryData", 0]
+              },
+              else: {
+                $arrayElemAt: ["$mainInventoryData", 0]
+              }
+            }
+          }
+        }
+      },
+      { $unwind: {
+          path: "$inventoryData",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      { $lookup: { from: "products", localField: "inventoryData.product", foreignField: "_id", as: "productData"}},
+      { $unwind: {
+          path: "$productData",
+          preserveNullAndEmptyArrays: true,
+        }
+      },
       { $lookup: { from: "brands", localField: "productData.brand", foreignField: "_id", as: "brandData" } },
       { $unwind: { path: "$brandData", preserveNullAndEmptyArrays: true } },
       { $lookup: { from: "types", localField: "productData.productType", foreignField: "_id", as: "typeData" } },
@@ -60,6 +99,9 @@ export async function GET(req: NextRequest) {
           invoiceType: "$type",
           invoiceTotal: "$total",
           number: 1,
+          inventoryLocation: {
+            $ifNull: ["$inventoryLocation", "phoenix"]
+          },
           chain: "$chainData.name",
           clientNumber: "$clientData.clientNumber",
           clientName: "$clientData.clientName",
@@ -88,6 +130,9 @@ export async function GET(req: NextRequest) {
           assembledQty: "$products.pickedQuantity",
           deliveredQty: "$products.deliveredQuantity",
           cost: "$productData.unitCost",
+          costAllocations: {
+            $ifNull: ["$products.lotAllocations", []]
+          },
           price: { $ifNull: ["$products.actualCost", "$products.unitPrice"] }, // 🔥 FIX: Safe fallback
           charge: { $cond: [{ $eq: ["$type", "charge"] }, "$products.deliveredQuantity", 0] },
           noCharge: { $cond: [{ $eq: ["$type", "noCharge"] }, "$products.deliveredQuantity", 0] },
@@ -117,12 +162,25 @@ export async function GET(req: NextRequest) {
       { $unwind: "$vendorData" },
       { $lookup: { from: "routes", localField: "route", foreignField: "_id", as: "vendorRouteData" } },
       { $unwind: { path: "$vendorRouteData", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "users", localField: "vendorRouteData.user", foreignField: "_id", as: "routeUserData"}},
+      { $unwind: { path: "$routeUserData", preserveNullAndEmptyArrays: true }},
       {
         $project: {
           type: "directSale",
           invoiceType: "charge",
           invoiceTotal: "$total",
           number: 1,
+          inventoryLocation: {
+            $ifNull: [
+              "$inventoryLocation",
+              {
+                $ifNull: [
+                  "$routeUserData.location",
+                  "phoenix"
+                ]
+              }
+            ]
+          },
           chain: "$chainData.name",
           clientNumber: "$clientData.clientNumber",
           clientName: "$clientData.clientName",
@@ -144,6 +202,9 @@ export async function GET(req: NextRequest) {
           assembledQty: "$products.quantity",
           deliveredQty: "$products.quantity",
           cost: "$productData.unitCost",
+          costAllocations: {
+            $ifNull: ["$products.lotAllocations", []]
+          },
           price: { $ifNull: ["$products.actualCost", "$products.unitPrice"] }, // 🔥 FIX: Safe fallback
           charge: "$products.quantity",
           noCharge: { $literal: 0 },
@@ -183,6 +244,9 @@ export async function GET(req: NextRequest) {
           invoiceType: "credit",
           invoiceTotal: "$total",
           number: 1,
+          inventoryLocation: {
+            $ifNull: ["$inventoryLocation", "phoenix"],
+          },
           chain: "$chainData.name",
           clientNumber: "$clientData.clientNumber",
           clientName: "$clientData.clientName",
@@ -207,6 +271,9 @@ export async function GET(req: NextRequest) {
           assembledQty: "$products.quantity",
           deliveredQty: "$products.returnedQuantity",
           cost: "$productData.unitCost",
+          costAllocations: {
+            $ifNull: ["$products.lotAllocations", []]
+          },
           price: { $ifNull: ["$products.actualCost", "$products.unitPrice"] }, 
           charge: { $literal: 0 },
           noCharge: { $literal: 0 },
@@ -216,41 +283,78 @@ export async function GET(req: NextRequest) {
       },
     ];
 
+    type CostAllocation = {
+      quantity?: number | null;
+      unitCost?: number | null;
+    };
+    const calculateLotBasedCost = (quantity: number, productUnitCost: number, allocations: CostAllocation[] = []): number => {
+      const totalQty = Math.max(0, Math.abs(Number(quantity) || 0));
+      const fallbackCost = Number(productUnitCost) || 0;
+      if(totalQty === 0) return 0;
+      const validAllocations = (Array.isArray(allocations) ? allocations : [])
+        .filter((lot) => lot != null && lot.unitCost != null && lot.unitCost !== ("" as any) && Number.isFinite(Number(lot.unitCost)) && Number(lot.unitCost) >= 0);
+      
+      if(validAllocations.length === 0) {
+        return totalQty * fallbackCost;
+      }
+      const quantityAllocations = validAllocations.filter((lot) => lot.quantity != null && Number.isFinite(Number(lot.quantity)) && Number(lot.quantity) > 0);
+      if(validAllocations.length === 1 && quantityAllocations.length === 0) {
+        return totalQty * Number(validAllocations[0].unitCost);
+      }
+      const allocatedQty = quantityAllocations.reduce((sum, lot) => sum + Number(lot.quantity), 0);
+      if(allocatedQty > totalQty + 0.000001){
+        return totalQty * fallbackCost;
+      }
+      const lotCostTotal = quantityAllocations.reduce((sum, lot) => sum + Number(lot.quantity) * Number(lot.unitCost), 0);
+      const remainingQty = Math.max(0, totalQty - allocatedQty);
+      return lotCostTotal + remainingQty * fallbackCost;
+    }
+
     const formatRowToCSV = (r: any, headers: string[]) => {
       const isNoCharge = r.invoiceType === "noCharge";
       const isCredit = r.type === "creditMemo";
       
       // Keep everything as safe absolute numbers for the math
       const delQty = Math.abs(r.deliveredQty || 0);
-      const cost = r.cost || 0;
-      const price = r.price || 0;
+      const cost = Number(r.cost) || 0;
+      const price = Number(r.price) || 0;
 
-      // Base line-item math
-      const rowCostVal = delQty * cost;
-      const rowSaleVal = delQty * price;
-
+      const calculatedCost = calculateLotBasedCost(delQty, cost, r.costAllocations || []);
+      const calculatedPrice = delQty * price;
       // Explicit Routing logic
-      let rowCostTotal = 0;
-      let rowSaleTotal = 0;
-      let rowCreditTotal = 0;
+      let saleCostTotal = 0;
+      let salePriceTotal = 0;
+      let creditMemoCostTotal = 0;
+      let creditMemoPriceTotal = 0;
+      let goodReturnCostTotal = 0;
+      let goodReturnPriceTotal = 0;
 
       if (isCredit) {
-        // It's a credit memo! Put the dollars in the credit bucket.
-        rowCreditTotal = rowSaleVal;
-      } else if (!isNoCharge) {
-        // It's a normal sale! Put the dollars in the revenue buckets.
-        rowCostTotal = rowCostVal;
-        rowSaleTotal = rowSaleVal;
+        const creditMemoQty = Number(r.creditMemo) || 0;
+        const goodReturnQty = Number(r.goodReturn) || 0;
+        if(creditMemoQty > 0) {
+          creditMemoCostTotal = calculateLotBasedCost(creditMemoQty, cost, r.costAllocations || []);
+          creditMemoPriceTotal = creditMemoQty * price;
+        }
+        if(goodReturnQty > 0) {
+          goodReturnCostTotal = calculateLotBasedCost(goodReturnQty, cost, r.costAllocations || []);
+          goodReturnPriceTotal = goodReturnQty * price;
+        }
+      } else {
+        saleCostTotal = calculatedCost;
+        if (!isNoCharge) {
+          // It's a normal sale! Put the dollars in the revenue buckets.
+          salePriceTotal = calculatedPrice;
+        }
       }
-      // If it IS noCharge, everything safely remains 0!
 
-      // Margin & Profit based strictly on the routed buckets
-      const margin = rowSaleTotal > 0 ? (rowSaleTotal - rowCostTotal) / rowSaleTotal : 0;
-      const profit = rowSaleTotal - rowCostTotal;
+      const profit = isCredit || isNoCharge ? 0 : salePriceTotal - saleCostTotal;
+      const margin = !isCredit && !isNoCharge && salePriceTotal > 0 ? profit / salePriceTotal : 0;
 
       const mappedObj = {
         "Number": r.number || "",
         "Invoice Type": r.invoiceType?.toUpperCase() || "",
+        "InventoryLocation": r.inventoryLocation || "phoenix",
         "Chain": r.chain || "",
         "Client #": r.clientNumber || "",
         "Client Name": r.clientName || "",
@@ -280,9 +384,13 @@ export async function GET(req: NextRequest) {
         "Delivered Qty": delQty,
         "Cost": cost,
         "Price": price,
-        "Cost Total": rowCostTotal,
-        "Sale Total": rowSaleTotal,
-        "Credit Total": rowCreditTotal,
+        "Sale Cost Total": saleCostTotal,
+        "Sale Price Total": salePriceTotal,
+        "Credit Memo Cost Total": creditMemoCostTotal,
+        "Credit Memo Price Total": creditMemoPriceTotal,
+        "Good Return Cost Total": goodReturnCostTotal,
+        "Good Return Price Total": goodReturnPriceTotal,
+        "Commission Sales": salePriceTotal - creditMemoPriceTotal - goodReturnPriceTotal,
         "Margin": margin,
         "Profit": profit,
         "Charge Units": r.charge || 0,
@@ -294,12 +402,13 @@ export async function GET(req: NextRequest) {
     };
 
     const headers = [
-      "Number", "Invoice Type", "Chain", "Client #", "Client Name", "Vendor Route", "Vendor Name",
+      "Number", "Invoice Type", "InventoryLocation", "Chain", "Client #", "Client Name", "Vendor Route", "Vendor Name",
       "Driver Route", "Driver Name", "Warehouse", "Created At", "Created Day", "Created Month", 
       "Created Year", "Assembled At", "Assembled Day", "Assembled Month", "Assembled Year", 
       "Delivered/Received At", "Delivered Day", "Delivered Month", "Delivered Year", "SKU", 
       "Brand", "Product", "Category", "Original Qty", "Assembled Qty", "Delivered Qty", "Cost", "Price", 
-      "Cost Total", "Sale Total", "Credit Total", "Margin", "Profit", 
+      "Sale Cost Total", "Sale Price Total", "Credit Memo Cost Total", "Credit Memo Price Total", "Good Return Cost Total", 
+      "Good Return Price Total", "Commission Sales", "Margin", "Profit", 
       "Charge Units", "No Charge Units", "Credit Memo Units", "Good Return Units"
     ];
 

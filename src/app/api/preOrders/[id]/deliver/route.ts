@@ -430,117 +430,71 @@ export async function PATCH(
       // COGS
       // =================================================
 
-      let remainingToCost =
-        deliveredQty;
+      let itemCogsCents = 0;
+      let remainingToDeliver = deliveredQty;
+      const productName = (inventory.product?.brand?.name + " " + inventory.product?.name + " " + (inventory.product?.weight ?? "") + (inventory.product?.unit?.toUpperCase() ?? "")).trim();
 
+      const deliveredAllocations: any[] = [];
 
-      let itemCogsCents =
-        0;
-
-
-      // FIFO LOTS
-      if (
-        inventory.lots &&
-        inventory.lots.length >
-          0
-      ) {
-
-        inventory.lots.sort(
-          (
-            a: any,
-            b: any
-          ) =>
-            new Date(
-              a.receivedAt
-            ).getTime() -
-            new Date(
-              b.receivedAt
-            ).getTime()
+      const pickedAllocations = line.pickedLotAllocations || [];
+      const pickedAllocatedQty = pickedAllocations.reduce((sum: number, allocation: any) =>
+        sum + Number(allocation.quantity || 0), 0);
+      if(pickedAllocatedQty !== pickedQty) {
+        throw new Error(`Picked lot allocation mismatch for ${productName}.` +
+          `Picked: ${pickedQty}.` +
+          `Reserved: ${pickedAllocatedQty}`
         );
-
-
-        for (
-          const lot of inventory.lots
-        ) {
-
-          if (
-            remainingToCost <=
-            0
-          ) {
-            break;
-          }
-
-
-          if (
-            Number(
-              lot.currentQty ||
-                0
-            ) >
-            0
-          ) {
-
-            const qtyToTake =
-              Math.min(
-                Number(
-                  lot.currentQty ||
-                    0
-                ),
-                remainingToCost
-              );
-
-
-            itemCogsCents +=
-              toCents(
-                qtyToTake *
-                  Number(
-                    lot.cost ||
-                      0
-                  )
-              );
-
-
-            lot.currentQty -=
-              qtyToTake;
-
-
-            remainingToCost -=
-              qtyToTake;
-
-          }
-
+      }
+      for (const allocation of pickedAllocations) {
+        if (remainingToDeliver <= 0) break;
+        const reservedQuantity = Number(allocation.quantity);
+        if(!Number.isSafeInteger(reservedQuantity) || reservedQuantity < 0) {
+          throw new Error(`Invalid reserved lot quantity for ${productName}`);
         }
-
+        const quantityToDeliver = Math.min(reservedQuantity, remainingToDeliver);
+        if(quantityToDeliver <= 0) continue;
+        const unitCost = Number(allocation.unitCost);
+        if(!Number.isFinite(unitCost) || unitCost < 0) {
+          throw new Error(`Invalid historical lot cost for ${productName}`);
+        }
+        const allocationData = {
+          lotId: allocation.lotId ?? undefined,
+          lotNumber: allocation.lotNumber ?? null,
+          quantity: quantityToDeliver,
+          unitCost,
+          expirationDate: allocation.expirationDate ?? null,
+          inventoryLocation,
+          lotMatchMethod: allocation.lotMatchMethod,
+        };
+        if(allocation.lotId) {
+          const lot = inventory.lots.id(allocation.lotId);
+          if(!lot) {
+            throw new Error(`Reserved lot ${allocation.lotId} was not found for ${productName}`);
+          }
+          const currentQty = Number(lot.currentQty ?? 0);
+          const reservedQty = Number(lot.onRouteReservedQty ?? 0);
+          if(currentQty < quantityToDeliver || reservedQty < quantityToDeliver) {
+            throw new Error(`Insufficient lot inventory for ${lot.lotNumber}.` +
+              `Current: ${currentQty},` +
+              `Reserved: ${reservedQty},` +
+              `Delivering: ${quantityToDeliver}`
+            );
+          }
+          lot.currentQty -= quantityToDeliver;
+          lot.onRouteReservedQty -= quantityToDeliver;
+        } else if (allocation.lotMatchMethod !== "fallback"){
+          throw new Error(`Reserved allocation is missing a lot ID for ${productName}`);
+        }
+        deliveredAllocations.push(allocationData);
+        itemCogsCents += toCents(quantityToDeliver * unitCost);
+        remainingToDeliver -= quantityToDeliver;
       }
-
-
-      // =================================================
-      // FALLBACK COST
-      //
-      // Important for ForeignInventory right now because
-      // transfers may not yet be moving lot data.
-      // =================================================
-
-      if (
-        remainingToCost >
-        0
-      ) {
-
-        const fallbackCost =
-          Number(
-            inventory.product
-              ?.unitCost ||
-              0
-          );
-
-
-        itemCogsCents +=
-          toCents(
-            remainingToCost *
-              fallbackCost
-          );
-
+      if (remainingToDeliver !== 0) {
+        throw new Error(`Unable to allocate all delivered units for ${productName}.` +
+          `Remaining: ${remainingToDeliver}`
+        );
       }
-
+      line.lotAllocations = deliveredAllocations;
 
       // =================================================
       // INVENTORY MOVEMENT
@@ -569,11 +523,11 @@ export async function PATCH(
 
       const unitPrice =
         Number(
-          line.actualCost ||
+          line.actualCost ??
             line
               .productInventory
               ?.product
-              ?.unitPrice ||
+              ?.unitPrice ??
             0
         );
 

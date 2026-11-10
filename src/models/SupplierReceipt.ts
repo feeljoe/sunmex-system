@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
 const SupplierReceiptSchema = new mongoose.Schema(
   {
@@ -37,9 +37,27 @@ const SupplierReceiptSchema = new mongoose.Schema(
 
         orderedQuantity: { type: Number, required: true },
         receivedQuantity: { type: Number, required: true },
-
+        expirationDate: { type: Date, default: null},
+        lotId: { type: Schema.Types.ObjectId },
         unitCost: { type: Number, required: true },   // original
         actualCost: { type: Number, required: true }, // invoice
+        lots: [
+          {
+            lotId: {
+              type: Schema.Types.ObjectId,
+              required: true,
+            },
+            quantity: {
+              type: Number,
+              required: true,
+              min: 1,
+            },
+            expirationDate: {
+              type: Date,
+              default: null,
+            },
+          },
+        ],
       },
     ],
 
@@ -49,6 +67,46 @@ const SupplierReceiptSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "paid", "overdue"],
       default: "pending"
+    },
+    paidAt: { type: Date, default: null},
+    editHistory: [
+      {
+        editedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        editedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        reason: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        changes: [
+          {
+            field: {type: String, required: true},
+            product: {
+              type: Schema.Types.ObjectId,
+              ref: "Product",
+              default: null,
+            },
+            previousValue: Schema.Types.Mixed,
+            newValue: Schema.Types.Mixed,
+          },
+        ],
+      },
+    ],
+    lastEditedAt: {
+      type: Date,
+      default: null,
+    },
+    lastEditedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
     payments: [
       {
@@ -61,7 +119,10 @@ const SupplierReceiptSchema = new mongoose.Schema(
         date: { type: Date },
       },
     ],
-    
+    inventoryEditVersion: {
+      type: Number,
+      default: 0,
+    },
     quickbooks: {
       synced: Boolean,
       qbTxnId: String,
@@ -69,6 +130,10 @@ const SupplierReceiptSchema = new mongoose.Schema(
     },    
   },
   { timestamps: true }
+);
+SupplierReceiptSchema.index(
+  {supplierOrder: 1},
+  { unique: true}
 );
 
 export default mongoose.models.SupplierReceipt ||

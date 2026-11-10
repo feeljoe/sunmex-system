@@ -9,6 +9,7 @@ import LoadRequest from "@/models/LoadRequest";
 import Product from "@/models/Product";
 import ProductInventory from "@/models/ProductInventory";
 import CounterLoadRequest from "@/models/CounterLoadRequest";
+import { reserveLoadRequestLots } from "@/lib/inventory/reserveLoadRequestLots";
 
 const LOCATIONS = [
   "yuma",
@@ -25,13 +26,7 @@ const LOCATION_CODES: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
-
-  const mongoSession =
-    await mongoose.startSession();
-
-  try {
-
-    await connectToDatabase();
+  await connectToDatabase();
 
     const session =
       await getServerSession(authOptions);
@@ -84,7 +79,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
+    const mongoSession = await mongoose.startSession();
+  try {
     let createdLoadRequest: any;
 
     await mongoSession.withTransaction(
@@ -132,57 +128,48 @@ export async function POST(req: Request) {
            * accidentally reserve the same stock.
            */
 
-          const inventory =
-            await ProductInventory.findOneAndUpdate(
-              {
-                product: item.product,
 
-                currentInventory: {
-                  $gte: quantity,
-                },
-              },
-              {
-                $inc: {
-                  currentInventory:
-                    -quantity,
-
-                  preSavedInventory:
-                    quantity,
-                },
-              },
-              {
-                new: true,
-                session: mongoSession,
-              }
-            );
+          const inventory = await ProductInventory.findOne({
+            product: item.product,
+          }).session(mongoSession);
 
           if (!inventory) {
-
-            const current =
-              await ProductInventory.findOne({
-                product: item.product,
-              })
-                .session(mongoSession)
-                .lean();
-
             throw new Error(
-              `Not enough inventory for ${product.name}. Available: ${
-                current?.currentInventory || 0
-              }`
+              `Phoenix inventory not found for ${product.name}`
             );
           }
 
+          if (
+            Number(inventory.currentInventory ?? 0) < quantity
+          ) {
+            throw new Error(
+              `Insufficient Phoenix inventory for ${product.name}`
+            );
+          }
+
+          const allocations = reserveLoadRequestLots(
+            inventory,
+            quantity
+          );
+
+          inventory.currentInventory =
+            Number(inventory.currentInventory ?? 0) - quantity;
+
+          inventory.preSavedInventory =
+            Number(inventory.preSavedInventory ?? 0) + quantity;
+
+          await inventory.save({ session: mongoSession });
+
           validatedProducts.push({
             product: item.product,
-
-            requestedQuantity:
-              quantity,
-
-            // Since admin created it,
-            // requested = approved
-            approvedQuantity:
-              quantity,
+            requestedQuantity: quantity,
+            approvedQuantity: quantity,
+            assembledQuantity: 0,
+            deliveredQuantity: 0,
+            reservedLotAllocations: allocations,
+            lotAllocations: [],
           });
+
         }
 
         // =====================================
@@ -250,6 +237,7 @@ export async function POST(req: Request) {
                  */
                 status:
                   "approved",
+                lotTrackingVersion: 1,
               },
             ],
             {
@@ -289,7 +277,7 @@ export async function POST(req: Request) {
       {
         status:
           err.message ===
-          "Unauthorized"
+            "Unauthorized"
             ? 401
             : 500,
       }

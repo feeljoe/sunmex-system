@@ -6,6 +6,7 @@ import LoadRequest from "@/models/LoadRequest";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import RouteAudit from "@/models/RouteAudit";
+import { getOutstandingLoadRequestLots } from "@/lib/inventory/reconcileLoadRequestLots";
 
 export async function PATCH(req: Request) {
   await connectToDatabase();
@@ -255,36 +256,389 @@ export async function PATCH(req: Request) {
       await po.save({ session });
     }
 
-    // --- 4. PROCESS LOAD REQUESTS (NEW) ---
-    const loadRequests = await LoadRequest.find({ _id: { $in: loadRequestIds } }).session(session);
-    for (const lr of loadRequests) {
-      for (const p of lr.products) {
-        const diff = (p.assembledQuantity || 0) - (p.deliveredQuantity || 0);
 
-        if (diff > 0 && p.differenceReason) {
-          const agg = aggregatedProducts.find((a: any) =>
-            (a.sourceType === "loadRequest" || a.sourceType === "lr") &&
-            a.productId === p.product?.toString() &&
-            a.originalReason === p.differenceReason
+    // ============================================================
+    // 4. PROCESS LOAD REQUEST RETURNS
+    // Supports legacy aggregate-only and new lot-tracked requests.
+    // Runs inside the existing MongoDB transaction.
+    // ============================================================
+
+    const ids = loadRequestIds.map(String);
+
+    if (
+      ids.some((id: string) => !mongoose.isValidObjectId(id)) ||
+      new Set(ids).size !== ids.length
+    ) {
+      throw new Error("Invalid or duplicate Load Request IDs");
+    }
+
+    const loadRequests = await LoadRequest.find({
+      _id: { $in: ids },
+    }).session(session);
+
+    if (loadRequests.length !== ids.length) {
+      throw new Error("One or more Load Requests were not found");
+    }
+
+    type ReturnEntry = {
+      lr: any;
+      line: any;
+      productId: string;
+      approved: number;
+      assembled: number;
+      delivered: number;
+      unassembled: number;
+      undelivered: number;
+      tracked: boolean;
+      reason: string;
+      restored: number;
+      newReason: string;
+    };
+
+    const entries: ReturnEntry[] = [];
+
+    for (const lr of loadRequests) {
+      if (lr.warehouseReturnProcessed) {
+        throw new Error(
+          `Load Request ${lr.LRNumber} has already been reconciled`
+        );
+      }
+
+      if (lr.status !== "delivered") {
+        throw new Error(
+          `Load Request ${lr.LRNumber} must be delivered before reconciliation`
+        );
+      }
+
+      for (const line of lr.products) {
+        const approved = Number(line.approvedQuantity ?? 0);
+        const assembled = Number(line.assembledQuantity ?? 0);
+        const delivered = Number(line.deliveredQuantity ?? 0);
+
+        if (
+          ![approved, assembled, delivered].every(
+            (n) => Number.isSafeInteger(n) && n >= 0
+          ) ||
+          delivered > assembled ||
+          assembled > approved
+        ) {
+          throw new Error(
+            `Invalid quantities in ${lr.LRNumber}`
+          );
+        }
+
+        const undelivered = assembled - delivered;
+
+        entries.push({
+          lr,
+          line,
+          productId: String(line.product),
+          approved,
+          assembled,
+          delivered,
+          unassembled: approved - assembled,
+          undelivered,
+          tracked: Number(lr.lotTrackingVersion ?? 0) === 1,
+          reason: String(line.differenceReason ?? ""),
+          restored: 0,
+          newReason: "",
+        });
+      }
+    }
+
+    // Group by product + original difference reason.
+    // The UI supplies ONE verified quantity for each group.
+    const groups = new Map<string, ReturnEntry[]>();
+
+    for (const entry of entries) {
+      if (entry.undelivered <= 0) continue;
+
+      if (!entry.reason) {
+        throw new Error(
+          `${entry.lr.LRNumber} has undelivered units without a difference reason`
+        );
+      }
+
+      const key = `${entry.productId}::${entry.reason}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key)!.push(entry);
+    }
+
+    // Validate every aggregate exactly once.
+    for (const [key, group] of groups) {
+      const [productId, originalReason] = key.split("::");
+
+      const matches = aggregatedProducts.filter(
+        (agg: any) =>
+          ["loadRequest", "lr"].includes(agg.sourceType) &&
+          String(agg.productId) === productId &&
+          agg.originalReason === originalReason
+      );
+
+      if (matches.length !== 1) {
+        throw new Error(
+          `Expected exactly one return aggregation for ${key}`
+        );
+      }
+
+      const agg = matches[0];
+
+      const totalUndelivered = group.reduce(
+        (sum, entry) => sum + entry.undelivered,
+        0
+      );
+
+      const verified = Number(agg.verifiedQuantity);
+      const newReason = String(agg.newReason ?? "");
+
+      if (
+        !Number.isSafeInteger(verified) ||
+        verified < 0 ||
+        verified > totalUndelivered
+      ) {
+        throw new Error(
+          `Invalid verified quantity for ${key}`
+        );
+      }
+
+      if (
+        !["returned", "missing", "damaged"].includes(newReason)
+      ) {
+        throw new Error(
+          `Invalid reconciliation reason for ${key}`
+        );
+      }
+
+      const restorable =
+        newReason === "returned" ||
+        newReason === "missing";
+
+      if (!restorable && verified !== 0) {
+        throw new Error(
+          `Damaged inventory cannot be restored for ${key}`
+        );
+      }
+
+      const totalToRestore = restorable ? verified : 0;
+
+      // The aggregate UI does not specify which LR a partial
+      // return belongs to. For new lot-tracked requests,
+      // do not guess across multiple load requests.
+      const hasTracked = group.some((e) => e.tracked);
+
+      if (
+        hasTracked &&
+        totalToRestore > 0 &&
+        totalToRestore < totalUndelivered &&
+        group.length > 1
+      ) {
+        throw new Error(
+          `Partial return for ${key} spans multiple load requests. ` +
+          "Record verified quantities per load request before reconciling."
+        );
+      }
+
+      let remainingRestore = totalToRestore;
+
+      // Deterministic distribution for legacy aggregates.
+      // New requests with ambiguous partial groups were
+      // already rejected above.
+      group.sort((a, b) =>
+        String(a.lr._id).localeCompare(String(b.lr._id))
+      );
+
+      for (const entry of group) {
+        entry.restored = Math.min(
+          entry.undelivered,
+          remainingRestore
+        );
+
+        entry.newReason = newReason;
+        remainingRestore -= entry.restored;
+      }
+
+      if (remainingRestore !== 0) {
+        throw new Error(
+          `Unable to distribute verified return for ${key}`
+        );
+      }
+    }
+
+    // Process each LR line in one transaction.
+    for (const entry of entries) {
+      const {
+        lr,
+        line,
+        productId,
+        approved,
+        unassembled,
+        undelivered,
+        restored,
+        tracked,
+      } = entry;
+
+      if (approved === 0) continue;
+
+      const inventory = await ProductInventory.findOne({
+        product: line.product,
+      }).session(session);
+
+      if (!inventory) {
+        throw new Error(
+          `Phoenix inventory missing for product ${productId}`
+        );
+      }
+
+      if (
+        Number(inventory.preSavedInventory ?? 0) <
+        unassembled ||
+        Number(inventory.onRouteInventory ?? 0) <
+        undelivered
+      ) {
+        throw new Error(
+          `Inventory balances do not match ${lr.LRNumber} ` +
+          `for product ${productId}`
+        );
+      }
+
+      if (tracked) {
+        // For new load requests, verify and reconcile lots.
+        const outstanding = getOutstandingLoadRequestLots(line);
+
+        const totalOutstanding = outstanding.reduce(
+          (sum, lot) => sum + lot.reservedRemaining,
+          0
+        );
+
+        if (
+          totalOutstanding !== unassembled + undelivered
+        ) {
+          throw new Error(
+            `Outstanding lot totals do not match ${lr.LRNumber}`
+          );
+        }
+
+        const onRouteLots = outstanding.filter(
+          (lot) => lot.onRouteRemaining > 0
+        );
+
+        // Partial physical returns spanning multiple lots
+        // cannot be attributed accurately without lot counts.
+        if (
+          restored > 0 &&
+          restored < undelivered &&
+          onRouteLots.length > 1
+        ) {
+          throw new Error(
+            `${lr.LRNumber}: partial return spans multiple lots. ` +
+            "Warehouse must verify returned quantities per lot."
+          );
+        }
+
+        let lostRemaining = undelivered - restored;
+
+        for (const outstandingLot of outstanding) {
+          const lot = inventory.lots.id(
+            outstandingLot.lotId
           );
 
-          if (agg) {
-            p.differenceReason = agg.newReason;
-
-            // Clear from the truck's virtual inventory
-            const lrInvUpdate: any = { $inc: { onRouteInventory: -diff } };
-
-            // Put it back into warehouse stock based on verified count
-            if (agg.newReason === "returned" || agg.newReason === "missing") {
-              lrInvUpdate.$inc.currentInventory = agg.verifiedQuantity;
-            }
-
-            // Note: LR stores the `product` ID, so we query ProductInventory differently than Preorders
-            await ProductInventory.updateOne({ product: p.product }, lrInvUpdate, { session });
+          if (!lot) {
+            throw new Error(
+              `Lot ${outstandingLot.lotId} not found`
+            );
           }
+
+          const reservedQty = Number(
+            lot.onRouteReservedQty ?? 0
+          );
+
+          const currentQty = Number(
+            lot.currentQty ?? 0
+          );
+
+          if (
+            reservedQty < outstandingLot.reservedRemaining ||
+            currentQty < outstandingLot.reservedRemaining
+          ) {
+            throw new Error(
+              `Insufficient lot balances in ${lot.lotNumber}`
+            );
+          }
+
+          // If everything came back, no lot units are lost.
+          // If nothing came back, all undelivered on-route
+          // units are removed from physical lot stock.
+          // For one-lot partial returns, the loss is
+          // unambiguous.
+          let lostFromLot = 0;
+
+          if (restored === 0) {
+            lostFromLot = outstandingLot.onRouteRemaining;
+          } else if (restored === undelivered) {
+            lostFromLot = 0;
+          } else {
+            lostFromLot = Math.min(
+              outstandingLot.onRouteRemaining,
+              lostRemaining
+            );
+          }
+
+          if (lostFromLot > lostRemaining) {
+            throw new Error("Invalid lot loss distribution");
+          }
+
+          lot.currentQty = currentQty - lostFromLot;
+
+          lot.onRouteReservedQty =
+            reservedQty - outstandingLot.reservedRemaining;
+
+          if (
+            outstandingLot.onRouteRemaining > 0 ||
+            lostFromLot > 0
+          ) {
+            lot.hasMovement = true;
+            lot.lastMovementAt = new Date();
+          }
+
+          lostRemaining -= lostFromLot;
+        }
+
+        if (lostRemaining !== 0) {
+          throw new Error(
+            `Unreconciled lot loss in ${lr.LRNumber}`
+          );
         }
       }
-      lr.warehouseReturnProcessed = true; // Flags this LR as completed
+
+      // Release both outstanding aggregate buckets:
+      // - approved but not assembled
+      // - assembled but not delivered
+      inventory.preSavedInventory =
+        Number(inventory.preSavedInventory ?? 0) -
+        unassembled;
+
+      inventory.onRouteInventory =
+        Number(inventory.onRouteInventory ?? 0) -
+        undelivered;
+
+      inventory.currentInventory =
+        Number(inventory.currentInventory ?? 0) +
+        unassembled +
+        restored;
+
+      await inventory.save({ session });
+
+      if (undelivered > 0) {
+        line.differenceReason = entry.newReason;
+      }
+    }
+
+    for (const lr of loadRequests) {
+      lr.warehouseReturnProcessed = true;
       await lr.save({ session });
     }
 

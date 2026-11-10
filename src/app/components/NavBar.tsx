@@ -1,17 +1,18 @@
 import { signOut } from "next-auth/react";
 import GoBackButton from "@/components/ui/goBackButton";
-export default function Navbar() {
+
+export default function Navbar({isAdmin}: {isAdmin: boolean;}) {
     return (
-      <header className="w-full h-15 bg-(--quarteary) shadow flex items-center px-10">
-          <div className="flex w-full h-full p-3 justify-between">
-          <div className="flex w-full">
+      <header className="sticky top-0 z-30 w-full shrink-0 bg-(--quarteary) pt-[env(safe-area-inset-top)] shadow">
+          <div className={`flex h-10 w-full items-center justify-between ${isAdmin === true ? "pl-16 lg:pl-10" : "pl-3 lg:pl-10"} pr-3`}>
           <GoBackButton />
-          </div>
-          <button className="px-5 py-2 bg-gray-200 rounded-xl hover:bg-red-700 hover:text-white cursor-pointer" onClick={() => signOut({callbackUrl:"/auth/login"})}>
+          <button 
+            className="shrink-0 rounded-xl bg-gray-200 px-3 py-1 text-gray-900 transition-colors hover:bg-red-700 hover:text-white cursor-pointer" 
+            onClick={() => signOut({callbackUrl:"/auth/login"})}
+          >
             Logout
           </button>
           </div>
       </header>
     );
   }
-  

@@ -17,7 +17,8 @@ export function AccountingSupplierReceiptsTable() {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<"loading" | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<"loading" | "info" | "error" | null>(null);
+  const [message, setMessage] = useState("");
   const [fromDate, setFromDate] = useState(() => DateTime.now().setZone("America/Phoenix").startOf("week").toFormat("yyyy-MM-dd"));
   const [toDate, setToDate] = useState(() => DateTime.now().setZone("America/Phoenix").endOf("week").toFormat("yyyy-MM-dd"));
 
@@ -30,14 +31,14 @@ export function AccountingSupplierReceiptsTable() {
 
   const amountPaid = meta?.amountPaid || 0;
   const amountOwed = meta?.amountOwed || 0;
-  
+
   useEffect(() => { setPage(1); }, [search, fromDate, toDate]);
-  
+
   useEffect(() => {
-    setTimeout(() => {setSubmitStatus(null);}, 3000);
+    setTimeout(() => { setSubmitStatus(null); }, 3000);
   }, [reload]);
-  
-  const totalPages = total > 0 ? Math.ceil(total/limit) : 1;
+
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
   const orderSummary = (receipt: any) => {
     setSelectedReceipt(receipt);
@@ -45,32 +46,106 @@ export function AccountingSupplierReceiptsTable() {
   }
 
   // --- NEW PAYMENT HANDLER ---
-  const handlePay = async (receiptId: string, currentPayments: any[] = []) => {
+
+  const [payingReceiptId, setPayingReceiptId] =
+    useState<string | null>(null);
+
+  // --- SUPPLIER RECEIPT PAYMENT HANDLER ---
+  const handlePay = async (receiptId: string) => {
+    if (payingReceiptId !== null) return;
+
     const input = paymentInputs[receiptId];
-    if (!input || !input.amount || !input.method) return;
 
-    const newPayments = [
-      ...currentPayments,
-      {
-        type: input.method,
-        amount: Number(input.amount),
-        checkNumber: input.method === "check" ? input.checkNumber : undefined,
-      },
-    ];
+    if (!input) return;
 
-    const res = await fetch(`/api/supplierReceipts/${receiptId}/pay`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payments: newPayments }),
-    });
+    const method = input.method;
+    const amount = Number(input.amount);
+    const checkNumber = String(
+      input.checkNumber ?? ""
+    ).trim();
 
-    if (res.ok) {
-      reload(); // Refresh the list
-      setPaymentInputs(prev => ({ ...prev, [receiptId]: {} })); // Clear input
-    } else {
-      alert("Error saving payment");
+    if (!["cash", "check", "transfer"].includes(method)) {
+      setSubmitStatus("info");
+      setMessage("Please select a payment method.");
+      return;
+    }
+
+    if (
+      input.amount === "" ||
+      input.amount == null ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      setSubmitStatus("info");
+      setMessage("Please enter a valid payment amount.");
+      return;
+    }
+
+    if (method === "check" && !checkNumber) {
+      setSubmitStatus("info");
+      setMessage("Please enter the check number.");
+      return;
+    }
+
+    try {
+      setPayingReceiptId(receiptId);
+
+      // IMPORTANT:
+      // Send only the new payment.
+      // The API appends it to existing payments.
+      const response = await fetch(
+        `/api/supplierReceipts/${receiptId}/pay`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            payments: [
+              {
+                type: method,
+                amount,
+                ...(method === "check"
+                  ? { checkNumber }
+                  : {}),
+              },
+            ],
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ??
+          "Failed to record supplier payment."
+        );
+      }
+
+      setPaymentInputs((prev) => ({
+        ...prev,
+        [receiptId]: {},
+      }));
+
+      await reload();
+    } catch (error: any) {
+      console.error(
+        "SUPPLIER RECEIPT PAYMENT ERROR:",
+        error
+      );
+      setSubmitStatus("error");
+
+      setMessage(
+        error.message ??
+        "Unable to record supplier payment."
+      );
+    } finally {
+      setPayingReceiptId(null);
     }
   };
+
 
   const getStatusStyle = (status: string) => {
     if (status === "paid") return "bg-green-200 text-green-800";
@@ -89,7 +164,7 @@ export function AccountingSupplierReceiptsTable() {
           placeholder="All Suppliers"
         />
         {(selectedSupplier) && (
-          <button 
+          <button
             onClick={() => { setSelectedSupplier(""); }}
             className="text-md p-2 rounded-xl bg-red-400 text-white hover:underline hover:bg-red-200 transition-all duration:300 cursor-pointer whitespace-nowrap"
           >
@@ -99,15 +174,15 @@ export function AccountingSupplierReceiptsTable() {
       </div>
       <div className="flex justify-between items-center gap-5 mb-4">
         <DateRangePicker
-            fromDate={fromDate}
-            toDate={toDate}
-            onChange={(from, to) => {
+          fromDate={fromDate}
+          toDate={toDate}
+          onChange={(from, to) => {
             setFromDate(from);
             setToDate(to);
-            }}
+          }}
         />
         <SearchBar placeholder="Search Invoice / PO / Client Name ..." onSearch={setSearch} debounce />
-        <RefreshButton onRefresh={() => {reload(); setSubmitStatus("loading");}}/>
+        <RefreshButton onRefresh={() => { reload(); setSubmitStatus("loading"); }} />
       </div>
 
       <div className='flex-1 overflow-auto bg-white rounded-xl shadow-xl'>
@@ -129,7 +204,7 @@ export function AccountingSupplierReceiptsTable() {
             {items.length === 0 && (
               <tr><td colSpan={8} className='p-4 text-center text-gray-500'>No receipts found</td></tr>
             )}
-            
+
             {items.map((it: any) => {
               // Calculate specific row values
               const paidAmount = it.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
@@ -154,7 +229,7 @@ export function AccountingSupplierReceiptsTable() {
                       {currentStatus.toUpperCase()}
                     </span>
                   </td>
-                  
+
                   {/* PAYMENT COLUMN */}
                   <td className='p-2 min-w-[300px]' onClick={(e) => e.stopPropagation()}>
                     {currentStatus === "paid" ? (
@@ -177,7 +252,7 @@ export function AccountingSupplierReceiptsTable() {
                           <option value="check">Check</option>
                           <option value="transfer">Transfer</option>
                         </select>
-                        
+
                         <input
                           type="number"
                           placeholder="Amount"
@@ -185,7 +260,7 @@ export function AccountingSupplierReceiptsTable() {
                           onChange={(e) => setPaymentInputs(prev => ({ ...prev, [it._id]: { ...prev[it._id], amount: e.target.value } }))}
                           className="border rounded-xl px-2 w-20 h-8 text-xs"
                         />
-                        
+
                         {paymentInputs[it._id]?.method === "check" && (
                           <input
                             type="text"
@@ -195,12 +270,14 @@ export function AccountingSupplierReceiptsTable() {
                             className="border rounded-xl px-2 w-20 h-8 text-xs"
                           />
                         )}
-                        
+
                         <button
-                          onClick={() => handlePay(it._id, it.payments)}
+                          type='button'
+                          disabled={payingReceiptId !== null}
+                          onClick={() => handlePay(it._id)}
                           className="bg-green-500 text-white px-3 h-8 rounded-xl hover:bg-green-400 transition-colors text-xs font-bold"
                         >
-                          Pay
+                          {payingReceiptId === it._id ? "Saving..." : "Pay"}
                         </button>
                       </div>
                     )}
@@ -224,10 +301,10 @@ export function AccountingSupplierReceiptsTable() {
         <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 bg-(--quarteary) text-white rounded-xl disabled:opacity-50">Next</button>
       </div>
 
-      <SupplierReceiptSummaryModal open={showSummary} receipt={selectedReceipt} onClose={() => { setShowSummary(false); setSelectedReceipt(null); }}/>
-      
+      <SupplierReceiptSummaryModal open={showSummary} receipt={selectedReceipt} onClose={() => { setShowSummary(false); setSelectedReceipt(null); }} />
+
       {submitStatus && (
-        <SubmitResultModal status={submitStatus} message={""} onClose={() => setSubmitStatus(null)} collection='Supplier Receipts' />
+        <SubmitResultModal status={submitStatus} message={message} onClose={() => { setSubmitStatus(null); setMessage("");}} collection='Supplier Receipts' />
       )}
     </div>
   );
