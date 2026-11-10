@@ -308,7 +308,7 @@ export function PreordersTable({ userRole, userId }: { userRole: string, userId:
   };
 
   return (
-    <div className={`flex h-[calc(100dvh-120px)] min-h-0 min-w-0 w-full flex-col transition-all duration-300 lg:h-[86vh] ${sidebarOpen ? "lg:w-[89vw]" : "lg:w-[96vw]"}`}>
+    <div className={`flex h-[calc(100dvh-100px)] min-h-0 min-w-0 w-full flex-col transition-all duration-300 lg:h-[86vh] ${sidebarOpen ? "lg:w-[89vw]" : "lg:w-[96vw]"}`}>
       <div className="flex items-center justify-end mb-1">
         <Link href="/pages/sales/preorders/add-preorder">
           <button className="flex gap-2 p-2 font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">

@@ -95,8 +95,8 @@ export default function PreorderMobileDetailsModal({
                 aria-label={`Preorder ${preorder.number} details`}
                 className="flex h-[100dvh] w-full flex-col overflow-hidden bg-(--secondary) shadow-2xl sm:h-auto sm:max-h-[95dvh] sm:max-w-2xl sm:rounded-2xl"
             >
-                <header className="flex shrink-0 items-center justify-between gap-2 bg-(--quarteary) p-2">
-                    <div className="min-w-0 text-white">
+                <header className="flex shrink-0 items-center justify-between gap-2 bg-(--quarteary) sm:bg-(--tertiary) p-2">
+                    <div className="min-w-0 text-white sm:text-black">
                         <p className="text-xs font-semibold opacity-70">
                             Preorder Details
                         </p>
@@ -332,25 +332,27 @@ export default function PreorderMobileDetailsModal({
                         </div>
                     </section>
                 </div>
-                <footer className="flex shrink-0 justify-between items-center border-t border-gray-200 bg-white p-2 pb-[max(12px,env(safe-area-inset-bottom))]">
+                <footer className="flex shrink-0 justify-between items-center bg-(--quarteary) sm:bg-white p-2 pb-[max(6px,env(safe-area-inset-bottom))]">
                     <button
                         type="button"
                         disabled={!canEdit}
                         onClick={(() => router.push(`/pages/sales/preorders/edit/${preorder._id}`))}
-                        className="min-h-11 rounded-2xl p-2 bg-yellow-400 text-sm font-bold text-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex gap-2 items-center min-h-11 rounded-2xl p-2 bg-yellow-400 font-bold text-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-8">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                         </svg>
+                        <span>Edit</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => generatePreorderPDF(preorder)}
-                        className="min-h-11 rounded-2xl p-2 bg-blue-500 text-sm font-bold text-white"
+                        className="flex gap-2 items-center min-h-11 rounded-2xl p-2 bg-blue-400 font-bold text-blue-800 hover:bg-blue-800 hover:text-white cursor-pointer transition-colors"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-8">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                         </svg>
+                        <span>PDF</span>
                     </button>
                 </footer>
             </section>

@@ -132,8 +132,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await connectToDatabase();
-  const authenticatedUser = await User.findById(auth.user.id).select("_id role");
-  if (!authenticatedUser || !["admin", "warehouse"].includes(authenticatedUser.role)) {
+  if (!["admin", "warehouse"].includes(auth.user?.role)) {
     return NextResponse.json({ error: "Not authorized to receive supplier orders" }, { status: 403 });
   }
 
@@ -445,7 +444,7 @@ export async function POST(req: Request) {
           supplier: supplierOrder.supplier._id,
           requestedAt: supplierOrder.requestedAt,
           receivedAt,
-          elaboratedBy: authenticatedUser._id,
+          elaboratedBy: auth.user?.id,
           items: normalizedItems,
           total,
           inventoryEditVersion: 1,

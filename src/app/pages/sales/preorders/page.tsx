@@ -8,7 +8,7 @@ export default async function PreordersPage() {
   const session = await getServerSession(authOptions);
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-2 overflow-hidden p-2">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-1 overflow-hidden p-2">
       <h1 className="shrink-0 text-center text-2xl font-bold dark:text-white md:text-4xl">
         Pre Orders
       </h1>

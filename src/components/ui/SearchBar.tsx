@@ -26,7 +26,7 @@ export function SearchBar({
     }, [debouncedValue, debounce, onSearch]);
 
     return (
-        <label className="flex items-center w-full bg-white rounded-xl shadow-xl text-[16px]">
+        <label className="flex items-center w-full bg-white rounded-xl shadow-xl">
             <input 
                 value={value} 
                 onChange={(e) => setValue(e.target.value)} 

@@ -141,10 +141,10 @@ export default function PreorderMobileFiltersModal({
                 role="dialog"
                 aria-modal="true"
                 aria-label="Filter Preorders"
-                className="flex h-[95dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-gray-100 shadow-2xl sm:max-h-[92dvh] sm:max-w-xl sm:rounded-2xl"
+                className="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-100 shadow-2xl sm:max-h-[92dvh] sm:max-w-xl sm:rounded-2xl"
             >
-                <div className="flex shrink-0 items-center justify-between bg(--tertiary) p-2">
-                    <div>
+                <div className="flex shrink-0 items-center justify-between bg-(--quarteary) sm:bg-gray-100 p-2">
+                    <div className="text-white sm:text-black">
                         <h2 className="text-xl font-bold">
                             Filter Preorders
                         </h2>
@@ -317,11 +317,11 @@ export default function PreorderMobileFiltersModal({
                         </label>
                     </div>
                 </div>
-                <div className="shrink-0 grid grid-cols-2 gap-2 border border-gray-200 bg-white p-2 pb-[max(12px,env(safe-area-inset-bottom))]">
+                <footer className="grid shrink-0 grid-cols-2 gap-2 bg-(--quarteary) sm:bg-white p-2 pb-[max(6px,env(safe-area-inset-bottom))]">
                     <button
                         type="button"
                         onClick={clearDraft}
-                        className="min-h-12 rounded-xl bg-gray-200 text-sm font-bold tex-gray-800"
+                        className="min-h-12 rounded-xl bg-gray-300 text-sm font-bold tex-gray-800 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors"
                     >
                         Clear All
                     </button>
@@ -329,11 +329,11 @@ export default function PreorderMobileFiltersModal({
                         type="button"
                         disabled={invalidDates}
                         onClick={handleApply}
-                        className="min-h-12 rounded-xl bg-blue-600 text-sm font-bold text-white disabled:opacity-50"
+                        className="min-h-12 rounded-xl bg-blue-400 text-sm font-bold text-blue-800 disabled:opacity-50 hover:bg-blue-800 hover:text-white transition-colors cursor-pointer"
                     >
                         Apply Filters
                     </button>
-                </div>
+                </footer>
             </section>
         </div>
     );
