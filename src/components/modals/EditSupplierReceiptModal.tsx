@@ -8,6 +8,7 @@ import ReceiptLotEditor, {
 } from "@/components/supplierReceipts/ReceiptLotEditor";
 import StepReviewReceiptChanges from "@/components/forms/AddReceiptWizard/StepReviewReceiptChanges";
 import { formatCurrency } from "@/utils/format";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 type Props = {
     open: boolean;
@@ -214,15 +215,8 @@ export default function EditSupplierReceiptModal({
         setStep(2);
     };
 
-    // Integration gate: the current PATCH still expects a single lot per product.
-    // Keep the editor in preview mode until the new multi-lot transactional PATCH is installed.
-    const multiLotPatchReady = false;
-
     const submitChanges = async () => {
-        if (!multiLotPatchReady) {
-            setError("Saving is unavailable until the multi-lot inventory reconciliation API is deployed.");
-            return;
-        }
+        
         if (saving || !canEdit) return;
 
         const validationError = validate();
@@ -330,9 +324,9 @@ export default function EditSupplierReceiptModal({
                             type="button"
                             disabled={saving}
                             onClick={onClose}
-                            className="rounded-lg bg-red-500 px-3 py-2 font-bold text-white disabled:opacity-50"
+                            className="rounded-lg bg-red-500 p-2 font-bold text-white disabled:opacity-50 cursor-pointer"
                         >
-                            Close
+                            <XMarkIcon className="w-5 h-5"/>
                         </button>
                     </div>
 
@@ -533,24 +527,22 @@ export default function EditSupplierReceiptModal({
                                     setStep(1);
                                 }
                         }
-                        className="min-h-11 rounded-xl bg-gray-200 px-4 text-sm font-bold text-gray-800 disabled:opacity-50"
+                        className="min-h-11 rounded-xl bg-gray-300 px-4 text-sm font-bold text-gray-700 hover:bg-gray-700 hover:text-white disabled:opacity-50 cursor-pointer transition-colors"
                     >
                         {step === 1 ? "Cancel" : "Back to Edit"}
                     </button>
 
                     <button
                         type="button"
-                        disabled={saving || !canEdit || (step === 2 && !multiLotPatchReady)}
+                        disabled={saving || !canEdit || reason.trim() === ""}
                         onClick={
                             step === 1
                                 ? reviewChanges
                                 : submitChanges
                         }
-                        className="min-h-11 rounded-xl bg-green-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className="min-h-11 rounded-xl bg-green-400 text-green-800 px-4 text-sm font-bold hover:bg-green-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
                     >
-                        {step === 2 && !multiLotPatchReady
-                            ? "Awaiting Safe Edit API"
-                            : saving
+                        {step === 2 && saving
                                 ? "Saving..."
                                 : step === 1
                                     ? "Review Changes"

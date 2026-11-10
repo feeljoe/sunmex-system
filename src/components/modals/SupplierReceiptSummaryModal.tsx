@@ -375,9 +375,7 @@ export function SupplierReceiptSummaryModal({
                           <CalendarDaysIcon className="h-4 w-4" />
                           Expiration
                         </p>
-                        <p className="text-sm font-bold text-gray-800">
-                          <LotSummary item={item} />
-                        </p>
+                        <LotSummary item={item} />
                       </div>
 
                       <div className="text-right">

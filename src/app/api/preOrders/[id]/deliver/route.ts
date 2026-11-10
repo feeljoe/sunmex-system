@@ -34,6 +34,7 @@ const fromCents = (
     )
   );
 
+const ALLOW_LEGACY_PREORDER_DELIVERY = true;
 
 export async function PATCH(
   req: Request,
@@ -70,7 +71,7 @@ export async function PATCH(
     } =
       await req.json();
 
-    if(typeof signature !== "string" || !signature.startsWith("data:image/") || signature.length < 100) {
+    if (typeof signature !== "string" || !signature.startsWith("data:image/") || signature.length < 100) {
       throw new Error("A valid customer signature is required");
     }
 
@@ -142,16 +143,16 @@ export async function PATCH(
     const linkedCreditMemo = await CreditMemo.findOne({
       preorder: preorder._id,
     }).session(session);
-    if(linkedCreditMemo) {
-      if(String(linkedCreditMemo.client) !== String(preorder.client)) {
+    if (linkedCreditMemo) {
+      if (String(linkedCreditMemo.client) !== String(preorder.client)) {
         throw new Error("Credit memo and Preorder client mismatch");
       }
-      if(linkedCreditMemo.status === "pending") {
+      if (linkedCreditMemo.status === "pending") {
         throw new Error("Receive the linked credit memo before delivering this Preorder");
       }
-      if(linkedCreditMemo.status === "cancelled"){
+      if (linkedCreditMemo.status === "cancelled") {
 
-      } else if(linkedCreditMemo.status !=="received") {
+      } else if (linkedCreditMemo.status !== "received") {
         throw new Error("Linked Credit Memo has an unexpected status");
       }
     }
@@ -188,12 +189,12 @@ export async function PATCH(
 
       const lineInventoryId =
         typeof line.productInventory ===
-        "object"
+          "object"
           ? line.productInventory
-              ?._id
-              ?.toString()
+            ?._id
+            ?.toString()
           : line.productInventory
-              ?.toString();
+            ?.toString();
 
 
       if (!lineInventoryId) {
@@ -209,14 +210,14 @@ export async function PATCH(
 
             const incomingId =
               typeof incoming.productInventory ===
-              "object"
+                "object"
                 ? incoming
-                    .productInventory
-                    ?._id
-                    ?.toString()
+                  .productInventory
+                  ?._id
+                  ?.toString()
                 : incoming
-                    .productInventory
-                    ?.toString();
+                  .productInventory
+                  ?.toString();
 
 
             return (
@@ -234,7 +235,7 @@ export async function PATCH(
           Math.round(
             Number(
               update.deliveredQuantity ||
-                0
+              0
             )
           );
 
@@ -279,7 +280,7 @@ export async function PATCH(
 
       const inventoryId =
         typeof line.productInventory ===
-        "object"
+          "object"
           ? line.productInventory._id
           : line.productInventory;
 
@@ -331,7 +332,7 @@ export async function PATCH(
       if (
         isForeignInventory &&
         inventory.location !==
-          inventoryLocation
+        inventoryLocation
       ) {
 
         throw new Error(
@@ -349,7 +350,7 @@ export async function PATCH(
         Math.round(
           Number(
             line.deliveredQuantity ||
-              0
+            0
           )
         );
 
@@ -358,7 +359,7 @@ export async function PATCH(
         Math.round(
           Number(
             line.pickedQuantity ||
-              0
+            0
           )
         );
 
@@ -404,7 +405,7 @@ export async function PATCH(
       const onRouteAvailable =
         Number(
           inventory.onRouteInventory ||
-            0
+          0
         );
 
 
@@ -430,71 +431,239 @@ export async function PATCH(
       // COGS
       // =================================================
 
+
       let itemCogsCents = 0;
       let remainingToDeliver = deliveredQty;
-      const productName = (inventory.product?.brand?.name + " " + inventory.product?.name + " " + (inventory.product?.weight ?? "") + (inventory.product?.unit?.toUpperCase() ?? "")).trim();
+
+      const productName = [
+        inventory.product?.brand?.name,
+        inventory.product?.name,
+        inventory.product?.weight
+          ? `${inventory.product.weight}${inventory.product?.unit ?? ""}`
+          : "",
+      ].filter(Boolean).join(" ");
 
       const deliveredAllocations: any[] = [];
 
-      const pickedAllocations = line.pickedLotAllocations || [];
-      const pickedAllocatedQty = pickedAllocations.reduce((sum: number, allocation: any) =>
-        sum + Number(allocation.quantity || 0), 0);
-      if(pickedAllocatedQty !== pickedQty) {
-        throw new Error(`Picked lot allocation mismatch for ${productName}.` +
-          `Picked: ${pickedQty}.` +
-          `Reserved: ${pickedAllocatedQty}`
+      const pickedAllocations =
+        line.pickedLotAllocations ?? [];
+
+      const hasPickedAllocations =
+        pickedAllocations.length > 0;
+
+      // =================================================
+      // LEGACY PREORDER FALLBACK
+      // =================================================
+      //
+      // Older preorders were prepared before lot-level
+      // reservations existed.
+      //
+      // Their aggregate inventory was already moved from
+      // preSavedInventory to onRouteInventory.
+      //
+      // We allow those orders to be delivered without
+      // inventing historical lot IDs.
+      //
+      // IMPORTANT:
+      // - Do not deduct inventory.lots[].currentQty.
+      // - Do not deduct onRouteReservedQty.
+      // - Aggregate onRouteInventory is still deducted
+      //   in the existing INVENTORY MOVEMENT section.
+      // =================================================
+
+      if (!hasPickedAllocations && pickedQty > 0) {
+        if (!ALLOW_LEGACY_PREORDER_DELIVERY) {
+          throw new Error(
+            `Preorder ${preorder.number}: ${productName} ` +
+            "has no picked lot allocations. " +
+            "Legacy delivery compatibility is disabled."
+          );
+        }
+
+        const fallbackUnitCost = Number(
+          inventory.product?.unitCost
+        );
+
+        if (
+          !Number.isFinite(fallbackUnitCost) ||
+          fallbackUnitCost < 0
+        ) {
+          throw new Error(
+            `Preorder ${preorder.number}: unable to calculate ` +
+            `historical cost for ${productName}. ` +
+            "Product unitCost is missing or invalid."
+          );
+        }
+
+        if (deliveredQty > 0) {
+          deliveredAllocations.push({
+            lotNumber: null,
+            quantity: deliveredQty,
+            unitCost: fallbackUnitCost,
+            expirationDate: null,
+            inventoryLocation,
+            lotMatchMethod: "fallback",
+          });
+
+          itemCogsCents = toCents(
+            deliveredQty * fallbackUnitCost
+          );
+        }
+
+        remainingToDeliver = 0;
+
+        console.warn(
+          "LEGACY PREORDER DELIVERY:",
+          {
+            preorder: preorder.number,
+            product: String(inventory.product?._id),
+            inventoryLocation,
+            pickedQty,
+            deliveredQty,
+            fallbackUnitCost,
+          }
         );
       }
-      for (const allocation of pickedAllocations) {
-        if (remainingToDeliver <= 0) break;
-        const reservedQuantity = Number(allocation.quantity);
-        if(!Number.isSafeInteger(reservedQuantity) || reservedQuantity < 0) {
-          throw new Error(`Invalid reserved lot quantity for ${productName}`);
+
+      // =================================================
+      // MODERN LOT-TRACKED PREORDER
+      // =================================================
+      //
+      // If picked allocations exist, maintain strict
+      // validation. Never use the fallback to bypass an
+      // incomplete or inconsistent allocation.
+      // =================================================
+
+      else if (hasPickedAllocations) {
+        const pickedAllocatedQty = pickedAllocations.reduce(
+          (sum: number, allocation: any) =>
+            sum + Number(allocation.quantity ?? 0),
+          0
+        );
+
+        if (pickedAllocatedQty !== pickedQty) {
+          throw new Error(
+            `Picked lot allocation mismatch for ${productName}. ` +
+            `Picked: ${pickedQty}. ` +
+            `Reserved: ${pickedAllocatedQty}`
+          );
         }
-        const quantityToDeliver = Math.min(reservedQuantity, remainingToDeliver);
-        if(quantityToDeliver <= 0) continue;
-        const unitCost = Number(allocation.unitCost);
-        if(!Number.isFinite(unitCost) || unitCost < 0) {
-          throw new Error(`Invalid historical lot cost for ${productName}`);
-        }
-        const allocationData = {
-          lotId: allocation.lotId ?? undefined,
-          lotNumber: allocation.lotNumber ?? null,
-          quantity: quantityToDeliver,
-          unitCost,
-          expirationDate: allocation.expirationDate ?? null,
-          inventoryLocation,
-          lotMatchMethod: allocation.lotMatchMethod,
-        };
-        if(allocation.lotId) {
-          const lot = inventory.lots.id(allocation.lotId);
-          if(!lot) {
-            throw new Error(`Reserved lot ${allocation.lotId} was not found for ${productName}`);
-          }
-          const currentQty = Number(lot.currentQty ?? 0);
-          const reservedQty = Number(lot.onRouteReservedQty ?? 0);
-          if(currentQty < quantityToDeliver || reservedQty < quantityToDeliver) {
-            throw new Error(`Insufficient lot inventory for ${lot.lotNumber}.` +
-              `Current: ${currentQty},` +
-              `Reserved: ${reservedQty},` +
-              `Delivering: ${quantityToDeliver}`
+
+        for (const allocation of pickedAllocations) {
+          if (remainingToDeliver <= 0) break;
+
+          const reservedQuantity = Number(
+            allocation.quantity
+          );
+
+          if (
+            !Number.isSafeInteger(reservedQuantity) ||
+            reservedQuantity < 0
+          ) {
+            throw new Error(
+              `Invalid reserved lot quantity for ${productName}`
             );
           }
-          lot.currentQty -= quantityToDeliver;
-          lot.onRouteReservedQty -= quantityToDeliver;
-        } else if (allocation.lotMatchMethod !== "fallback"){
-          throw new Error(`Reserved allocation is missing a lot ID for ${productName}`);
+
+          const quantityToDeliver = Math.min(
+            reservedQuantity,
+            remainingToDeliver
+          );
+
+          if (quantityToDeliver <= 0) continue;
+
+          const unitCost = Number(allocation.unitCost);
+
+          if (
+            !Number.isFinite(unitCost) ||
+            unitCost < 0
+          ) {
+            throw new Error(
+              `Invalid historical lot cost for ${productName}`
+            );
+          }
+
+          const allocationData = {
+            lotId: allocation.lotId ?? undefined,
+            lotNumber: allocation.lotNumber ?? null,
+            quantity: quantityToDeliver,
+            unitCost,
+            expirationDate:
+              allocation.expirationDate ?? null,
+            inventoryLocation,
+            lotMatchMethod: allocation.lotMatchMethod,
+          };
+
+          if (allocation.lotId) {
+            const lot = inventory.lots.id(
+              allocation.lotId
+            );
+
+            if (!lot) {
+              throw new Error(
+                `Reserved lot ${allocation.lotId} ` +
+                `was not found for ${productName}`
+              );
+            }
+
+            const currentQty = Number(
+              lot.currentQty ?? 0
+            );
+
+            const reservedQty = Number(
+              lot.onRouteReservedQty ?? 0
+            );
+
+            if (
+              currentQty < quantityToDeliver ||
+              reservedQty < quantityToDeliver
+            ) {
+              throw new Error(
+                `Insufficient lot inventory for ${lot.lotNumber}. ` +
+                `Current: ${currentQty}, ` +
+                `Reserved: ${reservedQty}, ` +
+                `Delivering: ${quantityToDeliver}`
+              );
+            }
+
+            lot.currentQty -= quantityToDeliver;
+            lot.onRouteReservedQty -= quantityToDeliver;
+
+            lot.hasMovement = true;
+            lot.lastMovementAt = new Date();
+          } else if (
+            allocation.lotMatchMethod !== "fallback"
+          ) {
+            throw new Error(
+              `Reserved allocation is missing a lot ID ` +
+              `for ${productName}`
+            );
+          }
+
+          deliveredAllocations.push(allocationData);
+
+          itemCogsCents += toCents(
+            quantityToDeliver * unitCost
+          );
+
+          remainingToDeliver -= quantityToDeliver;
         }
-        deliveredAllocations.push(allocationData);
-        itemCogsCents += toCents(quantityToDeliver * unitCost);
-        remainingToDeliver -= quantityToDeliver;
       }
+
+      // =================================================
+      // FINAL VALIDATION
+      // =================================================
+
       if (remainingToDeliver !== 0) {
-        throw new Error(`Unable to allocate all delivered units for ${productName}.` +
+        throw new Error(
+          `Unable to allocate all delivered units ` +
+          `for ${productName}. ` +
           `Remaining: ${remainingToDeliver}`
         );
       }
+
       line.lotAllocations = deliveredAllocations;
+
 
       // =================================================
       // INVENTORY MOVEMENT
@@ -524,18 +693,18 @@ export async function PATCH(
       const unitPrice =
         Number(
           line.actualCost ??
-            line
-              .productInventory
-              ?.product
-              ?.unitPrice ??
-            0
+          line
+            .productInventory
+            ?.product
+            ?.unitPrice ??
+          0
         );
 
 
       newTotalCents +=
         toCents(
           deliveredQty *
-            unitPrice
+          unitPrice
         );
 
 
@@ -551,11 +720,11 @@ export async function PATCH(
 
     preorder.total =
       preorder.type ===
-      "noCharge"
+        "noCharge"
         ? 0
         : fromCents(
-            newTotalCents
-          );
+          newTotalCents
+        );
 
 
     preorder.cogs =
@@ -584,12 +753,12 @@ export async function PATCH(
     preorder.deliverySignature =
       signature;
 
-    if(linkedCreditMemo && linkedCreditMemo.status === "received"){
-      if(linkedCreditMemo.returnSignature && linkedCreditMemo.returnSignature !== signature){
+    if (linkedCreditMemo && linkedCreditMemo.status === "received") {
+      if (linkedCreditMemo.returnSignature && linkedCreditMemo.returnSignature !== signature) {
         throw new Error("Credit Memo already has a different signature");
       }
       linkedCreditMemo.returnSignature = signature;
-      await linkedCreditMemo.save({session});
+      await linkedCreditMemo.save({ session });
     }
 
 
