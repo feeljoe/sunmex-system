@@ -23,6 +23,7 @@ export interface IProduct extends Document {
     bay?: string;
     level?: string;
   };
+  status: string;
 }
 
 const ProductSchema = new Schema<IProduct>({
@@ -49,6 +50,7 @@ const ProductSchema = new Schema<IProduct>({
     bay: { type: String },
     level: { type: String },
   },
+  status: {type: String, enum: ["active", "inactive"], default: "active"},
 }, { timestamps: true });
 
 export default mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);

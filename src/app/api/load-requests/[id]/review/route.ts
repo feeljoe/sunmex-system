@@ -147,8 +147,7 @@ export async function PATCH(
 
         if (
           !Number.isSafeInteger(requestedQty) ||
-          requestedQty < 0 ||
-          approvedQuantity > requestedQty
+          requestedQty < 0
         ) {
           throw new Error(
             `Approved quantity is invalid for ${productId}`

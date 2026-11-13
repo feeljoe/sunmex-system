@@ -46,6 +46,7 @@ export default function EditProductModal({
       weight: product.weight,
       unit: product.unit,
       image: product.image,
+      status: product.status ?? "active",
     });
   }, [product]);
 
@@ -59,7 +60,13 @@ export default function EditProductModal({
       const payload: any = {};
 
       // Only include changed fields
-      Object.keys(form).forEach(key => {
+      Object.keys(form).forEach((key) => {
+        if(key === "status"){
+          if(form.status !== (product.status ?? "active")) {
+            payload.status = form.status;
+          }
+          return;
+        }
         if (form[key] !== product[key]) {
           payload[key] = form[key];
         }
@@ -125,6 +132,22 @@ export default function EditProductModal({
               placeholder="Product name"
               className="p-2 rounded-xl bg-white shadow-xl"
             />
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-2">
+              <label htmlFor="product-status" className="mb-2 block text-sm font-bold text-gray-900">
+                Product Status
+              </label>
+              <select 
+                id="product-status"
+                value={form.status ?? "active"}
+                onChange={(event) => setForm((prev: any) => ({...prev, status: event.target.value}))}
+                className={`min-h-11 w-full founded-xl border p-2 text-sm font-bold outline-none ${
+                  form.status === "inactive" ? "border-red-300 bg-red-50 text-red-800" : "border-green-300 bg-green-50 text-green-800"
+                }`}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="flex flex-col">

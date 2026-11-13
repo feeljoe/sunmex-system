@@ -7,6 +7,7 @@ import { SearchBar } from "../ui/SearchBar";
 import { useEffect, useState } from 'react';
 import { RefreshButton } from '../ui/RefreshButton';
 import Link from 'next/link';
+import EditBrandModal from '../modals/EditBrandModal';
 export function BrandsTable() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(100);
@@ -19,12 +20,13 @@ export function BrandsTable() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [brandToDelete, setBrandToDelete] = useState<any | null>(null);
-  const [submitStatus, setSubmitStatus] = useState< "loading" | "success" | "error" | null > (null);
-  const [message, setMessage] = useState< string | null >(null);
+  const [submitStatus, setSubmitStatus] = useState<"loading" | "success" | "error" | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [brandToEdit, setBrandToEdit] = useState<any>(null);
 
-  const handleSetPage = (value:string) => {
+  const handleSetPage = (value: string) => {
     setSubmitStatus("loading");
-    if(value === "back") {
+    if (value === "back") {
       setPage((p) => Math.max(1, p - 1));
     } else {
       setPage(p => p + 1);
@@ -32,207 +34,218 @@ export function BrandsTable() {
   };
 
   useEffect(() => {
-      setPage(1);
-    }, [search]);
+    setPage(1);
+  }, [search]);
 
-      const requestDelete = (brand: any) => {
-          setBrandToDelete(brand);
-          setConfirmOpen(true);
-      };
-  
-      const confirmDelete = async (id: string) => {
-          setMessage(null);
-          setSubmitStatus("loading");
-          try {
-              if(!brandToDelete) return;
-              await fetch(`/api/brands/${id}`, {
-                  method: "DELETE",
-              });
-              setMessage("Brand deleted successfully");
-              setSubmitStatus("success")
-              setBrandToDelete(null);
-              reload();
-          }catch(err: any){
-              setMessage(err.message || "Error");
-              setSubmitStatus("error");
-            }
-          
-      };
-  
-      const cancelDelete = () => {
-          setConfirmOpen(false);
-          setBrandToDelete(null);
-      };
-      const totalPages = total > 0? Math.ceil(total/limit): 1;
+  const requestDelete = (brand: any) => {
+    setBrandToDelete(brand);
+    setConfirmOpen(true);
+  };
 
-      const handleExportExcel = async () => {
-        try {
-          setSubmitStatus("loading");
-          setMessage("Generating Excel file...");
+  const confirmDelete = async (id: string) => {
+    setMessage(null);
+    setSubmitStatus("loading");
+    try {
+      if (!brandToDelete) return;
+      await fetch(`/api/brands/${id}`, {
+        method: "DELETE",
+      });
+      setMessage("Brand deleted successfully");
+      setSubmitStatus("success")
+      setBrandToDelete(null);
+      reload();
+    } catch (err: any) {
+      setMessage(err.message || "Error");
+      setSubmitStatus("error");
+    }
 
-          const res = await fetch("/api/brands/export");
-          if (!res.ok) throw new Error("Export failed");
+  };
 
-          // Get the binary Excel buffer from the API
-          const blob = await res.blob();
-          
-          // Trigger the browser download
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `brands-export-${new Date().toISOString().split("T")[0]}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
+  const cancelDelete = () => {
+    setConfirmOpen(false);
+    setBrandToDelete(null);
+  };
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
-          setSubmitStatus("success");
-          setMessage("Export completed!");
-          
-        } catch (err) {
-          console.error(err);
-          setSubmitStatus("error");
-          setMessage("Failed to export brands.");
-        }
-      };
+  const handleExportExcel = async () => {
+    try {
+      setSubmitStatus("loading");
+      setMessage("Generating Excel file...");
+
+      const res = await fetch("/api/brands/export");
+      if (!res.ok) throw new Error("Export failed");
+
+      // Get the binary Excel buffer from the API
+      const blob = await res.blob();
+
+      // Trigger the browser download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `brands-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setSubmitStatus("success");
+      setMessage("Export completed!");
+
+    } catch (err) {
+      console.error(err);
+      setSubmitStatus("error");
+      setMessage("Failed to export brands.");
+    }
+  };
 
   return (
     <>
-    <div className='h-full w-full'>
-      <div className="flex items-center justify-end py-2">
-        <Link href="/pages/catalogues/brands/add-brand">
-          <button className="flex gap-2 p-3 mb-1 items-center font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
+      <div className='h-full w-full'>
+        <div className="flex items-center justify-end py-2">
+          <Link href="/pages/catalogues/brands/add-brand">
+            <button className="flex gap-2 p-3 mb-1 items-center font-mono font-bold rounded-xl bg-blue-400 text-blue-800 hover:text-white hover:bg-blue-800 transition-all duration:300 hover:-translate-y-2 cursor-pointer">
               Add Brand
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-7">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
-          </button>
-        </Link>
-      </div>
-      <div className='flex flex-col h-[75vh] bg-(--secondary) shadow-xl rounded-xl p-5'>
-      <div className="flex justify-between items-center gap-5 mb-4">
-          <SearchBar
+            </button>
+          </Link>
+        </div>
+        <div className='flex flex-col h-[75vh] bg-(--secondary) shadow-xl rounded-xl p-5'>
+          <div className="flex justify-between items-center gap-5 mb-4">
+            <SearchBar
               placeholder="Search brands..."
               onSearch={setSearch}
               debounce
-          />
-          <RefreshButton onRefresh={() => {
-            setSubmitStatus("loading");
-            reload(); 
-            setTimeout(() => setSubmitStatus(null), 1000);
-            }}/>
-      </div>
-      <div className='flex-1 overflow-auto rounded-xl shadow-xl'>
-      <table className='w-full text-left'>
-        <thead className='sticky top-0 z-10 bg-(--tertiary)'>
-          <tr className='border-b-3 text-lg font-mono'>
-            <th className='px-4 py-2'>Name</th>
-            <th className="px-4 py-2 text-center">Edit</th>
-            <th className='px-4 py-2 text-center'>Delete</th>
-          </tr>
-        </thead>
-        <tbody className='bg-white'>
-        {items.length === 0 && (
-            <tr>
-              <td colSpan={8} className='p-4 text-center text-2xl text-gray-800'>
-                No brands found
-              </td>
-            </tr>
-          )}
-          {items.map((it: any) => (
-            <tr key={it._id} className='border-b border-gray-400 font-mono font-bold whitespace-nowrap'>
-              <td className='px-4 py-2 capitalize w-full'>{it.name.toLowerCase()}</td>
-              <td className='px-4 py-2 text-center'>
-                <button className="text-blue-800 bg-blue-400 p-2 text-lg rounded-xl hover:bg-blue-800 hover:text-white cursor-pointer transition-all duration:500">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-7">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                  </svg>
+            />
+            <RefreshButton onRefresh={() => {
+              setSubmitStatus("loading");
+              reload();
+              setTimeout(() => setSubmitStatus(null), 1000);
+            }} />
+          </div>
+          <div className='flex-1 overflow-auto rounded-xl shadow-xl'>
+            <table className='w-full text-left'>
+              <thead className='sticky top-0 z-10 bg-(--tertiary)'>
+                <tr className='border-b-3 text-lg font-mono'>
+                  <th className='px-4 py-2'>Name</th>
+                  <th className='px-4 py-2'>Status</th>
+                  <th className="px-4 py-2 text-center">Edit</th>
+                </tr>
+              </thead>
+              <tbody className='bg-white'>
+                {items.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className='p-4 text-center text-2xl text-gray-800'>
+                      No brands found
+                    </td>
+                  </tr>
+                )}
+                {items.map((it: any) => (
+                  <tr key={it._id} className='border-b border-gray-400 font-mono font-bold whitespace-nowrap'>
+                    <td className='px-4 py-2 capitalize w-full'>{it.name.toLowerCase()}</td>
+                    <td className="px-4 py-2 text-center">
+                      <span
+                        className={`inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase ${it.status === "inactive"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-green-100 text-green-800"
+                          }`}
+                      >
+                        {it.status === "inactive" ? "Inactive" : "Active"}
+                      </span>
+                    </td>
+                    <td className='px-4 py-2 text-center'>
+                      <button className="text-blue-800 bg-blue-400 p-2 text-lg rounded-xl hover:bg-blue-800 hover:text-white cursor-pointer transition-all duration:500" onClick={() => setBrandToEdit(it)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-7">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className='flex justify-between items-center font-mono'>
+            <div className='flex mt-4'>
+              <button
+                onClick={handleExportExcel}
+                className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                Export
               </button>
-              </td>
-              <td className='px-4 py-2 text-center'>
-                  <button className='text-red-800 bg-red-400 p-2 text-lg rounded-xl hover:bg-red-800 hover:text-white cursor-pointer transition-all duration:500' onClick={() => requestDelete(it)}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-7">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
-                  </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      </div>
-      <div className='flex justify-between items-center font-mono'>
-        <div className='flex mt-4'>
-            <button 
-              onClick={handleExportExcel}
-              className='flex gap-3 p-2 font-bold rounded-xl bg-green-400 text-green-800 hover:bg-green-800 hover:text-white transition-all duration:300 cursor-pointer items-center'
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="size-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-              </svg>
-              Export
-            </button>
+            </div>
+            <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
+              <span>
+                Showing {items.length} of {total} brands
+              </span>
+              <button
+                disabled={page === 1}
+                onClick={() => {
+                  handleSetPage("back");
+                  setTimeout(() => setSubmitStatus(null), 1000);
+                }}
+                className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+              </button>
+
+              <span className="px-3 py-1">
+                Page {page} of {totalPages || 1}
+              </span>
+
+              <button
+                disabled={page >= totalPages}
+                onClick={() => {
+                  handleSetPage("forward");
+                  setTimeout(() => setSubmitStatus(null), 1000);
+                }}
+                className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-      <div className="flex justify-end font-mono font-bold items-center gap-4 mt-4">
-        <span>
-          Showing {items.length} of {total} brands
-        </span>
-        <button
-          disabled={page === 1}
-          onClick={() => {
-            handleSetPage("back");
-            setTimeout(() => setSubmitStatus(null), 1000);
-          }}
-          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page === 1 ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-        </button>
-
-        <span className="px-3 py-1">
-          Page {page} of {totalPages || 1}
-        </span>
-
-        <button
-          disabled={page >= totalPages}
-          onClick={() => {
-            handleSetPage("forward");
-            setTimeout(() => setSubmitStatus(null), 1000);
-          }}
-          className={`p-2 bg-blue-400 text-blue-800 rounded-xl shadow-xl ${page >= totalPages ? "" : "hover:bg-blue-800 hover:text-white cursor-pointer"} disabled:opacity-50`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="size-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-          </svg>
-        </button>
       </div>
-      </div>
-    </div>
-    </div>
-    {confirmOpen &&
-      <ConfirmModal
-        open={confirmOpen}
-        title="Confirm Brand Deletion"
-        data={brandToDelete}
-        sections={brandConfirmConfig}
-        onConfirm={() => {
+      {confirmOpen &&
+        <ConfirmModal
+          open={confirmOpen}
+          title="Confirm Brand Deletion"
+          data={brandToDelete}
+          sections={brandConfirmConfig}
+          onConfirm={() => {
             confirmDelete(brandToDelete._id);
             setConfirmOpen(false);
-        }}
-        onBack={cancelDelete}
-      />
-    }
-    {submitStatus && (
-      <SubmitResultModal
+          }}
+          onBack={cancelDelete}
+        />
+      }
+      {submitStatus && (
+        <SubmitResultModal
           status={submitStatus}
           message={message}
           onClose={() => {
-              setSubmitStatus(null);
+            setSubmitStatus(null);
           }}
           collection="Brand"
-      />
-    )}
+        />
+      )}
+      {brandToEdit && (
+        <EditBrandModal
+          open={!!brandToEdit}
+          brand={brandToEdit}
+          onClose={() => setBrandToEdit(null)}
+          onUpdated={() => reload()}
+        />
+      )}
     </>
   );
 }
