@@ -97,10 +97,7 @@ export async function PATCH(
     );
   }
 
-  const supplied = new Map<string, {
-    quantity: number;
-    differenceReason: string | null;
-  }>();
+  const supplied = new Map<string, { quantity: number; differenceReason: string | null;}>();
 
   for (const item of body.products) {
     const productId = String(item.productId ?? "");
@@ -197,36 +194,58 @@ export async function PATCH(
         const productId = String(
           line.product?._id ?? line.product
         );
-
+      
         expectedIds.add(productId);
-
+      
+        const assembledQty = Number(
+          line.assembledQuantity ?? 0
+        );
+      
+        // Validate the assembled quantity first
+        if (
+          !Number.isSafeInteger(assembledQty) ||
+          assembledQty < 0
+        ) {
+          throw new Error(
+            `Invalid assembled quantity for ${productId}`
+          );
+        }
+      
         const submitted = supplied.get(productId);
-
-        if (!submitted) {
+      
+        // Mobile only sends products with assembledQuantity > 0.
+        // Allow products with 0 assembled units to be omitted.
+        if (!submitted && assembledQty > 0) {
           throw new Error(
             `Missing delivered count for ${productId}`
           );
         }
-
-        const deliveredQty = submitted.quantity;
-        const assembledQty = Number(
-          line.assembledQuantity ?? 0
-        );
-
-        if (
-          !Number.isSafeInteger(assembledQty) ||
-          assembledQty < 0 ||
-          deliveredQty > assembledQty
-        ) {
+      
+        // If nothing was assembled, an omitted product
+        // is automatically considered delivered with 0 units.
+        const deliveredQty = submitted?.quantity ?? 0;
+      
+        // Preserve existing validation
+        if (deliveredQty > assembledQty) {
           throw new Error(
-            `Delivered quantity exceeds assembled ` +
-            `quantity for ${productId}`
+            `Delivered quantity exceeds assembled quantity for ${productId}`
           );
         }
-
+        
+        if (
+          assembledQty > 0 &&
+          deliveredQty < assembledQty &&
+          !submitted?.differenceReason
+        ) {
+          throw new Error(
+            `Difference reason required for ${productId}`
+          );
+        }
+      
+        // Preserve difference reason when explicitly provided
         line.deliveredQuantity = deliveredQty;
         line.differenceReason =
-          submitted.differenceReason;
+          submitted?.differenceReason ?? null;
 
         if (isLotTracked) {
           const reservedQty = (
