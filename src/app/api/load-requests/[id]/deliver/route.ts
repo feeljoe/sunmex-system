@@ -13,43 +13,40 @@ import ForeignInventory from "@/models/ForeignInventory";
 import Route from "@/models/Route";
 
 async function getUser(req: Request) {
-  const authorization = req.headers.get("authorization");
+  // 1. Try to read the Bearer token sent by the React Native app
+  const authHeader = req.headers.get("authorization");
+  
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      // Decode the JWT. (Make sure this secret matches the one used in your login route)
+      const decoded = jwt.verify(
+        token, 
+        process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET as string
+      ) as any;
 
-  if (authorization?.startsWith("Bearer ")) {
-    const token = authorization.slice(7);
-
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      throw new Error("JWT_SECRET is not configured");
+      if (decoded && ["admin", "driver", "vendor"].includes(decoded.role)) {
+        // Map _id to id if your JWT uses MongoDB's _id
+        return {
+           ...decoded,
+           id: decoded.id || decoded._id 
+        };
+      }
+    } catch (error) {
+      console.log("Mobile JWT Verification Failed:", error);
+      // We don't throw here yet so it can fall back to checking web cookies
     }
-
-    const decoded = jwt.verify(token, secret);
-
-    if (
-      typeof decoded !== "object" ||
-      !decoded ||
-      !decoded.id && !decoded._id
-    ) {
-      throw new Error("Invalid authentication token");
-    }
-
-    return {
-      id: String(decoded.id ?? decoded._id),
-      role: String(decoded.role ?? ""),
-    };
   }
 
+  // 2. Fallback: If no valid header, try NextAuth cookies (for web dashboard)
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
+  const user = session?.user;
+  
+  if (!user || !["admin", "driver", "vendor"].includes(user.role)) {
     throw new Error("Unauthorized");
   }
 
-  return {
-    id: session.user.id,
-    role: session.user.role,
-  };
+  return user;
 }
 
 type LotAllocation = {
