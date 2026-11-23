@@ -116,7 +116,77 @@ const SupplierReceiptSchema = new mongoose.Schema(
         },
         amount: {type: Number},
         checkNumber: {type: String},
-        date: { type: Date },
+        date: { type: Date, default: null },
+        dateUpdatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null},
+        dateUpdatedAt: {type: Date, default: null},
+        dateChangeHistory: [{
+          previousDate: {type: Date, default: null},
+          newDate: {type: Date, required: true},
+          changedBy: {type: Schema.Types.ObjectId, ref: "User", required: true},
+          changedAt: {type: Date, default: Date.now},
+        },],
+      },
+    ],
+    deletedPayments: [
+      {
+        paymentId: {
+          type: Schema.Types.ObjectId,
+          required: true,
+        },
+    
+        type: {
+          type: String,
+          enum: ["cash", "check", "transfer"],
+          required: true,
+        },
+    
+        amount: {
+          type: Number,
+          required: true,
+        },
+    
+        checkNumber: {
+          type: String,
+          default: null,
+        },
+    
+        date: {
+          type: Date,
+          default: null,
+        },
+    
+        // Preserve the original payment's complete information,
+        // including any previous date corrections.
+        paymentSnapshot: {
+          type: Schema.Types.Mixed,
+          required: true,
+        },
+    
+        deletedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+    
+        deletedAt: {
+          type: Date,
+          default: Date.now,
+        },
+    
+        reason: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+    
+        previousPaymentStatus: {
+          type: String,
+        },
+    
+        previousPaidAt: {
+          type: Date,
+          default: null,
+        },
       },
     ],
     inventoryEditVersion: {

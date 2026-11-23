@@ -12,6 +12,7 @@ import { DateTime } from "luxon";
 import User from "@/models/User";
 import ForeignInventory from "@/models/ForeignInventory";
 import { getInventoryModel, getInventoryModelName, normalizeInventoryLocation } from "@/utils/inventoryResolver";
+import { validateQuantity } from "@/lib/inventory/validateQuantity";
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
@@ -228,7 +229,11 @@ export async function POST(req: Request) {
     const productsToSave = body.products.map((p: any) => ({
       productInventory: p.productInventory,
       inventoryModel: inventoryModelName,
-      quantity: Math.round(Number(p.quantity)),
+      quantity: validateQuantity(
+        p.quantity,
+        "PreOrder quantity",
+        { allowZero: false }
+      ),
       actualCost: p.effectiveUnitPrice ?? p.unitPrice ?? 0,
     }));
 

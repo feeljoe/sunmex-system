@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     if (route) cmQuery.routeAssigned = route;
 
     const creditMemos = await CreditMemo.find(cmQuery)
-      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
+      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName location" } })
       .populate({ path: "products.product", populate: { path: "brand" } })
       .populate("client")
       .populate("createdBy")
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     poQuery.$or = [{ warehouseReturnProcessed: { $ne: true } }, { warehouseReturnProcessed: true }];
 
     const preorders = await PreOrder.find(poQuery)
-      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
+      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName location" } })
       .populate({ path: "products.productInventory", populate: { path: "product", populate: { path: "brand" } } })
       .populate("client")
       .populate("createdBy")
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
     lrQuery.$or = [{ warehouseReturnProcessed: { $ne: true } }, { warehouseReturnProcessed: true }];
 
     const loadRequests = await LoadRequest.find(lrQuery)
-      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
+      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName location" } })
       .populate({ path: "products.product", populate: { path: "brand" } })
       .populate("requestedBy")
       .sort({ deliveredAt: -1 })
@@ -112,14 +112,23 @@ export async function GET(req: Request) {
     if (route) auditQuery.routeAssigned = route;
 
     const audits = await RouteAudit.find(auditQuery)
-      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName" } })
+      .populate({ path: "routeAssigned", populate: { path: "user", select: "firstName lastName location" } })
       .populate({ path: "products.product", populate: { path: "brand" } })
       .populate("createdBy")
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedAudits = audits.map((au: any) => ({ ...au, type: "audit" }));
-
+    const formattedAudits = audits.map((au: any) => ({ ...au, type: "audit", inventoryLocation: au.inventoryLocation ?? null, }));
+    const missingLocations = [
+      ...formattedCMs,
+      ...formattedPreorders,
+      ...formattedAudits,
+    ].filter((doc: any) => doc.status === "pending" && !doc.inventoryLocation);
+    if(missingLocations.length > 0) {
+      console.log("Warehouse returns missing inventoryLocations: ", missingLocations.map((doc: any) => ({
+        id: doc._id, type: doc.type, route: doc.routeAssigned?._id, routeUserLocation: doc.routeAssigned?.user?.location,
+      })));
+    }
     return NextResponse.json({
       items: [...formattedCMs, ...formattedPreorders, ...formattedLRs, ...formattedAudits],
       total: formattedCMs.length + formattedPreorders.length + formattedLRs.length + formattedAudits.length

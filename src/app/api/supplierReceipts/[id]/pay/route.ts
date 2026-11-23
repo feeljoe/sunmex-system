@@ -73,7 +73,7 @@ export async function PATCH(
       !["cash", "check", "transfer"].includes(payment.type) ||
       typeof amount !== "number" ||
       !Number.isFinite(amount) ||
-      amount <= 0
+      amount < 0
     ) {
       return NextResponse.json(
         { error: "Invalid payment amount or type" },

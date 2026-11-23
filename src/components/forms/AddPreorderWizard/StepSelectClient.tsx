@@ -63,12 +63,12 @@ export default function StepSelectClient({
 
 
   return (
-    <div className="space-y-4 h-full w-full flex flex-col">
-      <h2 className="text-xl font-semibold text-center">
+    <div className="space-y-2 h-full w-full flex flex-col">
+      <h2 className="hidden lg:block lg:text-xl font-semibold text-center">
         Select Client
       </h2>
 
-      {/* 🔍 Search */}
+      <div className="p-1">
       <input
         type="text"
         placeholder="Search client..."
@@ -76,18 +76,18 @@ export default function StepSelectClient({
         onChange={(e) => setSearch(e.target.value)}
         className="w-full p-3 rounded-xl bg-white shadow-xl"
       />
+      </div>
 
     {loading && (
       <p>Loading clients...</p>
     )}
-      {/* 📋 Client list */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+    
+      <div className="flex-1 overflow-y-auto space-y-2 p-1">
         {filteredClients.length === 0 && (
           <p className="text-center text-gray-500">
             No available clients for today
           </p>
         )}
-
         {filteredClients.map((client) => {
           const isSelected = selectedClient?._id === client._id;
 
@@ -96,7 +96,7 @@ export default function StepSelectClient({
               key={client._id}
               type="button"
               onClick={() => onSelect(client)}
-              className={`w-full text-left p-3 rounded-xl border transition-all duration:500 capitalize
+              className={`w-full text-left p-3 rounded-xl transition-all duration:500 capitalize
                 ${
                   isSelected
                     ? "bg-blue-500 text-white border-blue-500"

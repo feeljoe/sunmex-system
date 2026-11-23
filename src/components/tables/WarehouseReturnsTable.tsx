@@ -26,7 +26,8 @@ export default function WarehouseReturnsTable({ user }: any) {
             const routeCode = r.routeAssigned?.code || "ZZZ";
             const routeId = r.routeAssigned?._id || "unassigned";
             const routeName = r.routeAssigned ? `${r.routeAssigned.code} | ${r.routeAssigned.user?.firstName} ${r.routeAssigned.user?.lastName}` : "Unassigned Route";
-
+            const inventoryLocation = r.inventoryLocation || r.routeAssigned?.user?.location || "unknown";
+            const groupKey = `${routeId}::${inventoryLocation}`;
             if (selectedRouteFilter && routeId !== selectedRouteFilter) return;
 
             let finalProducts = [];
@@ -58,15 +59,15 @@ export default function WarehouseReturnsTable({ user }: any) {
                 }
             }
 
-            if (!map.has(routeId)) {
-                map.set(routeId, {
-                    routeId, routeName, routeCode,
+            if (!map.has(groupKey)) {
+                map.set(groupKey, {
+                    routeId, routeName, routeCode, inventoryLocation,
                     creditMemos: [], preorders: [], loadRequests: [], audits: [],
                     totalExpectedUI: 0,
                 });
             }
 
-            const group = map.get(routeId);
+            const group = map.get(groupKey)!;
             group.totalExpectedUI += expectedUI;
 
             if (r.type === "creditMemo") group.creditMemos.push({ ...r, products: finalProducts });
@@ -127,7 +128,7 @@ export default function WarehouseReturnsTable({ user }: any) {
                             </tr>
                         ) : (
                             groupedRoutes.map((routeGroup: any) => (
-                                <tr key={routeGroup.routeId} className="border-b hover:bg-gray-100">
+                                <tr key={`${routeGroup.routeId}::${routeGroup.inventoryLocation}`} className="border-b hover:bg-gray-100">
                                     <td className="p-2 font-bold text-lg capitalize">{routeGroup.routeName}</td>
                                     <td className="p-2">
                                         <span className="bg-blue-400 text-blue-800 font-bold p-2 rounded-full">

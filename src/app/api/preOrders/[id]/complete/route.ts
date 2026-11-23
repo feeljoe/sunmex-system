@@ -13,6 +13,7 @@ import {
   normalizeInventoryLocation,
 } from "@/utils/inventoryResolver";
 import { allocateLotsForPicking } from "@/lib/inventory/allocateLots";
+import { validateQuantity } from "@/lib/inventory/validateQuantity";
 
 export async function PATCH(
   req: Request,
@@ -117,8 +118,14 @@ export async function PATCH(
           throw new Error("Product does not belong to this preorder");
         }
 
-        const orderedQty = Math.round(Number(line.quantity || 0));
-        const pickedQty = Math.round(Number(update.pickedQuantity || 0));
+        const orderedQty = validateQuantity(
+          line.quantity,
+          "Ordered quantity"
+        );
+        const pickedQty = validateQuantity(
+          update.pickedQuantity,
+          "Picked quantity"
+        );
 
         if (pickedQty < 0) {
           throw new Error("Picked quantity cannot be negative");
@@ -229,8 +236,15 @@ export async function PATCH(
       // QUANTITIES
       // =======================================================
 
-      const orderedQty = Math.round(Number(line.quantity || 0));
-      const pickedQty = Math.round(Number(update.pickedQuantity || 0));
+      const orderedQty = validateQuantity(
+        line.quantity,
+        "Ordered quantity"
+      );
+      
+      const pickedQty = validateQuantity(
+        update.pickedQuantity,
+        "Picked quantity"
+      );
       const diffQty = orderedQty - pickedQty;
 
       if (pickedQty < 0) {

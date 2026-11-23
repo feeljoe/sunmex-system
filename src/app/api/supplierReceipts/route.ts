@@ -9,6 +9,7 @@ import Supplier from "@/models/Supplier";
 import { DateTime } from "luxon";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { validateQuantity } from "@/lib/inventory/validateQuantity";
 
 export async function GET(req: Request) {
   try {
@@ -221,8 +222,15 @@ export async function POST(req: Request) {
 
       seenProducts.add(productKey);
 
-      const qty = Number(item.receivedQuantity);
-      const ordered = Number(item.orderedQuantity);
+      const qty = validateQuantity(
+        item.receivedQuantity,
+        `Received quantity for ${productKey}`
+      );
+      
+      const ordered = validateQuantity(
+        item.orderedQuantity,
+        `Ordered quantity for ${productKey}`
+      );
       const unitCost = Number(item.unitCost);
       const actualCost = Number(item.actualCost);
 
@@ -274,7 +282,11 @@ export async function POST(req: Request) {
       }
 
       const normalizedLots = receivedLots.map((lot: any) => {
-        const lotQty = Number(lot.quantity);
+        const lotQty = validateQuantity(
+          lot.quantity,
+          `Lot quantity for ${productKey}`,
+          { allowZero: false }
+        );
 
         if (
           lot.quantity === "" ||
@@ -507,6 +519,19 @@ export async function POST(req: Request) {
       if (!updatedInventory) {
         throw new Error(
           `Failed to update inventory: ${item.product}`
+        );
+      }
+
+      const currentInventory = Number(
+        updatedInventory.currentInventory
+      );
+      
+      if (
+        !Number.isSafeInteger(currentInventory) ||
+        currentInventory < 0
+      ) {
+        throw new Error(
+          `Invalid inventory balance after receiving product ${item.product}: ${currentInventory}`
         );
       }
 

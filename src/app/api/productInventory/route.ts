@@ -4,7 +4,6 @@ import ProductInventory from "@/models/ProductInventory";
 import ForeignInventory from "@/models/ForeignInventory";
 import PreOrder from "@/models/PreOrder";
 import User from "@/models/User";
-import Brand from "@/models/Brand";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -29,6 +28,7 @@ export async function GET(req: Request) {
     const brand = searchParams.get("brand");
     const type = searchParams.get("type");
     const availableOnly = searchParams.get("availableOnly") === "true";
+    const catalogActiveOnly = searchParams.get("catalogActiveOnly") === "true";
     const preorderId = searchParams.get("preorderId");
 
     const user = await User.findById(session.user.id).select("location").lean();
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       const preorder = await PreOrder.findById(preorderId).select("inventoryLocation").lean();
 
       if (!preorder) {
-        return NextResponse.json({ error: "Preorder Not Found" }, {status: 404});
+        return NextResponse.json({ error: "Preorder Not Found" }, { status: 404 });
       }
       inventoryLocation = normalizeInventoryLocation(preorder.inventoryLocation);
     }
@@ -71,26 +71,74 @@ export async function GET(req: Request) {
       matchStage.currentInventory = { $gt: 0 };
     }
 
-    // Search filter
+    if (catalogActiveOnly){
+      matchStage["product.status"] = {
+        $in: ["active", null],
+      };
+      matchStage["brand.status"] = {
+        $in: ["active", null],
+      };
+    }
+
+
+    // ==================================================
+    // SEARCH FILTER
+    // Product name, brand, SKU, UPC, vendor SKU, ID
+    // ==================================================
     if (search) {
-      const brands = await Brand.find({
-        name: { $regex: search, $options: "i" },
-      }).select("_id");
+      // Treat search as text, not as a user-provided
+      // regular expression.
+      const escapedSearch = search.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
 
-      const brandIds = brands.map(b => b._id);
+      const searchRegex = new RegExp(
+        escapedSearch,
+        "i"
+      );
 
-      const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
+      const isObjectId =
+        mongoose.Types.ObjectId.isValid(search) &&
+        /^[0-9a-fA-F]{24}$/.test(search);
 
       matchStage.$or = [
-        { "product.name": { $regex: search, $options: "i" } },
-        { "product.sku": { $regex: search, $options: "i" } },
-        { "product.upc": { $regex: search, $options: "i" } },
-        { "product.brand": { $in: brandIds } },
+        {
+          "product.name": {
+            $regex: searchRegex,
+          },
+        },
+        {
+          "brand.name": {
+            $regex: searchRegex,
+          },
+        },
+        {
+          "product.sku": {
+            $regex: searchRegex,
+          },
+        },
+        {
+          "product.upc": {
+            $regex: searchRegex,
+          },
+        },
+        {
+          "product.vendorSku": {
+            $regex: searchRegex,
+          },
+        },
         ...(isObjectId
-          ? [{ "product._id": new mongoose.Types.ObjectId(search) }]
+          ? [
+            {
+              "product._id":
+                new mongoose.Types.ObjectId(search),
+            },
+          ]
           : []),
       ];
     }
+
 
     const locationStage = useForeignInventory
       ? {
@@ -151,6 +199,7 @@ export async function GET(req: Request) {
         $sort: {
           "brand.name": 1,
           "product.name": 1,
+          _id: 1,
         },
       },
 

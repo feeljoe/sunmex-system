@@ -677,10 +677,8 @@ export async function PATCH(
       // onRoute -> sold
       // =================================================
 
-      inventory.onRouteInventory -=
-        deliveredQty;
-
-
+      inventory.onRouteInventory -= deliveredQty;
+      
       await inventory.save({
         session,
       });

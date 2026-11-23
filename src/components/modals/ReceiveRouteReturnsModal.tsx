@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import SignaturePad from "../ui/SignaturePad";
 import SubmitResultModal from "./SubmitResultModal";
 import { Status } from "./SubmitResultModal";
+import { normalizeInventoryLocation } from "@/utils/inventoryResolver";
 
 export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onCompleted }: any) {
   const [verifiedQuantities, setVerifiedQuantities] = useState<Record<string, number>>({});
@@ -15,67 +16,124 @@ export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onC
   const [reasonOverrides, setReasonOverrides] = useState<Record<string,string>>({});
 
   // Centralized key generator so it mathematically matches everywhere!
-  const getAggKey = (productId: string, reason: string, type: string) => `${productId}-${reason}-${type}`;
+  const getAggKey = (productId: string, reason: string, type: string, inventoryLocation:string, inventoryId: string = "") => [type, inventoryLocation, inventoryId, productId, reason,].join("::");
+  const getItemKey = (agg: any) => getAggKey(agg.productId, agg.sourceType === "au" ? `${agg.returnReason}::${agg.differenceType}` : agg.returnReason, agg.sourceType, agg.inventoryLocation, agg.inventoryId ?? "");
+  const getWarehouseLocation = (doc: any): string => {
+    if (!doc.inventoryLocation){
+      throw new Error(`Missing inventory location for ${doc.number || doc._id}`);
+    }
+    return normalizeInventoryLocation(doc.inventoryLocation);
+  };
 
   const aggregatedProducts = useMemo(() => {
     const map = new Map<string, any>();
 
     routeData.creditMemos.forEach((cm: any) => {
       const docNumber = cm.number || "unknown CRM";
+      const inventoryLocation = getWarehouseLocation(cm);
       cm.products.forEach((p: any) => {
-        if ((p.pickedQuantity || 0) === 0) return;
-        const key = getAggKey(p?.product?._id, p?.returnReason, "cm");
-        
+        const pickedQty = Number(p.pickedQuantity ?? 0);
+        if (pickedQty <=0) return;
+        const productId = String(p.product?._id ?? p.product);
+        const key = getAggKey(productId, p.returnReason, "cm", inventoryLocation);
         if (!map.has(key)) {
-          map.set(key, { sourceType: "cm", productId: p?.product?._id, brandName: p?.product?.brand?.name || "Unknown Brand", productName: p?.product?.name || "Unknown Product", weight: p?.product?.weight || "", unit: p?.product?.unit || "", returnReason: p?.returnReason, totalPicked: 0, sourceDocs: new Set<string>() });
+          map.set(key, {
+            sourceType: "cm", productId, inventoryLocation, 
+            brandName: p.product?.brand?.name || "Unknown Brand",
+            productName: p.product?.name || "Unknown Product",
+            weight: p.product?.weight || "",
+            unit: p.product?.unit || "",
+            returnReason: p.returnReason,
+            totalPicked: 0,
+            sourceDocs: new Set<string>(),
+          });
         }
-        map.get(key).totalPicked += Math.round((p?.pickedQuantity || 0));
+        map.get(key).totalPicked += pickedQty;
         map.get(key).sourceDocs.add(docNumber);
       });
     });
 
     routeData.preorders.forEach((po: any) => {
       const docNumber = po.number || "Unknown INV";
-        po.products.forEach((p: any) => {
-            if (!p?.deviationReason) return;
-            const diff = Math.round((p.pickedQuantity || 0) - (p.deliveredQuantity || 0));
-            const prod = p?.productInventory?.product || p?.product;
-            const key = getAggKey(prod?._id, p?.deviationReason, "po");
-            
-            if (!map.has(key)) {
-                map.set(key, { sourceType: "po", productId: prod?._id, brandName: prod?.brand?.name || "Unknown Brand", productName: prod?.name || "Unknown Product", weight: prod?.weight || "", unit: prod?.unit || "", returnReason: p?.deviationReason, totalPicked: 0, sourceDocs: new Set<string>() });
-            }
-            map.get(key).totalPicked += diff;
-            map.get(key).sourceDocs.add(docNumber);
-        });
+      const inventoryLocation = getWarehouseLocation(po);
+      po.products.forEach((p: any) =>{
+        if(!p.deviationReason) return;
+        const diff = Number(p.pickedQuantity ?? 0) - Number(p.deliveredQuantity ?? 0);
+        if (diff <= 0) return;
+        const prod = p.productInventory?.product || p.product;
+        const productId = String(prod?._id ?? prod);
+        const inventoryId = String(p.productInventory?._id ?? p.productInventory ?? "");
+        const key = getAggKey(productId, p.deviationReason, "po", inventoryLocation, inventoryId);
+        if(!map.has(key)) {
+          map.set(key, {
+            sourceType: "po", productId, inventoryId, inventoryLocation,
+            brandName: prod?.brand?.name || "Unknown Brand",
+            productName: prod?.name || "Unknown Product",
+            weight: prod?.weight || "",
+            unit: prod?.unit || "",
+            returnReason: p.deviationReason,
+            totalPicked: 0,
+            sourceDocs: new Set<string>(),
+          });
+        }
+        map.get(key).totalPicked += diff;
+        map.get(key).sourceDocs.add(docNumber);
+      });
     });
 
     // NEW: Load Requests
     routeData.loadRequests?.forEach((lr: any) => {
       const docNumber = lr.LRNumber || "Unknown LR";
-        lr.products.forEach((p: any) => {
-            if (!p?.differenceReason) return;
-            const diff = Math.round((p.assembledQuantity || 0) - (p.deliveredQuantity || 0));
-            const prod = p?.product;
-            const key = getAggKey(prod?._id, p?.differenceReason, "lr");
-            
-            if (!map.has(key)) {
-                map.set(key, { sourceType: "lr", productId: prod?._id, brandName: prod?.brand?.name || "Unknown Brand", productName: prod?.name || "Unknown Product", weight: prod?.weight || "", unit: prod?.unit || "", returnReason: p?.differenceReason, totalPicked: 0, sourceDocs: new Set<string>() });
-            }
-            map.get(key).totalPicked += diff;
-            map.get(key).sourceDocs.add(docNumber);
-        });
+      const inventoryLocation = "phoenix";
+      lr.products.forEach((p: any) => {
+        if(!p.differenceReason) return;
+        const diff = Number(p.assembledQuantity ?? 0) - Number(p.deliveredQuantity ?? 0);
+        if(diff <=0) return;
+        const prod = p.product;
+        const productId = String(prod?._id ?? prod);
+        const key = getAggKey(productId, p.differenceReason, "lr", inventoryLocation);
+        if(!map.has(key)) {
+          map.set(key, {
+            sourceType: "lr", productId, inventoryLocation,
+            brandName: prod?.brand?.name || "Unknown Brand",
+            productName: prod?.name || "Unknown Product",
+            weight: prod?.weight || "",
+            unit: prod?.unit || "",
+            returnReason: p.differenceReason,
+            totalPicked: 0,
+            sourceDocs: new Set<string>(),
+          });
+        }
+        map.get(key).totalPicked += diff;
+        map.get(key).sourceDocs.add(docNumber);
+      });
     });
 
     routeData.audits?.forEach((au: any) => {
-      const docNumber = "AUDIT";
+      const docNumber = `AUDIT-${String(au._id).slice(-6)}`;
+      const inventoryLocation = getWarehouseLocation(au);
+
       au.products.forEach((p: any) => {
-        const diff = Math.abs(p.difference);
-        const prod = p?.product;
-        const key = getAggKey(prod?._id, p?.reason, "au");
+        const diff = Math.abs(Number(p.difference ?? 0));
+        if (diff <= 0) return;
+        const differenceType = Number(p.difference) > 0 ? "shortage" : "extra";
+        const prod = p.product;
+        const productId = String(prod?._id ?? prod);
+
+        const key = getAggKey(productId, `${p.reason}::${differenceType}`, "au", inventoryLocation);
 
         if (!map.has(key)) {
-          map.set(key, { sourceType: "au", productId: prod?._id, brandName: prod?.brand?.name || "Unknown Brand", productName: prod?.name || "Unknown Product", weight: prod?.weight || "", unit: prod?.unit || "", returnReason: p?.reason, totalPicked: 0, sourceDocs: new Set<string>() });
+          map.set(key, { 
+            sourceType: "au", productId, inventoryLocation,
+            brandName: prod?.brand?.name || "Unknown Brand", 
+            productName: prod?.name || "Unknown Product", 
+            weight: prod?.weight || "", 
+            unit: prod?.unit || "", 
+            returnReason: p.reason, 
+            totalPicked: 0, 
+            differenceType,
+            sourceDocs: new Set<string>()
+          });
         }
         map.get(key).totalPicked += diff;
         map.get(key).sourceDocs.add(docNumber);
@@ -107,28 +165,36 @@ export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onC
   useEffect(() => {
     const initialQs: Record<string, number> = {};
     aggregatedProducts.forEach((agg) => {
-      initialQs[getAggKey(agg.productId, agg.returnReason, agg.sourceType)] = agg.totalPicked;
+      const key = getAggKey(agg.productId, agg.returnReason, agg.sourceType, agg.inventoryLocation, agg.inventoryId ?? "");
+      initialQs[key] = agg.totalPicked;
     });
     setVerifiedQuantities(initialQs);
+    setReasonOverrides({});
   }, [aggregatedProducts]);
 
   const handleSubmit = async () => {
     if (!signature) { alert("Signing is required"); return; }
     
     setLoading(true);
-    setSubmitStatus("loading-warehouse"); // 🔥 Triggers animated cardboard box!
+    setSubmitStatus("loading-warehouse"); // Triggers animated cardboard box!
     
     try {
       const payloadProducts = aggregatedProducts.map((agg) => {
-        const key = getAggKey(agg.productId, agg.returnReason, agg.sourceType);
+        const key = getAggKey(agg.productId, agg.returnReason, agg.sourceType, agg.inventoryLocation, agg.inventoryId ?? "");
+        const verifiedQuantity = verifiedQuantities[key];
+        if(!Number.isSafeInteger(verifiedQuantity) || verifiedQuantity < 0 || verifiedQuantity > agg.totalPicked){
+          throw new Error(`Invalid actual count for ${agg.productName} in ${agg.inventoryLocation}`);
+        }
         return {
-          sourceType: agg.sourceType || "cm",
+          sourceType: agg.sourceType,
           productId: agg.productId,
+          inventoryId: agg.inventoryId ?? undefined,
+          inventoryLocation: agg.inventoryLocation,
           originalReason: agg.returnReason,
           newReason: reasonOverrides[key] || agg.returnReason,
           totalPicked: agg.totalPicked,
-          verifiedQuantity: verifiedQuantities[key],
-        }
+          verifiedQuantity,
+        };
       });
 
       // 1. Create API Promise
@@ -178,13 +244,18 @@ export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onC
 
         <div className="flex-1 overflow-auto space-y-4 pr-2">
           {aggregatedProducts.map((agg) => {
-            const key = getAggKey(agg.productId, agg.returnReason, agg.sourceType);
+            const key = getAggKey(agg.productId, agg.returnReason, agg.sourceType, agg.inventoryLocation, agg.inventoryId ?? "");
             const isMissing = verifiedQuantities[key] < agg.totalPicked;
 
             return (
               <div key={key} className="p-4 rounded-xl shadow-xl bg-gray-50 flex gap-4 justify-between items-center">
                 <div className="w-full">
                   <div className="font-bold">{agg.brandName} {agg.productName} {agg.weight ? (`${agg.weight}${agg.unit?.toUpperCase()}`) : ""}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-semibold uppercase bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg">
+                      {agg.inventoryLocation}
+                    </span>
+                  </div>
                   <div className="text-xs font-bold text-blue-600 tracking-wide mt-0.5">Docs: {agg.sourceDocs}</div>
                   <div className={`mt-1`}>
                     {agg.sourceType !== "au" ?(
@@ -221,7 +292,28 @@ export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onC
                 <div className="flex items-center">
                   <div className="text-center grid grid-cols gap-1">
                     <label className="text-xs font-bold text-gray-500">Actual Count</label>
-                    <input type="number" min={0} max={agg.totalPicked} value={verifiedQuantities[key] ?? ""} onChange={(e) => setVerifiedQuantities(prev => ({ ...prev, [key]: Math.round(Number(e.target.value) || 0) }))} className={`w-24 h-10 text-center border rounded-lg focus:ring-2 outline-hidden ${isMissing ? 'border-red-500 bg-red-50' : ''}`} />
+                    <input 
+                      type="number" 
+                      min={0} 
+                      max={agg.totalPicked} 
+                      step={1}
+                      value={Number.isNaN(verifiedQuantities[key]) ? "" : verifiedQuantities[key] ?? ""} 
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if(raw===""){
+                          setVerifiedQuantities(prev => ({ 
+                            ...prev, 
+                            [key]: NaN,}));
+                          return;
+                        }
+                        const value = Number(raw);
+                        if(!Number.isSafeInteger(value) || value < 0 || value > agg.totalPicked) return;
+                        setVerifiedQuantities(prev => ({
+                          ...prev,
+                          [key]: value,
+                        }));
+                      }}
+                      className={`w-24 h-10 text-center border rounded-lg focus:ring-2 outline-hidden ${isMissing ? 'border-red-500 bg-red-50' : ''}`} />
                   </div>
                 </div>
               </div>

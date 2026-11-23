@@ -7,6 +7,49 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import RouteAudit from "@/models/RouteAudit";
 import { getOutstandingLoadRequestLots } from "@/lib/inventory/reconcileLoadRequestLots";
+import ForeignInventory
+ from "@/models/ForeignInventory";
+import { normalizeInventoryLocation, getInventoryModel } from "@/utils/inventoryResolver";
+
+type InventoryLocation =
+| "phoenix"
+| "tucson"
+| "yuma"
+| "elPaso"
+| "lasVegas";
+function resolveWarehouse(location:string | null | undefined) {
+  const inventoryLocation = normalizeInventoryLocation(location) as InventoryLocation;
+  const InventoryModel = inventoryLocation === "phoenix" ? ProductInventory : ForeignInventory;
+  return {
+    inventoryLocation, InventoryModel, inventoryModelName: inventoryLocation === "phoenix" ? "ProductInventory" : "ForeignInventory",
+  };
+}
+
+const VALID_LOCATIONS = [
+  "phoenix",
+  "tucson",
+  "yuma",
+  "elPaso",
+  "lasVegas",
+] as const;
+
+function getStrictWarehouse(location: unknown) {
+  if (
+    typeof location !== "string" ||
+    !VALID_LOCATIONS.includes(location as any)
+  ) {
+    throw new Error(
+      `Invalid or missing inventory location: ${String(location)}`
+    );
+  }
+
+  const InventoryModel =
+    location === "phoenix"
+      ? ProductInventory
+      : ForeignInventory;
+
+  return { InventoryModel, inventoryLocation: location };
+}
 
 export async function PATCH(req: Request) {
   await connectToDatabase();
@@ -27,233 +70,181 @@ export async function PATCH(req: Request) {
     } = body;
 
     // 1. Fetch all the actual Credit Memo documents we are updating
-    const creditMemos = await CreditMemo.find({ _id: { $in: creditMemoIds } }).session(session);
-
-    // 2. Process each aggregated product group
+    const creditMemos = await CreditMemo.find({_id: {$in: creditMemoIds},}).session(session);
     for (const agg of aggregatedProducts) {
-      // Skip logic for Preorders, Audits, and Load Requests (they are handled individually below)
-      if (["preorder", "po", "audit", "au", "loadRequest", "lr"].includes(agg.sourceType)) continue;
-
-      const pickedQty = Math.round(Number(agg.totalPicked) || 0);
-      const verifiedQty = Math.round(Number(agg.verifiedQuantity) || 0);
-      let shortage = Math.max(pickedQty - verifiedQty, 0);
-
-      // --- CM INVENTORY UPDATE ---
+      if(["preorder", "po", "audit", "au", "loadRequest", "lr"].includes(agg.sourceType)){
+        continue;
+      }
+      if(!agg.inventoryLocation) {
+        throw new Error(`Missing inventory location for Credit Memo Product ${agg.productId}`);
+      }
+      const warehouse = resolveWarehouse(agg.inventoryLocation);
+      const {
+        inventoryLocation, InventoryModel
+      } = warehouse;
+      const matchingLines: Array<{cm: any; line: any;}> = [];
+      for (const cm of creditMemos) {
+        const cmLocation = resolveWarehouse(cm.inventoryLocation).inventoryLocation;
+        if(cmLocation !== inventoryLocation) continue;
+        for(const line of cm.products) {
+          if(String(line.product) === String(agg.productId) && line.returnReason === agg.originalReason) {
+            matchingLines.push({cm, line});
+          }
+        }
+      }
+      if(matchingLines.length === 0) {
+        throw new Error(`No matching Credit Memo Lines for ${agg.productId} in ${inventoryLocation}`);
+      }
+      const pickedQty = matchingLines.reduce((total, { line }) => total + Number(line.pickedQuantity ?? 0), 0);
+      const verifiedQty = Number(agg.verifiedQuantity);
+      if (!Number.isSafeInteger(pickedQty) || pickedQty < 0 || !Number.isSafeInteger(verifiedQty) || verifiedQty < 0 || verifiedQty > pickedQty) {
+        throw new Error(`Invalid Credit Memo Quantities for ${agg.productId}`);
+      }
+      if(!Number.isSafeInteger(Number(agg.totalPicked)) || Number(agg.totalPicked) !== pickedQty) {
+        throw new Error(`Credit Memo quantity mismatch for ${agg.productId} in ${inventoryLocation}`);
+      }
+      if (!["good return", "returned", "credit memo"].includes(agg.newReason)) {
+        throw new Error(`Invalid Credit Memo return reason: ${agg.newReason}`);
+      }
       const invUpdate: any = {
-        $inc: { onRouteInventory: -pickedQty },
+        $inc: {
+          onRouteInventory: -pickedQty,
+        },
       };
-
-      if (agg.newReason === "good return" || agg.newReason === "returned") {
+      if(agg.newReason === "good return" || agg.newReason === "returned") {
         invUpdate.$inc.currentInventory = verifiedQty;
       }
-
-      await ProductInventory.updateOne(
-        { product: agg.productId },
-        invUpdate,
-        { session }
-      );
-
-      // --- CREDIT MEMO DISTRIBUTION ---
-      for (const cm of creditMemos) {
-        const cmProductLine = cm.products.find(
-          (p: any) => p.product.toString() === agg.productId && p.returnReason === agg.originalReason
-        );
-
-        if (cmProductLine) {
-          const originalCMQty = cmProductLine.pickedQuantity || 0;
-          const amountToDeduct = Math.min(shortage, originalCMQty);
-          const finalVerifiedForThisCM = originalCMQty - amountToDeduct;
-
-          cmProductLine.warehouseVerifiedQuantity = finalVerifiedForThisCM;
-          cmProductLine.returnReason = agg.newReason;
-          shortage -= amountToDeduct;
-        }
-      }
-    }
-
-    // --- 3. PROCESS PREORDERS ---
-
-    const preorders = await PreOrder.find({
-      _id: { $in: preorderIds },
-    }).session(session);
-
-    // Group the affected PreOrder lines by Product ID + original reason.
-    const preorderGroups = new Map<
-      string,
-      {
-        productId: string;
-        originalReason: string;
-        totalDiff: number;
-        lines: Array<{
-          po: any;
-          p: any;
-          inventoryId: string;
-        }>;
-      }
-    >();
-
-    for (const po of preorders) {
-      if (po.warehouseReturnProcessed) {
-        throw new Error(
-          `PreOrder ${po.number} has already been processed`
-        );
-      }
-
-      for (const p of po.products) {
-        const picked = Number(p.pickedQuantity || 0);
-        const delivered = Number(p.deliveredQuantity || 0);
-        const diff = picked - delivered;
-
-        if (diff <= 0) continue;
-
-        if (!p.deviationReason) {
-          throw new Error(
-            `PreOrder ${po.number} has an undelivered product without a deviation reason`
-          );
-        }
-
-        const inventory = await ProductInventory.findById(
-          p.productInventory
-        )
-          .select("product")
-          .session(session);
-
-        if (!inventory) {
-          throw new Error(
-            `Inventory ${p.productInventory} not found for PreOrder ${po.number}`
-          );
-        }
-
-        const productId = inventory.product.toString();
-        const originalReason = p.deviationReason;
-
-        const key = `${productId}-${originalReason}`;
-
-        if (!preorderGroups.has(key)) {
-          preorderGroups.set(key, {
-            productId,
-            originalReason,
-            totalDiff: 0,
-            lines: [],
-          });
-        }
-
-        const group = preorderGroups.get(key)!;
-
-        group.totalDiff += diff;
-
-        group.lines.push({
-          po,
-          p,
-          inventoryId: inventory._id.toString(),
-        });
-      }
-    }
-
-    // Process each aggregated product ONCE.
-    for (const group of preorderGroups.values()) {
-      const agg = aggregatedProducts.find(
-        (a: any) =>
-          ["preorder", "po"].includes(a.sourceType) &&
-          a.productId?.toString() === group.productId &&
-          a.originalReason === group.originalReason
-      );
-
-      if (!agg) {
-        throw new Error(
-          `Missing aggregation for Product ${group.productId}, ` +
-          `reason ${group.originalReason}`
-        );
-      }
-
-      const verifiedQty = Number(agg.verifiedQuantity);
-
-      if (
-        !Number.isSafeInteger(verifiedQty) ||
-        verifiedQty < 0 ||
-        verifiedQty > group.totalDiff
-      ) {
-        throw new Error(
-          `Invalid verified quantity for Product ${group.productId}. ` +
-          `Expected between 0 and ${group.totalDiff}, got ${verifiedQty}`
-        );
-      }
-
-      if (!["returned", "missing", "damaged"].includes(agg.newReason)) {
-        throw new Error(
-          `Invalid reconciliation reason: ${agg.newReason}`
-        );
-      }
-
-      // Collect the inventory documents referenced by this group.
-      const inventoryIds = [
-        ...new Set(group.lines.map(line => line.inventoryId))
-      ];
-
-      // For a Phoenix ProductInventory group, these references should
-      // normally all point to the same inventory document.
-      if (inventoryIds.length !== 1) {
-        throw new Error(
-          `Multiple inventory records for Product ${group.productId}`
-        );
-      }
-
-      const inventoryId = inventoryIds[0];
-
-      const update: any = {
-        $inc: {
-          onRouteInventory: -group.totalDiff,
-        },
+      const inventoryFilter: any = {
+        product: agg.productId, onRouteInventory: {$gte: pickedQty},
       };
-
-      // Missing: picked on paper, but never actually left warehouse.
-      // Returned: customer rejected product, warehouse can resell it.
-      if (
-        agg.newReason === "returned" ||
-        agg.newReason === "missing"
-      ) {
-        update.$inc.currentInventory = verifiedQty;
+      if(inventoryLocation !== "phoenix") {
+        inventoryFilter.location = inventoryLocation;
       }
-
-      // Damaged: remove from truck inventory without restoring stock.
-      const result = await ProductInventory.updateOne(
-        {
-          _id: inventoryId,
-          onRouteInventory: { $gte: group.totalDiff },
-        },
-        update,
-        { session }
-      );
-
-      if (result.matchedCount !== 1) {
-        throw new Error(
-          `Inventory update failed for Product ${group.productId}. ` +
-          `Check that the on-route quantity is sufficient.`
-        );
+      const result = await InventoryModel.updateOne(inventoryFilter, invUpdate, {session});
+      if(result.matchedCount !== 1) {
+        throw new Error(`Credit Memo inventory update failed for product ${agg.productId} in ${inventoryLocation}. Inventory may be missing or onRouteInventory insufficient.`);
       }
-
-      // Update the reason on every affected PreOrder line.
-      for (const line of group.lines) {
-        line.p.deviationReason = agg.newReason;
+      let remainingVerified = verifiedQty;
+      for (const {line} of matchingLines) {
+        const originalQty = Number(line.pickedQuantity ?? 0);
+        const assignedVerified = Math.min(originalQty, remainingVerified);
+        line.warehouseVerifiedQuantity = assignedVerified;
+        line.returnReason = agg.newReason;
+        remainingVerified -= assignedVerified;
       }
-
-      console.log("PREORDER RECONCILED:", {
-        productId: group.productId,
-        originalReason: group.originalReason,
-        finalReason: agg.newReason,
-        deductedFromRoute: group.totalDiff,
-        restoredToInventory:
-          agg.newReason === "returned" ||
-            agg.newReason === "missing"
-            ? verifiedQty
-            : 0,
+      if(remainingVerified !== 0) {
+        throw new Error(`Credit Memo verified quantity distribution failed`);
+      }
+      console.log("CREDIT MEMO RECONCILED: ", {
+          inventoryLocation, productId: agg.productId, pickedQty, verifiedQty, newReason: agg.newReason,
       });
     }
 
-    // Mark processed only after every affected group succeeds.
+    // --- 3. PROCESS PREORDERS ---
+    const preorders = await PreOrder.find({_id: {$in: preorderIds}}).session(session);
+    type PreorderReturnGroup = {
+      inventoryLocation: InventoryLocation;
+      inventoryId: string;
+      productId: string;
+      originalReason: string;
+      totalDiff: number;
+      lines: Array<{po: any; p: any;}>;
+    };
+    const preorderGroups = new Map<string, PreorderReturnGroup>();
+    for (const po of preorders) {
+      if(po.warehouseReturnProcessed) {
+        throw new Error(`Preorder ${po.number} has already been processed`);
+      }
+      const warehouse = resolveWarehouse(po.inventoryLocation);
+      const {
+        inventoryLocation, InventoryModel, inventoryModelName,
+      } = warehouse;
+      for (const p of po.products) {
+        const picked = Number(p.pickedQuantity ?? 0);
+        const delivered = Number(p.deliveredQuantity ?? 0);
+        if(!Number.isSafeInteger(picked) || !Number.isSafeInteger(delivered) || picked < 0 || delivered < 0 || delivered > picked) {
+          throw new Error(`Invalid quantities in Preorder ${po.number}`);
+        }
+        const diff = picked - delivered;
+        if (diff <= 0) continue;
+        if(!p.deviationReason) {
+          throw new Error(`Preorder ${po.number} has an undelivered product without a deviation reason`);
+        }
+        const lineModelName = p.inventoryModel || inventoryModelName;
+        if(lineModelName !== inventoryModelName) {
+          throw new Error(`Inventory model mismatch for preorder ${po.number}. Expected: ${inventoryModelName}, got: ${lineModelName}`);
+        }
+        const inventoryId = String(p.productInventory);
+        if(!mongoose.isValidObjectId(inventoryId)) {
+          throw new Error(`Invalid inventory reference in preorder ${po.number}`);
+        }
+        const inventory = await InventoryModel.findById(inventoryId).select("product location").session(session);
+        if(!inventory) {
+          throw new Error(`Inventory ${inventoryId} not found in ${inventoryLocation} for preorder ${po.number}`);
+        }
+        if(inventoryLocation !== "phoenix" && inventory.location !== inventoryLocation){
+          throw new Error(`Foreign inventory location mismatch in preorder ${po.number}`);
+        }
+        const productId = String(inventory.product);
+        const originalReason = p.deviationReason;
+        const key = [
+          inventoryLocation, inventoryId, originalReason,
+        ].join("::");
+        if (!preorderGroups.has(key)){
+          preorderGroups.set(key, {
+            inventoryLocation, inventoryId, productId, originalReason, totalDiff: 0, lines: [],
+          });
+        }
+        const group = preorderGroups.get(key)!;
+        group.totalDiff += diff;
+        group.lines.push({po, p});
+      }
+    }
+    for (const group of preorderGroups.values()){
+      const {inventoryLocation, inventoryId, productId, originalReason} = group;
+      const matches = aggregatedProducts.filter((a: any) => ["preorder", "po"].includes(a.sourceType) && String(a.productId) === productId && String(a.inventoryId) === inventoryId && a.originalReason === originalReason && a.inventoryLocation === inventoryLocation);
+      if (matches.length !== 1) {
+        throw new Error(`Expected exactly one preorder aggregation for ${productId} in ${inventoryLocation}, reason: ${originalReason}. Found: ${matches.length}.`);
+      }
+      const agg = matches[0];
+      const verifiedQty = Number(agg.verifiedQuantity);
+      if (!Number.isSafeInteger(verifiedQty) || verifiedQty < 0 || verifiedQty > group.totalDiff) {
+        throw new Error(`Invalid verified quantity for product ${productId} in ${inventoryLocation}`);
+      }
+      if (!["returned", "missing", "damaged"].includes(agg.newReason)) {
+        throw new Error(`Invalid reconciliation reason: ${agg.newReason}`);
+      }
+      const { InventoryModel } = resolveWarehouse(inventoryLocation);
+      const update: any = {
+        $inc: {onRouteInventory: -group.totalDiff},
+      };
+      if (agg.newReason === "returned" || agg.newReason === "missing") {
+        update.$inc.currentInventory = verifiedQty;
+      }
+      const inventoryFilter: any = {
+        _id: inventoryId,
+        product: productId,
+        onRouteInventory: {
+          $gte: group.totalDiff,
+        },
+      };
+      if (inventoryLocation !== "phoenix") {
+        inventoryFilter.location = inventoryLocation;
+      }
+      const result = await InventoryModel.updateOne(inventoryFilter, update, {session});
+      if(result.matchedCount !== 1) {
+        throw new Error(`Inventory reconciliation failed for ${productId} in ${inventoryLocation}. Insufficient on-route quantity or missing inventory`);
+      }
+      for (const { p } of group.lines){
+        p.deviationReason = agg.newReason;
+      }
+      console.log("PREORDER RECONCILED: ", {
+        inventoryLocation, inventoryModel: inventoryLocation === "phoenix" ? "ProductInventory" : "ForeignInventory", inventoryId, productId, originalReason, finalReason: agg.newReason, deductedFromRoute: group.totalDiff, restoredToInventory: agg.newReason === "returned" || agg.newReason === "missing" ? verifiedQty : 0,
+      });
+    }
     for (const po of preorders) {
       po.warehouseReturnProcessed = true;
-      await po.save({ session });
+      await po.save({session});
     }
 
 
@@ -416,12 +407,6 @@ export async function PATCH(req: Request) {
       const restorable =
         newReason === "returned" ||
         newReason === "missing";
-
-      if (!restorable && verified !== 0) {
-        throw new Error(
-          `Damaged inventory cannot be restored for ${key}`
-        );
-      }
 
       const totalToRestore = restorable ? verified : 0;
 
@@ -652,36 +637,172 @@ export async function PATCH(req: Request) {
       await cm.save({ session });
     }
 
-    // --- 6. PROCESS AUDITS ---
-    const audits = await RouteAudit.find({ _id: { $in: auditIds } }).session(session);
-    for (const au of audits) {
-      for (const p of au.products) {
-        const agg = aggregatedProducts.find((a: any) =>
-          (a.sourceType === "audit" || a.sourceType === "au") &&
-          a.productId === p.product?.toString() &&
-          a.originalReason === p.reason
-        );
-        if (agg) {
-          p.newReason = agg.newReason;
-          p.verifiedQuantity = agg.verifiedQuantity;
+    // ============================================================
+// 6. PROCESS ROUTE AUDITS
+// Warehouse-aware reconciliation
+// ============================================================
 
-          const invUpdate: any = { $inc: {} };
-          if (p.difference && agg.newReason === "returned") {
-            invUpdate.$inc.currentInventory = agg.verifiedQuantity;
-          }
+const audits = await RouteAudit.find({
+  _id: { $in: auditIds },
+}).session(session);
 
-          if (Object.keys(invUpdate.$inc).length > 0) {
-            await ProductInventory.updateOne({ product: p.product }, invUpdate, { session });
-          }
-        }
-      }
-      au.status = "completed";
-      au.receivedBy = warehouseUser;
-      au.driverSignature = driverSignature;
-      au.warehouseSignature = warehouseSignature;
-      au.warehouseReceivedAt = new Date();
-      await au.save({ session });
+if (audits.length !== auditIds.length) {
+  throw new Error("One or more Route Audits were not found");
+}
+
+const auditGroups = new Map<string, {
+  inventoryLocation: string;
+  productId: string;
+  originalReason: string;
+  totalExpected: number;
+  lines: Array<{ au: any; p: any; diff: number }>;
+}>();
+
+for (const au of audits) {
+  if (au.status === "completed") {
+    throw new Error(
+      `Route Audit ${au._id} is already completed`
+    );
+  }
+
+  const { inventoryLocation } = getStrictWarehouse(
+    au.inventoryLocation
+  );
+
+  for (const p of au.products) {
+    const signedDiff = Number(p.difference ?? 0);
+
+    if (
+      !Number.isSafeInteger(signedDiff)
+    ) {
+      throw new Error(
+        `Invalid difference in Route Audit ${au._id}`
+      );
     }
+
+    if (signedDiff === 0) continue;
+
+    if (signedDiff < 0) {
+      throw new Error(
+        `Route Audit ${au._id} contains extra inventory. ` +
+        `Extra-inventory reconciliation must be configured separately.`
+      );
+    }
+
+    const productId = String(p.product);
+    const originalReason = String(p.reason ?? "");
+
+    const key = [
+      inventoryLocation,
+      productId,
+      originalReason,
+      "shortage",
+    ].join("::");
+
+    if (!auditGroups.has(key)) {
+      auditGroups.set(key, {
+        inventoryLocation,
+        productId,
+        originalReason,
+        totalExpected: 0,
+        lines: [],
+      });
+    }
+
+    const group = auditGroups.get(key)!;
+    group.totalExpected += signedDiff;
+    group.lines.push({ au, p, diff: signedDiff });
+  }
+}
+
+for (const group of auditGroups.values()) {
+  const matches = aggregatedProducts.filter(
+    (a: any) =>
+      ["audit", "au"].includes(a.sourceType) &&
+      String(a.productId) === group.productId &&
+      a.originalReason === group.originalReason &&
+      a.differenceType === "shortage" &&
+      a.inventoryLocation === group.inventoryLocation
+  );
+
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected one Audit aggregation for ` +
+      `${group.productId} in ${group.inventoryLocation}`
+    );
+  }
+
+  const agg = matches[0];
+  const verified = Number(agg.verifiedQuantity);
+
+  if (
+    !Number.isSafeInteger(verified) ||
+    verified < 0 ||
+    verified > group.totalExpected ||
+    Number(agg.totalPicked) !== group.totalExpected
+  ) {
+    throw new Error(
+      `Invalid Audit quantity for ${group.productId}`
+    );
+  }
+
+  const { InventoryModel } = getStrictWarehouse(
+    group.inventoryLocation
+  );
+
+  if (agg.newReason === "returned" && verified > 0) {
+    const inventoryFilter: any = {
+      product: group.productId,
+    };
+
+    if (group.inventoryLocation !== "phoenix") {
+      inventoryFilter.location =
+        group.inventoryLocation;
+    }
+
+    const result = await InventoryModel.updateOne(
+      inventoryFilter,
+      { $inc: { currentInventory: verified } },
+      { session }
+    );
+
+    if (result.matchedCount !== 1) {
+      throw new Error(
+        `Audit inventory not found for ${group.productId} ` +
+        `in ${group.inventoryLocation}`
+      );
+    }
+  }
+
+  let remainingVerified = verified;
+
+  for (const { p, diff } of group.lines) {
+    const allocated = Math.min(
+      diff,
+      remainingVerified
+    );
+
+    p.newReason = agg.newReason;
+    p.verifiedQuantity = allocated;
+    remainingVerified -= allocated;
+  }
+
+  if (remainingVerified !== 0) {
+    throw new Error(
+      `Unallocated Audit quantity for ${group.productId}`
+    );
+  }
+}
+
+for (const au of audits) {
+  au.status = "completed";
+  au.receivedBy = warehouseUser;
+  au.driverSignature = driverSignature;
+  au.warehouseSignature = warehouseSignature;
+  au.warehouseReceivedAt = new Date();
+
+  await au.save({ session });
+}
 
     await session.commitTransaction();
     return NextResponse.json({ success: true });
