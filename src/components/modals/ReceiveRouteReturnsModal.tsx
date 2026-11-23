@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import SignaturePad from "../ui/SignaturePad";
 import SubmitResultModal from "./SubmitResultModal";
 import { Status } from "./SubmitResultModal";
-import { normalizeInventoryLocation } from "@/utils/inventoryResolver";
+import { normalizeWarehouseLocation } from "@/utils/warehouseLocation";
 
 export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onCompleted }: any) {
   const [verifiedQuantities, setVerifiedQuantities] = useState<Record<string, number>>({});
@@ -19,10 +19,16 @@ export default function ReceiveRouteReturnsModal({ user, routeData, onClose, onC
   const getAggKey = (productId: string, reason: string, type: string, inventoryLocation:string, inventoryId: string = "") => [type, inventoryLocation, inventoryId, productId, reason,].join("::");
   const getItemKey = (agg: any) => getAggKey(agg.productId, agg.sourceType === "au" ? `${agg.returnReason}::${agg.differenceType}` : agg.returnReason, agg.sourceType, agg.inventoryLocation, agg.inventoryId ?? "");
   const getWarehouseLocation = (doc: any): string => {
-    if (!doc.inventoryLocation){
-      throw new Error(`Missing inventory location for ${doc.number || doc._id}`);
+    if (!doc.inventoryLocation) {
+      throw new Error(
+        `Missing inventory location for ${
+          doc.number || doc._id
+        }`
+      );
     }
-    return normalizeInventoryLocation(doc.inventoryLocation);
+    return normalizeWarehouseLocation(
+      doc.inventoryLocation
+    );
   };
 
   const aggregatedProducts = useMemo(() => {
