@@ -111,9 +111,7 @@ export default function EditSupplierReceiptModal({
     const paymentStatus =
         receipt.paymentStatus ?? "pending";
 
-    const canEdit =
-        ["pending", "overdue"].includes(paymentStatus) &&
-        (receipt.payments?.length ?? 0) === 0;
+    const canEdit = paymentStatus !== "paid";
 
     const canEditInventory = canEdit && Number(receipt.inventoryEditVersion ?? 0) === 1;
 
@@ -216,7 +214,7 @@ export default function EditSupplierReceiptModal({
     };
 
     const submitChanges = async () => {
-        
+
         if (saving || !canEdit) return;
 
         const validationError = validate();
@@ -326,7 +324,7 @@ export default function EditSupplierReceiptModal({
                             onClick={onClose}
                             className="rounded-lg bg-red-500 p-2 font-bold text-white disabled:opacity-50 cursor-pointer"
                         >
-                            <XMarkIcon className="w-5 h-5"/>
+                            <XMarkIcon className="w-5 h-5" />
                         </button>
                     </div>
 
@@ -354,7 +352,7 @@ export default function EditSupplierReceiptModal({
                 >
                     {!canEdit && (
                         <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm font-bold text-red-800">
-                            This receipt has payment activity or is paid
+                            This supplier invoice has already been paid
                             and can no longer be edited.
                         </div>
                     )}
@@ -394,6 +392,27 @@ export default function EditSupplierReceiptModal({
                                     This is a historical supplier receipt. You can
                                     correct its invoice number, but inventory changes
                                     require verified lot history.
+                                </div>
+                            )}
+                            {canEditInventory && (
+                                <div className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+                                    <p className="font-bold">
+                                        Inventory Correction
+                                    </p>
+
+                                    <p className="mt-1">
+                                        Changing the received quantity will adjust the
+                                        existing inventory by the difference between
+                                        the original and corrected quantities.
+                                        Products already sold will remain deducted.
+                                    </p>
+
+                                    <p className="mt-1">
+                                        Corrections cannot result in negative inventory.
+                                        Changes to historical lot costs, expiration dates,
+                                        or transferred quantities may require additional
+                                        reconciliation.
+                                    </p>
                                 </div>
                             )}
 
@@ -534,7 +553,7 @@ export default function EditSupplierReceiptModal({
 
                     <button
                         type="button"
-                        disabled={saving || !canEdit || reason.trim() === ""}
+                        disabled={saving || !canEdit || (step === 2 && reason.trim() === "")}
                         onClick={
                             step === 1
                                 ? reviewChanges
@@ -543,10 +562,10 @@ export default function EditSupplierReceiptModal({
                         className="min-h-11 rounded-xl bg-green-400 text-green-800 px-4 text-sm font-bold hover:bg-green-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
                     >
                         {step === 2 && saving
-                                ? "Saving..."
-                                : step === 1
-                                    ? "Review Changes"
-                                    : "Save Corrections"}
+                            ? "Saving..."
+                            : step === 1
+                                ? "Review Changes"
+                                : "Save Corrections"}
                     </button>
                 </footer>
             </div>

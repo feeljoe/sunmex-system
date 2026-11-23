@@ -90,8 +90,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
             if (!receipt) throw new EditError("Supplier receipt not found", 404);
             if (new Date(receipt.updatedAt).getTime() !== new Date(body.expectedUpdatedAt).getTime())
                 throw new EditError("This receipt changed since you opened it. Refresh and review the latest values.", 409);
-            if (!["pending", "overdue"].includes(receipt.paymentStatus) || receipt.payments?.length > 0)
-                throw new EditError("Receipt has payment activity and is locked", 409);
+            if (receipt.paymentStatus === "paid") throw new EditError("This supplier invoice has already been paid and cannot be edited", 409);
             if (receipt.items.length !== incoming.size) throw new EditError("All original receipt products must be included");
             const changes: Array<{ field: string; product?: mongoose.Types.ObjectId; previousValue: unknown; newValue: unknown }> = [];
             const invoice = body.invoice.trim();
@@ -134,31 +133,150 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
                 const inventory = await ProductInventory.findOne({ product }).session(session);
                 if (!inventory) throw new EditError(`Phoenix inventory missing for ${productId}`, 409);
                 const delta = input.quantity - oldQty;
-                if (!Number.isSafeInteger(Number(inventory.currentInventory)) || Number(inventory.currentInventory) + delta < 0)
-                    throw new EditError(`Insufficient Phoenix inventory for ${productId}`, 409);
+                const currentInventory = Number(inventory.currentInventory);
+                const adjustedInventory = currentInventory + delta;
+                if (!Number.isSafeInteger(currentInventory) ||
+                    !Number.isSafeInteger(delta) ||
+                    !Number.isSafeInteger(adjustedInventory) ||
+                    adjustedInventory < 0) {
+                    throw new EditError(
+                        `Cannot correct the received quantity for ` +
+                        `product ${productId}. ` +
+                        `The adjustment would result in an invalid ` +
+                        `or negative available inventory balance.`,
+                        409
+                    );
+                }
 
-                // Every modified/deleted old lot must be entirely present and unreserved.
+                // ============================================================
+                // VALIDATE LOT CORRECTIONS
+                // Allow quantity edits after sales/movements.
+                // Protect history, reservations and foreign transfers.
+                // ============================================================
+
                 for (const old of oldLots) {
                     const oldId = String(old.lotId);
                     const next = inputById.get(oldId);
-                    const changed = !next || next.quantity !== Number(old.quantity) ||
-                        dateKey(next.expirationDate) !== dateKey(old.expirationDate) || costChanged;
-                    if (!changed) continue;
+
                     const invLot = inventory.lots.id(old.lotId);
-                    if (!invLot ||
-                        Number(invLot.originalQty) !== Number(old.quantity) ||
-                        Number(invLot.currentQty) !== Number(old.quantity) ||
-                        Number(invLot.onRouteReservedQty ?? 0) !== 0 ||
-                        invLot.hasMovement !== false) {
+
+                    if (!invLot) {
                         throw new EditError(
-                            `Lot ${oldId} cannot be edited because it has ` +
-                            "movement history, reservations, or inconsistent stock.",
+                            `Inventory lot ${oldId} not found`,
                             409
                         );
                     }
-                    // Preserve lot identity: block if same ID exists in ANY foreign warehouse.
-                    const transferred = await ForeignInventory.exists({ "lots._id": old.lotId }).session(session);
-                    if (transferred) throw new EditError(`Lot ${oldId} exists in foreign inventory and cannot be edited`, 409);
+
+                    const oldQuantity = Number(old.quantity);
+                    const originalQty = Number(invLot.originalQty);
+                    const currentQty = Number(invLot.currentQty);
+                    const reservedQty = Number(
+                        invLot.onRouteReservedQty ?? 0
+                    );
+
+                    if (
+                        !Number.isSafeInteger(originalQty) ||
+                        !Number.isSafeInteger(currentQty) ||
+                        !Number.isSafeInteger(reservedQty) ||
+                        originalQty < 0 ||
+                        currentQty < 0 ||
+                        reservedQty < 0 ||
+                        originalQty !== oldQuantity
+                    ) {
+                        throw new EditError(
+                            `Lot ${oldId} has inconsistent inventory balances.`,
+                            409
+                        );
+                    }
+
+                    // Check whether this lot exists in foreign inventory.
+                    const transferred = Boolean(
+                        await ForeignInventory.exists({
+                            "lots._id": old.lotId,
+                        }).session(session)
+                    );
+
+                    // A removed lot must have no recorded movement
+                    // and must still contain its entire original stock.
+                    if (!next) {
+                        if (
+                            invLot.hasMovement !== false ||
+                            currentQty !== originalQty ||
+                            reservedQty !== 0 ||
+                            transferred
+                        ) {
+                            throw new EditError(
+                                `Lot ${oldId} cannot be deleted because it ` +
+                                `has movement history, reservations, or transfers.`,
+                                409
+                            );
+                        }
+
+                        continue;
+                    }
+
+                    const quantityDelta =
+                        next.quantity - oldQuantity;
+
+                    const costChanged =
+                        input.cost !== oldCost;
+
+                    const expirationChanged =
+                        dateKey(next.expirationDate) !==
+                        dateKey(old.expirationDate);
+
+                    const hasMovement =
+                        invLot.hasMovement !== false ||
+                        currentQty !== originalQty ||
+                        reservedQty > 0 ||
+                        transferred;
+
+                    // Prevent rewriting historical metadata
+                    // on a lot that has already been used.
+                    if (
+                        hasMovement &&
+                        (costChanged || expirationChanged)
+                    ) {
+                        throw new EditError(
+                            `Lot ${oldId} has inventory movements. ` +
+                            `Its historical cost or expiration date ` +
+                            `cannot be changed through this correction.`,
+                            409
+                        );
+                    }
+
+                    const newCurrentQty =
+                        currentQty + quantityDelta;
+
+                    const newOriginalQty =
+                        originalQty + quantityDelta;
+
+                    // Prevent negative balances and reductions
+                    // that consume reserved units.
+                    if (
+                        !Number.isSafeInteger(newCurrentQty) ||
+                        !Number.isSafeInteger(newOriginalQty) ||
+                        newCurrentQty < 0 ||
+                        newOriginalQty < 0 ||
+                        newCurrentQty < reservedQty
+                    ) {
+                        throw new EditError(
+                            `Lot ${oldId} cannot be reduced by ` +
+                            `${Math.abs(quantityDelta)} units. ` +
+                            `Insufficient unreserved lot quantity.`,
+                            409
+                        );
+                    }
+
+                    // Existing foreign transfers can be left untouched
+                    // when the receipt quantity is increased.
+                    // Decreases require checking cross-warehouse movements.
+                    if (transferred && quantityDelta < 0) {
+                        throw new EditError(`Lot ${oldId} has been transferred to another ` +
+                            `warehouse. Decreasing its receipt quantity ` +
+                            `requires cross-warehouse reconciliation.`,
+                            409);
+                    }
                 }
 
                 const beforeLots = oldLots.map(l => ({ lotId: String(l.lotId), quantity: Number(l.quantity), expirationDate: dateKey(l.expirationDate) }));
@@ -167,15 +285,57 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
                 for (const next of input.lots) {
                     if (next.lotId) {
                         const currentLot = inventory.lots.id(next.lotId);
-                        if (!currentLot) throw new EditError(`Inventory lot ${next.lotId} not found`, 409);
-                        const old = oldLots.find(l => String(l.lotId) === next.lotId)!;
-                        const lotDelta = next.quantity - Number(old.quantity);
-                        currentLot.originalQty = next.quantity;
-                        currentLot.currentQty = Number(currentLot.currentQty) + lotDelta;
-                        if (currentLot.currentQty < 0) throw new EditError(`Insufficient lot quantity ${next.lotId}`, 409);
+
+                        if (!currentLot) {
+                            throw new EditError(`Inventory lot ${next.lotId} not found`, 409);
+                        }
+                        const old = oldLots.find(l => String(l.lotId) === next.lotId);
+                        if (!old) {
+                            throw new EditError(`Lot ${next.lotId} does not belong to this receipt`, 409);
+                        }
+
+                        const oldQty = Number(old.quantity);
+                        const newQty = Number(next.quantity);
+
+                        // Only apply the difference.
+                        // Never overwrite existing inventory with received quantity.
+                        const lotDelta = newQty - oldQty;
+
+                        const existingCurrentQty =
+                            Number(currentLot.currentQty);
+
+                        const reservedQty =
+                            Number(currentLot.onRouteReservedQty ?? 0);
+
+                        const adjustedCurrentQty =
+                            existingCurrentQty + lotDelta;
+
+                        if (!Number.isSafeInteger(adjustedCurrentQty) || adjustedCurrentQty < 0 || adjustedCurrentQty < reservedQty) {
+                            throw new EditError(
+                                `Cannot update lot ${next.lotId}. ` +
+                                `Insufficient unreserved inventory.`,
+                                409);
+                        }
+
+                        // Correct the originally received quantity.
+                        currentLot.originalQty = newQty;
+
+                        // Preserve sales, transfers and previous movement deductions.
+                        currentLot.currentQty = adjustedCurrentQty;
+
+                        // Metadata changes were already validated in Step 4.
                         currentLot.cost = input.cost;
                         currentLot.expirationDate = next.expirationDate;
-                        afterLots.push({ lotId: old.lotId, quantity: next.quantity, expirationDate: next.expirationDate });
+
+                        // IMPORTANT:
+                        // Do not reset hasMovement or onRouteReservedQty.
+                        // They must preserve their existing values.
+
+                        afterLots.push({
+                            lotId: old.lotId,
+                            quantity: newQty,
+                            expirationDate: next.expirationDate,
+                        });
                     } else {
                         const newId = new mongoose.Types.ObjectId();
                         inventory.lots.push({
@@ -196,7 +356,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
                 for (const old of oldLots) {
                     if (!inputById.has(String(old.lotId))) inventory.lots.pull({ _id: old.lotId });
                 }
-                inventory.currentInventory = Number(inventory.currentInventory) + delta;
+                inventory.currentInventory = adjustedInventory;
                 await inventory.save({ session });
 
                 if (qtyChanged) changes.push({ field: "receivedQuantity", product, previousValue: oldQty, newValue: input.quantity });

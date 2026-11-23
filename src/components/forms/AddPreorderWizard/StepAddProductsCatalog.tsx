@@ -395,7 +395,7 @@ export default function StepAddProductsCatalog({
                                 const soldOut = stock === 0;
                                 const selected = selectedById.get(String(inv._id));
                                 const qty = Number(selected?.quantity ?? 0);
-                                const name = [product.name, product.weight != null ? `${product.weight}${String(product.unit ?? "").toUpperCase()}` : ""].filter(Boolean).join(" ");
+                                const name = [product.name, product.weight != null ? `${product.weight}${String(product.unit ?? "").toUpperCase()}` : "", product.caseSize ? `(${product.caseSize} Units Per Case)` : ""].filter(Boolean).join(" ");
                                 const originalPrice = Number(inv.product?.unitPrice ?? 0);
                                 const displayPrice = Number(inv.displayPrice ?? originalPrice);
                                 const hasDiscount = originalPrice > 0 && displayPrice >= 0 && displayPrice < originalPrice;
